@@ -1,0 +1,2490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d1117">
+<meta property="og:title" content="PartForge — prompt → printable part">
+<meta property="og:description" content="Describe a part (or show a photo), answer a couple of questions, get a parametric model with moving-part preview — compiled to STL/3MF in your browser, tuned for FDM printing.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1117'/%3E%3Cpath d='M8 24V8h10a6 6 0 0 1 0 12h-6v4z' fill='none' stroke='%23e8833a' stroke-width='2.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://api.anthropic.com">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js">
+<title>PartForge — prompt → printable part</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2129; --border:#2d333b;
+    --text:#e6edf3; --dim:#8b949e; --accent:#e8833a; --accent2:#f0a35e;
+    --good:#3fb950; --warn:#d29922; --bad:#f85149; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+  header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--panel);flex:0 0 auto}
+  header .logo{font-weight:700;font-size:16px;letter-spacing:.3px}
+  header .logo span{color:var(--accent)}
+  header .sub{color:var(--dim);font-size:12px;display:none}
+  @media(min-width:700px){header .sub{display:block}}
+  header .spacer{flex:1}
+  .btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#111;font-weight:600}
+  .btn.primary:hover{background:var(--accent2)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn.small{padding:4px 10px;font-size:12px;border-radius:6px}
+  .btn.active{border-color:var(--accent);color:var(--accent2)}
+  .btn.danger{border-color:rgba(248,81,73,.5);color:var(--bad)}
+
+  main{flex:1;display:flex;min-height:0}
+  #left{width:380px;min-width:300px;display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--panel);min-height:0}
+  #right{flex:1;display:flex;flex-direction:column;position:relative;min-width:0;min-height:0}
+  @media(max-width:820px){
+    main{flex-direction:column}
+    #left{width:100%;min-width:0;order:2;flex:1;border-right:none;border-top:1px solid var(--border)}
+    #right{order:1;flex:0 0 46vh}
+  }
+
+  #left .scroll{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:14px;-webkit-overflow-scrolling:touch}
+  .card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px}
+  .card h3{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .card h3 .right{margin-left:auto;text-transform:none;letter-spacing:0;display:flex;gap:6px}
+  textarea#prompt{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-size:14px;resize:vertical;min-height:74px;font-family:inherit}
+  textarea#prompt:focus{outline:none;border-color:var(--accent)}
+  .row{display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap}
+  .hint{color:var(--dim);font-size:12px;margin-top:6px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer}
+  .chip:hover{border-color:var(--accent);color:var(--accent2)}
+  .chip.ghost{border-style:dashed;color:var(--dim)}
+  .chip.recent{border-style:dotted;color:var(--accent2)}
+  .chip.sel{border-color:var(--accent);color:var(--accent2);background:rgba(232,131,58,.12)}
+  #thumbs{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  #thumbs .th{position:relative;width:52px;height:52px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+  #thumbs img{width:100%;height:100%;object-fit:cover}
+  #thumbs .x{position:absolute;top:0;right:0;background:rgba(0,0,0,.65);color:#fff;border:none;width:18px;height:18px;font-size:11px;cursor:pointer;border-radius:0 0 0 6px}
+  #params .p{margin-bottom:10px}
+  #params .p .top{display:flex;align-items:center;gap:8px}
+  #params label{flex:1;font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #params label small{color:var(--dim);display:block;font-size:10.5px}
+  #params input[type=number]{width:86px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 7px;font-family:var(--mono);font-size:12.5px}
+  #params input[type=range]{width:100%;accent-color:var(--accent);height:14px;margin-top:2px}
+  #params input:focus{outline:none;border-color:var(--accent)}
+  .mini{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none}
+  #qaCard .q{margin-bottom:12px}
+  #qaCard .q .qt{font-size:13px;margin-bottom:6px}
+  #qaCard input[type=text]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12.5px;margin-top:6px}
+  #report .line{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:12.5px}
+  #report .line b{font-family:var(--mono);font-weight:500}
+  .tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600}
+  .tag.good{background:rgba(63,185,80,.15);color:var(--good)}
+  .tag.warn{background:rgba(210,153,34,.15);color:var(--warn)}
+  .tag.bad{background:rgba(248,81,73,.15);color:var(--bad)}
+  #notes,#lint{font-size:12.5px;color:var(--dim);white-space:pre-wrap}
+  #notes b{color:var(--text)}
+  #lint .w{color:var(--warn)}
+  #reviewOut{font-size:12.5px;color:var(--text);white-space:pre-wrap;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:8px;max-height:260px;overflow:auto;display:none}
+  #library .item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px}
+  #library .item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+  #library .item .nm:hover{color:var(--accent2)}
+  #library .sec{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin:8px 0 4px}
+
+  #viewport{flex:1;position:relative;min-height:0}
+  #viewport canvas{display:block}
+  #vpOverlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(13,17,23,.85);z-index:5;text-align:center;padding:20px}
+  #vpOverlay.hidden{display:none}
+  .spinner{width:34px;height:34px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #vpStatus{color:var(--dim);font-size:13px;max-width:440px;white-space:pre-wrap}
+  #vpStatus .big{color:var(--text);font-size:15px;display:block;margin-bottom:4px}
+  #vpElapsed{color:var(--dim);font-size:12px;font-family:var(--mono)}
+  #btnCancel{display:none}
+  #vpActions{position:absolute;top:10px;right:10px;display:flex;gap:8px;z-index:6;flex-wrap:wrap;justify-content:flex-end}
+  #moreMenu{position:absolute;top:44px;right:10px;z-index:8;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:6px;display:none;min-width:210px;max-height:70%;overflow:auto}
+  #moreMenu button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--text);padding:7px 10px;font-size:12.5px;cursor:pointer;border-radius:6px}
+  #moreMenu button:hover{background:var(--panel2)}
+  #moreMenu .cap{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);padding:4px 10px 2px}
+  #dims{position:absolute;left:12px;bottom:10px;color:var(--dim);font-family:var(--mono);font-size:12px;z-index:4;background:rgba(13,17,23,.6);padding:3px 8px;border-radius:6px}
+  #modFlag{position:absolute;left:12px;bottom:34px;z-index:4;display:none;font-size:11px;background:rgba(210,153,34,.15);color:var(--warn);padding:2px 8px;border-radius:10px}
+  #toast{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--accent);color:var(--text);border-radius:8px;padding:6px 14px;font-size:12.5px;z-index:9;opacity:0;transition:opacity .25s;pointer-events:none;max-width:80%}
+  #toast.show{opacity:1}
+  #jointsPanel{position:absolute;right:10px;bottom:10px;z-index:4;background:rgba(22,27,34,.92);border:1px solid var(--border);border-radius:10px;padding:10px 12px;min-width:220px;display:none;max-height:55%;overflow:auto}
+  #jointsPanel h4{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  #jointsPanel .j{margin-bottom:8px}
+  #jointsPanel .j label{font-size:12px;display:flex;justify-content:space-between;gap:8px}
+  #jointsPanel .j label b{font-family:var(--mono);font-weight:500;color:var(--accent2)}
+  #jointsPanel input[type=range]{width:100%;accent-color:var(--accent)}
+  #jointsPanel .prow{display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0}
+  #sectionPanel{position:absolute;left:12px;top:10px;z-index:4;background:rgba(22,27,34,.92);border:1px solid var(--border);border-radius:10px;padding:8px 12px;display:none;width:210px}
+  #sectionPanel .srow{display:flex;gap:6px;align-items:center;font-size:12px;margin-bottom:4px}
+  #sectionPanel select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:2px 4px;font-size:12px}
+  #sectionPanel input[type=range]{width:100%;accent-color:var(--accent)}
+  #measureHint{position:absolute;left:50%;transform:translateX(-50%);bottom:40px;z-index:4;background:rgba(22,27,34,.92);border:1px solid var(--accent);border-radius:8px;padding:4px 12px;font-size:12px;display:none}
+  .vlabel{position:absolute;z-index:3;font:11px var(--mono);color:#0d1117;background:rgba(232,131,58,.92);padding:0 5px;border-radius:4px;pointer-events:none;white-space:nowrap}
+
+  #codeDrawer{flex:0 0 auto;border-top:1px solid var(--border);background:var(--panel);display:flex;flex-direction:column;max-height:45%;min-height:0}
+  #codeDrawer.collapsed #codeWrap{display:none}
+  #codeBar{display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;user-select:none}
+  #codeBar .t{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px}
+  #codeWrap{flex:1;min-height:120px;display:flex}
+  #code{flex:1;background:var(--bg);border:none;color:#c9d1d9;font-family:var(--mono);font-size:12px;line-height:1.5;padding:12px;resize:none;white-space:pre;overflow:auto}
+  #code:focus{outline:none}
+  #logView{flex:1;background:var(--bg);color:#8b949e;font-family:var(--mono);font-size:11.5px;line-height:1.5;padding:12px;overflow:auto;white-space:pre-wrap;display:none}
+
+  dialog{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:460px;width:92vw;max-height:86vh;overflow:auto}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  dialog h2{font-size:16px;margin-bottom:10px}
+  dialog h3{font-size:13px;margin:12px 0 6px;color:var(--accent2)}
+  dialog p{font-size:13px;color:var(--dim);margin-bottom:10px}
+  dialog input,dialog select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 10px;font-size:13px;margin-bottom:10px;font-family:var(--mono)}
+  dialog label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
+  dialog .check{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px}
+  dialog .check input{width:auto;margin:0}
+  dialog .cols{display:flex;gap:8px}
+  dialog .cols > *{flex:1}
+  dialog table{width:100%;font-size:12.5px;border-collapse:collapse}
+  dialog td{padding:3px 6px;border-bottom:1px solid var(--border)}
+  dialog td:first-child{font-family:var(--mono);color:var(--accent2);width:70px}
+  .msg{font-size:12.5px;border-radius:8px;padding:8px 10px;margin-top:8px;display:none}
+  .msg.err{display:block;background:rgba(248,81,73,.12);color:var(--bad);border:1px solid rgba(248,81,73,.3)}
+  .msg.ok{display:block;background:rgba(63,185,80,.12);color:var(--good);border:1px solid rgba(63,185,80,.3)}
+  #history{display:flex;flex-direction:column;gap:6px}
+  #history .h{font-size:12px;color:var(--dim);border-left:2px solid var(--border);padding:2px 8px}
+  #history .h.user{border-left-color:var(--accent);color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Part<span>Forge</span></div>
+  <div class="sub">prompt or photo → questions → parametric part with moving-assembly preview → STL/3MF</div>
+  <div class="spacer"></div>
+  <button class="btn small" id="btnHelp" title="Help & shortcuts (?)">? Help</button>
+  <button class="btn small" id="btnSettings">⚙ Settings</button>
+</header>
+
+<main>
+  <div id="left">
+    <div class="scroll">
+      <div class="card">
+        <h3>Describe the part</h3>
+        <textarea id="prompt" placeholder="e.g. A hinged case for my multimeter — see attached photo"></textarea>
+        <div id="thumbs"></div>
+        <div class="chips" id="ideas" style="margin-top:8px"></div>
+        <div class="row">
+          <button class="btn" id="btnAttach" title="Attach photos — PartForge designs around them">📷</button>
+          <button class="btn" id="btnMic" title="Dictate your prompt" style="display:none">🎤</button>
+          <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+          <input type="file" id="projInput" accept=".json,application/json" style="display:none">
+          <button class="btn primary" id="btnGenerate" style="flex:1">Generate part</button>
+          <button class="btn" id="btnRefine" title="Modify the current part" disabled>Refine</button>
+        </div>
+        <div class="hint" id="llmHint"></div>
+        <div class="msg" id="genMsg"></div>
+        <div id="history" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card" id="qaCard" style="display:none">
+        <h3>Quick questions <span class="right hint">so the part comes out right</span></h3>
+        <div id="qaList"></div>
+        <div class="row">
+          <button class="btn primary" id="qaSubmit" style="flex:1">Answer → build</button>
+          <button class="btn" id="qaSkip" title="Skip and build with best assumptions">Skip</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Quick templates <span class="right hint">no API key needed</span></h3>
+        <div class="chips" id="templates"></div>
+      </div>
+
+      <div class="card" id="paramsCard" style="display:none">
+        <h3>Parameters
+          <span class="right">
+            <span class="mini"><input type="checkbox" id="autoApply">auto</span>
+            <button class="btn small" id="btnResetParams" title="Reset to generated values">↺</button>
+            <button class="btn small" id="btnRerender">Apply ↻</button>
+          </span>
+        </h3>
+        <div id="params"></div>
+      </div>
+
+      <div class="card" id="reportCard" style="display:none">
+        <h3>Print readiness
+          <span class="right">
+            <button class="btn small" id="btnRename" title="Rename part">✎</button>
+            <button class="btn small" id="btnCopyReport" title="Copy print checklist">⧉</button>
+            <button class="btn small" id="btnReview" title="AI design review (uses API)">🔍 Review</button>
+          </span>
+        </h3>
+        <div id="report"></div>
+        <div id="lint"></div>
+        <div id="notes" style="margin-top:8px"></div>
+        <div id="reviewOut"></div>
+      </div>
+
+      <div class="card" id="libraryCard">
+        <h3>Library <span class="right"><button class="btn small" id="btnSaveLib" title="Save current part">＋ Save</button></span></h3>
+        <div id="library"><div class="hint">Saved parts and session history appear here.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="right">
+    <div id="viewport">
+      <div id="vpOverlay">
+        <div class="spinner" id="vpSpin"></div>
+        <div id="vpStatus"></div>
+        <div id="vpElapsed"></div>
+        <button class="btn danger" id="btnCancel">✕ Cancel render</button>
+      </div>
+      <div id="vpActions">
+        <button class="btn small" id="btnAssembly" style="display:none" title="Preview the assembled mechanism with movable joints (A)">⚙ Assembly</button>
+        <button class="btn small" id="btnOverhang" disabled title="Inspect: overhangs red, first layer green (I)">⚠ Inspect</button>
+        <button class="btn small" id="btnShare" disabled title="Copy a link that opens this exact part">🔗 Share</button>
+        <button class="btn small" id="btnSTL" disabled>⬇ STL</button>
+        <button class="btn small" id="btnMore" title="More tools">⋯</button>
+      </div>
+      <div id="moreMenu"></div>
+      <div id="sectionPanel">
+        <div class="srow"><span>Section</span>
+          <select id="secAxis"><option value="x">X</option><option value="y">Y</option><option value="z" selected>Z</option></select>
+          <label class="mini"><input type="checkbox" id="secFlip">flip</label>
+          <button class="btn small" id="secClose">✕</button>
+        </div>
+        <input type="range" id="secSlider" min="0" max="100" value="50">
+      </div>
+      <div id="measureHint">Measure: tap two points on the part · Esc to exit</div>
+      <div id="dims"></div>
+      <div id="modFlag">mesh edited — STL export reflects edits</div>
+      <div id="jointsPanel"><h4>Assembly <span><button class="btn small" id="btnPlay" title="Animate joints">▶</button></span></h4>
+        <div class="j"><label>explode <b id="explodeVal">0%</b></label><input type="range" id="explodeSlider" min="0" max="100" value="0"></div>
+        <div id="partsList"></div>
+        <div id="jointsList"></div>
+      </div>
+      <div id="toast"></div>
+    </div>
+    <div id="codeDrawer" class="collapsed">
+      <div id="codeBar"><span class="t" id="tabSource" style="cursor:pointer">Source</span><span class="t" id="tabLog" style="cursor:pointer;opacity:.5">Log</span><span class="spacer" style="flex:1"></span><button class="btn small" id="btnCopyCode" title="Copy code">⧉</button><button class="btn small" id="btnRunCode">Run ▸</button><span id="codeChevron" class="hint">▲ show</span></div>
+      <div id="codeWrap"><textarea id="code" spellcheck="false" placeholder="// Generated OpenSCAD appears here"></textarea><div id="logView"></div></div>
+    </div>
+  </div>
+</main>
+
+<dialog id="dlgSettings">
+  <h2>Settings</h2>
+  <p>Your Anthropic API key is used directly from this browser. It is stored only on this device and sent only to api.anthropic.com.</p>
+  <label>Anthropic API key</label>
+  <input id="setKey" type="password" placeholder="sk-ant-..." autocomplete="off">
+  <label>Model</label>
+  <input id="setModel" type="text" list="modelList" value="claude-sonnet-4-6">
+  <datalist id="modelList">
+    <option value="claude-sonnet-4-6">best balance (recommended)</option>
+    <option value="claude-opus-4-8">strongest, pricier</option>
+    <option value="claude-haiku-4-5">fastest, cheapest</option>
+  </datalist>
+  <label>Before designing</label>
+  <select id="setClarify">
+    <option value="ask">Ask clarifying questions first (recommended)</option>
+    <option value="never">Just build — never ask</option>
+  </select>
+  <div class="check"><input type="checkbox" id="setSearch" checked><span>Let the designer search the web for real dimensions &amp; standards (≈1¢/search)</span></div>
+  <h3>Printer</h3>
+  <label>Your printer <span style="color:var(--dim)">(sets bed + tells the designer what your machine can do)</span></label>
+  <select id="setPrinter"><option value="">Custom / other</option></select>
+  <p class="hint" id="printerInfo" style="margin-top:-4px"></p>
+  <label>Bed (X × Y × Z mm)</label>
+  <div class="cols">
+    <input id="bedX" type="number" value="220"><input id="bedY" type="number" value="220"><input id="bedZ" type="number" value="250">
+  </div>
+  <div class="cols">
+    <div><label>Nozzle (mm)</label><input id="setNozzle" type="number" value="0.4" step="0.1"></div>
+    <div><label>Material</label><select id="setMaterial"><option>PLA</option><option>PETG</option><option>TPU</option><option>ABS</option><option>ASA</option><option>PC</option><option>PA-CF</option></select></div>
+  </div>
+  <div class="cols">
+    <div><label>Filament $/kg</label><input id="setCost" type="number" value="20" step="1"></div>
+    <div><label>Fit offset (mm)</label><input id="setFitOffset" type="number" value="0" step="0.05" title="From the calibration coupon: extra clearance your printer needs"></div>
+  </div>
+  <label>Part color</label>
+  <input id="setColor" type="color" value="#e8833a" style="height:38px;padding:2px">
+  <p class="hint" id="tokenStats"></p>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn" id="setCancel">Close</button>
+    <button class="btn primary" id="setSave">Save</button>
+  </div>
+</dialog>
+
+<dialog id="dlgHelp">
+  <h2>PartForge <span style="color:var(--dim);font-size:12px">v5</span> — quick guide</h2>
+  <p>Describe a part (or attach a photo). PartForge asks a couple of clarifying questions, then designs a parametric OpenSCAD model tuned for FDM printing, compiles it in your browser, and gives you STL/3MF plus a moving assembly preview for mechanisms.</p>
+  <h3>Workflow</h3>
+  <p>Generate → answer questions → tweak parameters → Refine with follow-ups → inspect overhangs → export. Templates work with no API key. Everything renders locally; only AI design calls leave the browser.</p>
+  <h3>Keyboard shortcuts</h3>
+  <table>
+    <tr><td>G</td><td>Generate from prompt</td></tr>
+    <tr><td>R</td><td>Refine current part</td></tr>
+    <tr><td>A</td><td>Toggle assembly view</td></tr>
+    <tr><td>I</td><td>Inspect overhangs / first layer</td></tr>
+    <tr><td>M</td><td>Measure two points</td></tr>
+    <tr><td>X</td><td>Section (cutaway) view</td></tr>
+    <tr><td>D</td><td>Dimension overlay</td></tr>
+    <tr><td>W</td><td>Wireframe</td></tr>
+    <tr><td>T</td><td>Turntable spin</td></tr>
+    <tr><td>F</td><td>Fit view</td></tr>
+    <tr><td>1–4</td><td>Front / Top / Right / Isometric</td></tr>
+    <tr><td>S</td><td>Download STL</td></tr>
+    <tr><td>Esc</td><td>Exit measure / close menus</td></tr>
+  </table>
+  <h3>Calibration</h3>
+  <p>Print the “Fit coupon” template, find which peg fits which hole best, and set the Fit offset in Settings — every future design compensates automatically.</p>
+  <div class="row" style="justify-content:flex-end"><button class="btn primary" id="helpClose">Close</button></div>
+</dialog>
+
+<dialog id="dlgQR">
+  <h2>Scan to open this part</h2>
+  <div style="display:flex;justify-content:center;padding:8px"><img id="qrImg" width="220" height="220" alt="QR code" style="border-radius:8px;background:#fff"></div>
+  <p class="hint" style="word-break:break-all" id="qrUrl"></p>
+  <div class="row" style="justify-content:flex-end"><button class="btn primary" id="qrClose">Close</button></div>
+</dialog>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+
+<script type="module">
+/* ============================================================
+   PartForge v5 — prompt/photo → questions → parametric part
+   with assemblies, inspection tools, and full export suite.
+   The UI boots instantly; three.js loads asynchronously so a
+   slow mobile connection never blocks the interface.
+   ============================================================ */
+let THREE = null, OrbitControls = null;
+
+const ENGINE_URL = 'https://cdn.jsdelivr.net/npm/openscad-wasm@0.0.4/openscad.js';
+
+/* ---------------- storage ---------------- */
+const store = (() => {
+  let mem = {};
+  try { localStorage.setItem('__t','1'); localStorage.removeItem('__t');
+    return { get:k=>localStorage.getItem(k), set:(k,v)=>localStorage.setItem(k,v), del:k=>localStorage.removeItem(k) };
+  } catch(e){ return { get:k=>mem[k]??null, set:(k,v)=>mem[k]=v, del:k=>delete mem[k] }; }
+})();
+
+const MATERIALS = {
+  PLA:{den:1.24, needs:{}},
+  PETG:{den:1.27, needs:{}},
+  TPU:{den:1.21, needs:{}},
+  ABS:{den:1.04, needs:{enclosed:true}},
+  ASA:{den:1.07, needs:{enclosed:true}},
+  PC:{den:1.20, needs:{enclosed:true, nozzle:290}},
+  'PA-CF':{den:1.17, needs:{enclosed:true, nozzle:290}},
+};
+/* Hardwired printer database — specs verified against manufacturer/press sources, July 2026.
+   bed:[X,Y,Z] mm · encl: enclosed build chamber · cham: active chamber heat °C ·
+   noz: max nozzle °C · multi: multi-material/color system available */
+const PRINTERS = [
+  { b:'Bambu Lab', m:'A1 mini',        bed:[180,180,180], encl:false, cham:0,  noz:300, multi:true  },
+  { b:'Bambu Lab', m:'A1',             bed:[256,256,256], encl:false, cham:0,  noz:300, multi:true  },
+  { b:'Bambu Lab', m:'A2L',            bed:[330,320,325], encl:false, cham:0,  noz:300, multi:true  },
+  { b:'Bambu Lab', m:'P1P',            bed:[256,256,256], encl:false, cham:0,  noz:300, multi:true  },
+  { b:'Bambu Lab', m:'P1S',            bed:[256,256,256], encl:true,  cham:0,  noz:300, multi:true  },
+  { b:'Bambu Lab', m:'P2S',            bed:[256,256,256], encl:true,  cham:0,  noz:350, multi:true  },
+  { b:'Bambu Lab', m:'X1 Carbon',      bed:[256,256,256], encl:true,  cham:0,  noz:300, multi:true  },
+  { b:'Bambu Lab', m:'X2D',            bed:[256,256,260], encl:true,  cham:65, noz:350, multi:true  },
+  { b:'Bambu Lab', m:'H2S',            bed:[340,320,340], encl:true,  cham:65, noz:350, multi:true  },
+  { b:'Bambu Lab', m:'H2D',            bed:[350,320,325], encl:true,  cham:65, noz:350, multi:true  },
+  { b:'Prusa',     m:'Mini+',          bed:[180,180,180], encl:false, cham:0,  noz:280, multi:false },
+  { b:'Prusa',     m:'MK4S',           bed:[250,210,220], encl:false, cham:0,  noz:290, multi:true  },
+  { b:'Prusa',     m:'Core One',       bed:[250,220,270], encl:true,  cham:55, noz:290, multi:true  },
+  { b:'Prusa',     m:'Core One L',     bed:[300,300,330], encl:true,  cham:55, noz:290, multi:true  },
+  { b:'Prusa',     m:'XL',             bed:[360,360,360], encl:false, cham:0,  noz:290, multi:true  },
+  { b:'Creality',  m:'Ender 3 V3 SE',  bed:[220,220,250], encl:false, cham:0,  noz:260, multi:false },
+  { b:'Creality',  m:'Ender 3 V3 KE',  bed:[220,220,240], encl:false, cham:0,  noz:300, multi:false },
+  { b:'Creality',  m:'Ender 3 V3',     bed:[220,220,250], encl:false, cham:0,  noz:300, multi:false },
+  { b:'Creality',  m:'Ender 3 V3 Plus',bed:[300,300,330], encl:false, cham:0,  noz:300, multi:false },
+  { b:'Creality',  m:'Hi',             bed:[260,260,300], encl:false, cham:0,  noz:300, multi:true  },
+  { b:'Creality',  m:'K1 / K1C / K1 SE', bed:[220,220,250], encl:true, cham:0, noz:300, multi:false },
+  { b:'Creality',  m:'K1 Max',         bed:[300,300,300], encl:true,  cham:0,  noz:300, multi:false },
+  { b:'Creality',  m:'K2 Pro',         bed:[300,300,300], encl:true,  cham:60, noz:300, multi:true  },
+  { b:'Creality',  m:'K2 Plus',        bed:[350,350,350], encl:true,  cham:60, noz:350, multi:true  },
+  { b:'Elegoo',    m:'Neptune 4 / Pro',bed:[225,225,265], encl:false, cham:0,  noz:300, multi:false },
+  { b:'Elegoo',    m:'Neptune 4 Plus', bed:[320,320,385], encl:false, cham:0,  noz:300, multi:false },
+  { b:'Elegoo',    m:'Neptune 4 Max',  bed:[420,420,480], encl:false, cham:0,  noz:300, multi:false },
+  { b:'Elegoo',    m:'Centauri Carbon',bed:[256,256,256], encl:true,  cham:0,  noz:320, multi:false },
+  { b:'Anycubic',  m:'Kobra 3',        bed:[250,250,260], encl:false, cham:0,  noz:300, multi:true  },
+  { b:'Anycubic',  m:'Kobra 3 Max',    bed:[420,420,500], encl:false, cham:0,  noz:300, multi:true  },
+  { b:'Qidi',      m:'Q1 Pro',         bed:[245,245,240], encl:true,  cham:60, noz:350, multi:false },
+  { b:'Qidi',      m:'Plus4',          bed:[305,305,280], encl:true,  cham:65, noz:370, multi:false },
+  { b:'Flashforge',m:'Adventurer 5M',  bed:[220,220,220], encl:false, cham:0,  noz:280, multi:false },
+  { b:'Flashforge',m:'Adventurer 5M Pro', bed:[220,220,220], encl:true, cham:0, noz:280, multi:false },
+  { b:'Sovol',     m:'SV06',           bed:[220,220,250], encl:false, cham:0,  noz:300, multi:false },
+  { b:'Sovol',     m:'SV06 Plus',      bed:[300,300,340], encl:false, cham:0,  noz:300, multi:false },
+];
+function printerById(id){ return PRINTERS.find(p => (p.b+' '+p.m) === id) || null; }
+function printerDescriptor(){
+  const p = printerById(settings.printer);
+  if(!p) return `a generic FDM printer, bed ${settings.bed.join('×')} mm`;
+  return `${p.b} ${p.m} (${p.encl?'enclosed':'open frame'}${p.cham?`, ${p.cham}°C heated chamber`:''}, max nozzle ${p.noz}°C${p.multi?', multi-material capable':''})`;
+}
+function materialCompat(){
+  // returns null if fine, else a warning string
+  const mat = MATERIALS[settings.material];
+  if(!mat || !mat.needs) return null;
+  const p = printerById(settings.printer);
+  if(!p) return null; // custom printer: no claims
+  if(mat.needs.enclosed && !p.encl)
+    return `${settings.material} on an open-frame ${p.m} will warp/crack — use PLA/PETG, or add an enclosure`;
+  if(mat.needs.nozzle && p.noz < mat.needs.nozzle)
+    return `${settings.material} needs ~${mat.needs.nozzle}°C+; the ${p.m} tops out at ${p.noz}°C`;
+  return null;
+}
+const settings = {
+  get key(){ return store.get('pf_key')||''; }, set key(v){ v?store.set('pf_key',v):store.del('pf_key'); },
+  get model(){ return store.get('pf_model')||'claude-sonnet-4-6'; }, set model(v){ store.set('pf_model',v); },
+  get clarify(){ return store.get('pf_clarify')||'ask'; }, set clarify(v){ store.set('pf_clarify',v); },
+  get search(){ return store.get('pf_search')!=='off'; }, set search(v){ store.set('pf_search', v?'on':'off'); },
+  get bed(){ try{ return JSON.parse(store.get('pf_bed'))||[220,220,250]; }catch(e){ return [220,220,250]; } },
+  set bed(v){ store.set('pf_bed', JSON.stringify(v)); },
+  get material(){ return store.get('pf_mat')||'PLA'; }, set material(v){ store.set('pf_mat',v); },
+  get nozzle(){ return +store.get('pf_noz')||0.4; }, set nozzle(v){ store.set('pf_noz',v); },
+  get cost(){ return +store.get('pf_cost')||20; }, set cost(v){ store.set('pf_cost',v); },
+  get fitOffset(){ return +store.get('pf_fit')||0; }, set fitOffset(v){ store.set('pf_fit',v); },
+  get color(){ return store.get('pf_color')||'#e8833a'; }, set color(v){ store.set('pf_color',v); },
+  get autoApply(){ return store.get('pf_auto')==='on'; }, set autoApply(v){ store.set('pf_auto', v?'on':'off'); },
+  get printer(){ return store.get('pf_printer')||''; }, set printer(v){ v?store.set('pf_printer',v):store.del('pf_printer'); },
+};
+
+/* ---------------- system prompt ---------------- */
+const SYSTEM_PROMPT = `You are PartForge, an expert mechanical designer generating OpenSCAD for functional FDM 3D-printed parts and small mechanisms (0.4 mm nozzle class, consumer printer, PLA/PETG).
+
+You have THREE response modes. Every reply is exactly ONE of them.
+
+MODE 1 — CLARIFY (the default for a NEW design request when the clarify policy allows):
+If any materially-ambiguous choice exists (key dimensions, what it must fit, mounting, orientation, load direction, moving vs static), reply with ONLY a fenced json block:
+\`\`\`json
+{"questions":[{"q":"clear question?","options":["choice A (recommended)","choice B","choice C"],"custom":true}]}
+\`\`\`
+1–4 questions, 2–4 short options each; mark one "(recommended)"; "custom":true allows a free-text answer. Ask about what changes the geometry most. NEVER ask a second round: after answers (or a skip), you must design. If the clarify policy is "never", skip this mode and state assumptions in NOTE lines instead.
+
+MODE 2 — SINGLE PART:
+One fenced code block of complete, valid OpenSCAD. No prose outside it.
+1. ALL dimensions as named parameters at top, one per line, exactly: name = value; // human description
+   Millimetres. No magic numbers in geometry — everything references a parameter or derives from one.
+2. Then a line: // --- end parameters ---
+3. File starts with header comments:
+   // PART: <one-line name>
+   // PRINT: <orientation on bed, support needs, suggested material>
+   // NOTE: <fit/assembly notes, stated assumptions> (repeatable)
+4. $fn = 64 (96 only for a single smooth cylinder). Part rests on Z=0 in print orientation.
+
+MODE 3 — ASSEMBLY (when the design has multiple parts or moving parts):
+Same contract as MODE 2, plus:
+- Include the parameter: print_layout = 1; // 1 = print plate, 0 = app renders single modules
+- Each part is a module named part_<name>(), modeled in its own PRINT orientation resting on Z=0 near the origin.
+- After the modules, a manifest of comment lines (exact format, one per line):
+  // MODULE: part_<name>              (one per part, in order)
+  // PLACE: part_<name> t=[x,y,z] r=[rx,ry,rz]     (assembled pose: rotate then translate, OpenSCAD semantics, degrees)
+  // JOINT: hinge part_<name> origin=[x,y,z] axis=[x,y,z] range=[min_deg,max_deg] home=0
+  // JOINT: slider part_<name> origin=[x,y,z] axis=[x,y,z] range=[min_mm,max_mm] home=0
+  JOINT origin/axis are in ASSEMBLED coordinates. A joint moves that one part. Give every moving part a joint; fixed parts get PLACE only. Verify mating features align in the assembled pose (compute the transforms carefully).
+- End the file with the print plate:
+  if(print_layout){ part_a(); translate([dx,0,0]) part_b(); ... }   (parts side by side, ≥8 mm apart)
+- Design real printable mechanisms: pin hinges (M3 screw or 3 mm filament pin, 3.4 mm holes), snap pivots, sliding dovetails with 0.35 mm clearance, printed-in-place gaps ≥ 0.4 mm. State pin/fastener needs in NOTE lines.
+
+FDM DESIGN RULES — always:
+- Walls ≥ 0.8 mm; structural 1.6–2.4 mm; prefer multiples of the nozzle width.
+- Mating clearances per side: press 0.05, snug 0.20, sliding 0.35, rotating 0.50. Printed-in-place ≥ 0.4. ADD the user's calibrated fit offset (given in context) to every clearance.
+- Holes print undersized: +0.2 mm on any hole that must fit something. Screw holes: M3→3.4, M4→4.5, M5→5.5. Self-tap pilot M3→2.5. Heat-set M3→4.0 in ≥8 mm boss.
+- Chamfer bottom outer edges 0.4 mm × 45° (never fillet bottoms). Overhangs >45° need support — prefer 45° chamfers; holes in vertical walls get teardrop roofs.
+- Min pin 2 mm. Bridges ≤ 10 mm. Anisotropy: 40–70% weaker across layers — bending loads in-plane, snap-fits never bend across layers, ribs over bulk.
+- Part must fit the print bed given in context. Respect the stated material's traits (TPU flexes; PLA creeps under load; ABS shrinks).
+
+IMAGES: When the user attaches photos, identify the object, estimate its dimensions from visible references, and design to fit/complement it. If scale is uncertain, that is your MOST important clarify question (ask for one key measurement). State every estimated dimension in a NOTE line so the user can correct it.
+
+WEB SEARCH: If available, use it to find real dimensions and standards that materially affect the design (device sizes, screw specs, rail/mount patterns). Put what you found and assumed in NOTE lines. Never search for things you already know.
+
+CODE STYLE: Prefer 2D profiles (polygon/square/circle) + linear_extrude over stacked 3D booleans. No minkowski; no hull() on high-$fn 3D solids. No text() — fonts are unavailable; use geometric marks instead and note it. Keep total boolean ops under ~60 — this compiles in a browser.
+
+ERROR REPAIR: If the user reports your code failed, return the FULL corrected file (same mode/contract). Fix the root cause; if you must drop a feature, say so in a NOTE.
+Refinements: return the FULL updated file. Ambiguity during refinement: pick the sensible option and NOTE it — never re-enter CLARIFY mode.`;
+
+const REVIEW_PROMPT = `You are a design-for-3D-printing reviewer. Critique the provided OpenSCAD part for FDM printability and mechanical sense: wall thicknesses, clearances and fits, overhangs and orientation, layer-direction strength, missing chamfers, tolerance risks, assembly/fastening issues, and anything that will fail on a consumer printer. Be specific and reference parameter names. Reply as a short plain-text list (no markdown headers): start each line with "✔" (good), "⚠" (risk), or "✘" (will fail), most important first. Maximum 10 lines. End with one line: "Verdict: print as-is" or "Verdict: fix ⚠/✘ items first".`;
+
+/* ---------------- templates ---------------- */
+const TEMPLATES = [
+{ name:'Hinged box ⚙', code:`// PART: Hinged box (2-part assembly, M3 pin hinge)
+// PRINT: Both parts flat as modeled; no supports; PETG for the hinge
+// NOTE: Hinge pins = 2 short M3 screws (or 3 mm filament); holes 3.4 free-fit
+// NOTE: Assembly view: drag the hinge slider to open the lid
+$fn = 48;
+print_layout = 1; // 1 = print plate (export this), 0 = app renders single modules
+box_x = 60;     // box outer length
+box_y = 40;     // box outer width
+box_z = 22;     // box outer height
+wall = 2;       // wall thickness
+lid_t = 3;      // lid plate thickness
+pil_w = 8;      // hinge pillar width
+pil_d = 6;      // hinge pillar depth
+knk_w = 8;      // lid knuckle width
+pin_d = 3.4;    // hinge pin hole (M3 free fit)
+hinge_z = 18;   // hinge axis height
+// --- end parameters ---
+module tearX(d,l){ // hole along +X with self-supporting 45° roof
+  rotate([90,0,90]) linear_extrude(height=l) union(){
+    circle(d=d);
+    polygon([[-d*0.354, d*0.354],[0, d*0.75],[d*0.354, d*0.354]]);
+  }
+}
+module part_base(){
+  difference(){
+    union(){
+      cube([box_x, box_y, box_z]);
+      translate([6, box_y, 0]) cube([pil_w, pil_d, hinge_z + 5]);
+      translate([box_x - 6 - pil_w, box_y, 0]) cube([pil_w, pil_d, hinge_z + 5]);
+    }
+    translate([wall, wall, wall]) cube([box_x - 2*wall, box_y - 2*wall, box_z]);
+    translate([5, box_y + pil_d/2, hinge_z]) tearX(pin_d, box_x - 10);
+  }
+}
+module part_lid(){
+  union(){
+    cube([box_x, box_y + pil_d, lid_t]);
+    for(x = [20, box_x - 20 - knk_w]) difference(){
+      translate([x, box_y, lid_t]) cube([knk_w, pil_d, 8]);
+      translate([x - 1, box_y + pil_d/2, lid_t + 4]) tearX(pin_d, knk_w + 2);
+    }
+  }
+}
+// --- assembly ---
+// MODULE: part_base
+// PLACE: part_base t=[0,0,0] r=[0,0,0]
+// MODULE: part_lid
+// PLACE: part_lid t=[60,0,25] r=[0,180,0]
+// JOINT: hinge part_lid origin=[30,43,18] axis=[-1,0,0] range=[0,100] home=0
+if(print_layout){
+  part_base();
+  translate([box_x + 10, 0, 0]) part_lid();
+}
+`},
+{ name:'Box + snap lid', code:`// PART: Storage box with friction-fit lid
+// PRINT: Both pieces flat on bed as modeled; no supports; PLA or PETG
+// NOTE: Lid fit uses 0.20 mm/side snug clearance; tune lid_clr for your printer
+$fn = 64;
+inner_x = 60;      // interior length
+inner_y = 40;      // interior width
+inner_z = 25;      // interior depth
+wall = 1.6;        // wall thickness (4 perimeters)
+floor_t = 1.2;     // floor thickness
+lip_h = 5;         // lid engagement lip height
+lid_clr = 0.20;    // per-side lid clearance (snug fit)
+gap = 10;          // spacing between box and lid on the plate
+// --- end parameters ---
+module bottom_chamfer(x,y,c=0.4){ // chamfered footprint pad
+  hull(){ translate([c,c,0]) cube([x-2*c,y-2*c,0.01]); translate([0,0,c]) cube([x,y,0.01]); }
+}
+module box(){
+  ox = inner_x + 2*wall; oy = inner_y + 2*wall;
+  difference(){
+    union(){ bottom_chamfer(ox,oy); translate([0,0,0.4]) cube([ox,oy,floor_t+inner_z-0.4]); }
+    translate([wall,wall,floor_t]) cube([inner_x,inner_y,inner_z+1]);
+  }
+}
+module lid(){
+  ox = inner_x + 2*wall; oy = inner_y + 2*wall;
+  px = inner_x - 2*lid_clr; py = inner_y - 2*lid_clr;
+  union(){
+    bottom_chamfer(ox,oy);
+    translate([0,0,0.4]) cube([ox,oy,floor_t-0.4]);
+    translate([(ox-px)/2,(oy-py)/2,floor_t]) cube([px,py,lip_h]);
+  }
+}
+box();
+translate([inner_x + 2*wall + gap, 0, 0]) lid();
+`},
+{ name:'L-bracket', code:`// PART: Ribbed 90° L-bracket, M4 mounting
+// PRINT: As modeled (one flange flat on bed); no supports; PETG recommended for load
+// NOTE: Vertical-wall holes are teardropped to self-support; loads should pull the flanges together, in-plane
+$fn = 64;
+leg_a = 50;      // base flange length
+leg_b = 50;      // upright flange height
+width = 40;      // bracket width
+thick = 4;       // flange thickness
+rib_t = 3.2;     // gusset rib thickness
+hole_d = 4.5;    // M4 free-fit hole (compensated)
+hole_off = 12;   // hole center distance from corner
+edge_off = 10;   // hole inset from side edges
+// --- end parameters ---
+module teardrop(d,l){ // self-supporting horizontal hole, axis along Y
+  rotate([-90,0,0]) union(){
+    cylinder(d=d,h=l);
+    intersection(){ rotate([0,0,45]) cube([d,d,l]); cylinder(d=d*1.6,h=l); }
+  }
+}
+difference(){
+  union(){
+    cube([leg_a,width,thick]);                       // base flange
+    cube([thick,width,leg_b]);                       // upright flange
+    hull(){ translate([0,(width-rib_t)/2,0]) cube([leg_a*0.75,rib_t,thick]);
+            translate([0,(width-rib_t)/2,0]) cube([thick,rib_t,leg_b*0.75]); } // gusset
+  }
+  for(y=[edge_off,width-edge_off]){
+    translate([hole_off+thick,y,-1]) cylinder(d=hole_d,h=thick+2);            // base holes (vertical: clean)
+    translate([-1,y,hole_off+thick]) teardrop(hole_d,thick+2);                 // upright holes (teardrop)
+  }
+}
+`},
+{ name:'Wall hook', code:`// PART: Flat-back wall hook, screw mounted
+// PRINT: Lying on its side as modeled — layer lines run along the hook for strength; no supports
+// NOTE: Countersunk M4 screw; hook curve is 45°-safe in this orientation
+$fn = 64;
+back_h = 60;     // backplate height
+back_w = 8;      // printed width (Z height on bed)
+back_t = 5;      // backplate thickness off the wall
+hook_r = 14;     // hook inner radius
+hook_t = 7;      // hook material thickness
+tip_h = 12;      // upturned tip height
+screw_d = 4.5;   // M4 free-fit
+csk_d = 9;       // countersink diameter
+// --- end parameters ---
+module profile(){
+  union(){
+    square([back_t, back_h]);                                            // backplate
+    translate([hook_r+back_t, hook_t/2+2]) circle(d=hook_t);             // root blend
+    difference(){                                                        // hook arc
+      translate([back_t+hook_r,hook_t/2+2]) circle(r=hook_r+hook_t/2);
+      translate([back_t+hook_r,hook_t/2+2]) circle(r=hook_r-hook_t/2);
+      translate([back_t-hook_r*2,hook_t/2+2]) square([hook_r*4,hook_r*2]); // keep lower half
+    }
+    translate([back_t+2*hook_r-hook_t/2,hook_t/2+2]) square([hook_t,tip_h]); // tip
+    translate([back_t+2*hook_r-hook_t/2+hook_t/2,tip_h+hook_t/2+2]) circle(d=hook_t); // rounded tip
+  }
+}
+difference(){
+  linear_extrude(height=back_w) profile();
+  translate([-1,back_h-14,back_w/2]) rotate([0,90,0])
+    union(){ cylinder(d=screw_d,h=back_t+2); translate([0,0,back_t-2]) cylinder(d1=screw_d,d2=csk_d,h=2.2); }
+}
+`},
+{ name:'Phone stand', code:`// PART: Phone stand, fixed-angle A-frame
+// PRINT: Lying flat as modeled (extruded profile); no supports; PLA fine
+// NOTE: 63° viewing angle; slot fits phone + case up to slot_w; charge cable passes under the lip gap
+$fn = 64;
+angle = 63;      // phone lean-back angle from horizontal
+slot_w = 14;     // phone slot width (phone + case)
+lip_h = 12;      // front lip height
+rest_l = 95;     // back rest length along the phone
+stand_w = 60;    // stand width (extrusion)
+t = 5;           // material thickness
+cable_gap = 8;   // gap under lip for charging cable
+// --- end parameters ---
+lean = 90 - angle;                       // tilt from vertical
+foot_x = t + slot_w + sin(lean)*rest_l;  // where the rest tip lands
+base_l = foot_x + 12;                    // base runs a little past it
+module profile(){
+  union(){
+    square([base_l, t]);                                     // base
+    translate([0, t]) square([t, lip_h]);                    // front lip
+    translate([t + slot_w, t]) rotate(-lean) square([t, rest_l]);   // back rest
+    polygon([[t + slot_w + sin(lean)*rest_l*0.45, t],
+             [base_l - 4, t],
+             [t + slot_w + sin(lean)*rest_l*0.45 + t, t + cos(lean)*rest_l*0.35]]);
+  }
+}
+difference(){
+  linear_extrude(height=stand_w) profile();
+  translate([-1, t, (stand_w-cable_gap*2)/2]) cube([t+2, cable_gap, cable_gap*2]); // cable notch in lip
+}
+`},
+{ name:'Tube adapter', code:`// PART: Round tube/hose adapter (A → B)
+// PRINT: Vertical as modeled; no supports (transition cone auto-limited to ≤45°); PETG for hoses
+// NOTE: Bores are compensated +0.2; barbs omitted — add a hose clamp on soft tubing
+$fn = 64;
+bore_a = 25.2;   // end A inner diameter (fits 25 mm tube, compensated)
+bore_b = 12.2;   // end B inner diameter (fits 12 mm tube, compensated)
+len_a = 20;      // end A engagement length
+len_b = 20;      // end B engagement length
+wall = 2.4;      // wall thickness
+// --- end parameters ---
+cone_l = max(abs(bore_a - bore_b)/2 + wall, 6); // ≥45° transition, self-supporting
+difference(){
+  union(){
+    cylinder(d=bore_a + 2*wall, h=len_a);
+    translate([0,0,len_a]) cylinder(d1=bore_a + 2*wall, d2=bore_b + 2*wall, h=cone_l);
+    translate([0,0,len_a + cone_l]) cylinder(d=bore_b + 2*wall, h=len_b);
+  }
+  translate([0,0,-1]) cylinder(d=bore_a, h=len_a + 1);
+  translate([0,0,len_a - 0.01]) cylinder(d1=bore_a, d2=bore_b, h=cone_l + 0.02);
+  translate([0,0,len_a + cone_l]) cylinder(d=bore_b, h=len_b + 1);
+}
+`},
+{ name:'Spacer / washer', code:`// PART: Cylindrical spacer / washer
+// PRINT: Flat on bed; no supports; strongest in compression as printed
+// NOTE: Bore is compensated +0.2 for free fit on the nominal shaft
+$fn = 96;
+outer_d = 12;    // outer diameter
+bore_d = 5.2;    // bore (M5 free fit, compensated)
+height = 8;      // spacer height
+chamfer = 0.4;   // bottom edge chamfer
+// --- end parameters ---
+difference(){
+  union(){
+    cylinder(d1=outer_d-2*chamfer, d2=outer_d, h=chamfer);
+    translate([0,0,chamfer]) cylinder(d=outer_d, h=height-chamfer);
+  }
+  translate([0,0,-1]) cylinder(d=bore_d, h=height+2);
+}
+`},
+{ name:'Cable clip', code:`// PART: C-shaped cable clip with screw tab
+// PRINT: Flat as modeled — snap flexure bends in-plane (strong); PETG best for repeated snapping
+// NOTE: Opening is 75% of cable diameter; clip grips cable with clr = 0.15
+$fn = 64;
+cable_d = 8;     // cable diameter to grip
+clip_t = 2.4;    // clip wall thickness
+width = 10;      // clip width (Z height on bed)
+clr = 0.15;      // grip clearance
+tab_l = 12;      // screw tab length
+screw_d = 3.4;   // M3 free-fit
+// --- end parameters ---
+id = cable_d + 2*clr;
+module profile(){
+  opening = cable_d*0.75;
+  union(){
+    difference(){
+      circle(d=id+2*clip_t);
+      circle(d=id);
+      translate([-opening/2, 0]) square([opening, id]); // top opening
+    }
+    for(sx=[-1,1]) translate([sx*opening/2, id/2+clip_t/4]) circle(d=clip_t*0.9); // rounded lips
+    translate([-id/2-clip_t-tab_l, -id/2-clip_t]) square([tab_l+id/2, clip_t*1.5]); // tab
+    translate([-id/2-clip_t-tab_l+3, -id/2-clip_t+clip_t*0.75]) circle(d=clip_t*1.5); // tab end round
+  }
+}
+difference(){
+  linear_extrude(height=width) profile();
+  translate([-id/2-clip_t-tab_l+3, -id/2-clip_t+clip_t*0.75, -1]) cylinder(d=screw_d, h=width+2);
+}
+`},
+{ name:'Divided tray', code:`// PART: Organizer tray with dividers
+// PRINT: Flat on bed; no supports; PLA fine
+// NOTE: Change rows/cols freely — compartments resize automatically
+$fn = 32;
+tray_x = 120;    // outer length
+tray_y = 80;     // outer width
+tray_z = 25;     // outer height
+wall = 1.6;      // outer wall thickness
+div_t = 1.2;     // divider thickness (3 perimeters)
+floor_t = 1.2;   // floor thickness
+cols = 3;        // compartments across X
+rows = 2;        // compartments across Y
+// --- end parameters ---
+cell_x = (tray_x - 2*wall - (cols-1)*div_t)/cols;
+cell_y = (tray_y - 2*wall - (rows-1)*div_t)/rows;
+difference(){
+  union(){ // body with elephant-foot chamfer
+    hull(){ translate([0.4,0.4,0]) cube([tray_x-0.8,tray_y-0.8,0.01]); translate([0,0,0.4]) cube([tray_x,tray_y,0.01]); }
+    translate([0,0,0.4]) cube([tray_x,tray_y,tray_z-0.4]);
+  }
+  for(cx=[0:cols-1]) for(cy=[0:rows-1])
+    translate([wall + cx*(cell_x+div_t), wall + cy*(cell_y+div_t), floor_t])
+      cube([cell_x, cell_y, tray_z]);
+}
+`},
+{ name:'Fit coupon 🎯', code:`// PART: Clearance calibration coupon (pegs + holes)
+// PRINT: Flat on bed; no supports; print in your usual material
+// NOTE: Pegs are all 5.00 mm. Holes are 5.10/5.20/5.30/5.40/5.50 (notches mark count: 1 notch = 5.10)
+// NOTE: Find the hole that gives a SNUG hand fit -> fit offset = (that hole - 5.20). Enter it in Settings.
+$fn = 48;
+plate_t = 4;     // plate thickness
+peg_d = 5.0;     // peg diameter (constant)
+peg_h = 8;       // peg height
+hole_min = 5.1;  // smallest hole
+hole_step = 0.1; // hole size step
+n = 5;           // number of holes/pegs
+pitch = 14;      // spacing
+// --- end parameters ---
+plate_l = pitch*n + 8;
+difference(){
+  union(){
+    // chamfered plate
+    hull(){ translate([0.4,0.4,0]) cube([plate_l-0.8, 40-0.8, 0.01]); translate([0,0,0.4]) cube([plate_l, 40, 0.01]); }
+    translate([0,0,0.4]) cube([plate_l, 40, plate_t-0.4]);
+    // pegs along the top edge
+    for(i=[0:n-1]) translate([8 + pitch*i + peg_d/2, 30, plate_t]) cylinder(d=peg_d, h=peg_h);
+  }
+  // graded holes along the bottom edge + notch marks (count = index+1)
+  for(i=[0:n-1]){
+    translate([8 + pitch*i + peg_d/2, 12, -1]) cylinder(d=hole_min + hole_step*i, h=plate_t+2);
+    for(k=[0:i]) translate([8 + pitch*i + k*2, 2, plate_t-0.6]) cube([1, 4, 1]);
+  }
+}
+`}
+];
+
+const IDEA_PROMPTS = [
+  'A hinged glasses case sized from my photo',
+  'Articulated desk lamp arm with two friction hinges',
+  'A sliding-lid box for SD cards',
+  'A wall-mounted controller holder for two gamepads',
+  'A watering funnel for narrow-neck plant pots',
+  'A cable-tidy spool that snaps closed',
+  'A drawer divider system with interlocking tabs',
+  'A GoPro-style mount adapter for a flashlight',
+  'A soap dish with drainage that fits a 90 mm bar',
+  'A door stop wedge with a soft TPU tip pocket',
+  'A headphone hook that clamps a 25 mm desk edge',
+  'A raspberry-pi case with vent slots and screw bosses',
+];
+
+/* ---------------- engine worker ---------------- */
+const workerSrc = `
+let modPromise = null;
+function getModule(){
+  if(!modPromise){
+    modPromise = (async () => {
+      try {
+        const res = await fetch('${ENGINE_URL}');
+        if(!res.ok) throw new Error('engine http ' + res.status);
+        const total = +res.headers.get('content-length') || 0;
+        const reader = res.body.getReader();
+        const chunks = []; let got = 0;
+        while(true){
+          const {done, value} = await reader.read();
+          if(done) break;
+          chunks.push(value); got += value.length;
+          if(total) self.postMessage({ progress: Math.round(100*got/total) });
+        }
+        const blob = new Blob(chunks, {type:'text/javascript'});
+        return await import(URL.createObjectURL(blob));
+      } catch(e){
+        return await import('${ENGINE_URL}');
+      }
+    })();
+    modPromise.catch(()=>{ modPromise = null; });
+  }
+  return modPromise;
+}
+self.onmessage = async (e) => {
+  const { id, code } = e.data;
+  try {
+    self.postMessage({ id, status: 'loading-engine' });
+    const m = await getModule();
+    const logs = [];
+    const inst = await m.createOpenSCAD({ printErr: t => logs.push(t), print: t => logs.push(t) });
+    self.postMessage({ id, status: 'rendering' });
+    const stl = await inst.renderToStl(code);
+    if(!stl || stl.length < 100 || stl.indexOf('facet') === -1){
+      const errLines = logs.filter(l=>/ERROR|WARNING/i.test(l));
+      self.postMessage({ id, error: 'Render produced no geometry.\\n' + (errLines.length?errLines:logs).slice(-15).join('\\n') });
+    } else {
+      self.postMessage({ id, stl, log: logs.slice(-60).join('\\n') });
+    }
+  } catch(err) {
+    self.postMessage({ id, error: String(err && err.message || err) });
+  }
+};
+`;
+let worker = null, jobId = 0, activeReject = null, workerBroken = false, lastLog = '';
+function getWorker(){
+  if(!worker){
+    const blob = new Blob([workerSrc], {type:'text/javascript'});
+    worker = new Worker(URL.createObjectURL(blob), {type:'module'});
+  }
+  return worker;
+}
+function cancelRender(){
+  if(worker){ worker.terminate(); worker = null; }
+  if(activeReject){ activeReject(new Error('cancelled')); activeReject = null; }
+}
+async function mainThreadRender(code, onStatus){
+  onStatus && onStatus('loading-engine');
+  const m = await import(ENGINE_URL);
+  const logs = [];
+  const inst = await m.createOpenSCAD({ printErr: t => logs.push(t), print: t => logs.push(t) });
+  onStatus && onStatus('rendering');
+  const stl = await inst.renderToStl(code);
+  lastLog = logs.slice(-60).join('\n');
+  if(!stl || stl.length < 100 || stl.indexOf('facet') === -1)
+    throw new Error('Render produced no geometry.\n' + logs.filter(l=>/ERROR|WARNING/i.test(l)).slice(-15).join('\n'));
+  return stl;
+}
+function renderSCAD(code, onStatus){
+  if(workerBroken) return mainThreadRender(code, onStatus);
+  return new Promise((resolve, reject) => {
+    const id = ++jobId;
+    let w;
+    try { w = getWorker(); } catch(e){ workerBroken = true; return mainThreadRender(code, onStatus).then(resolve, reject); }
+    activeReject = reject;
+    const fail = (err) => { activeReject = null; w.removeEventListener('message', handler); reject(err); };
+    const handler = (e) => {
+      if(e.data.progress != null){ onStatus && onStatus('engine-progress', e.data.progress); return; }
+      if(e.data.id !== id) return;
+      if(e.data.status){ onStatus && onStatus(e.data.status); return; }
+      activeReject = null;
+      w.removeEventListener('message', handler);
+      if(e.data.error) reject(new Error(e.data.error));
+      else { lastLog = e.data.log || ''; resolve(e.data.stl); }
+    };
+    w.addEventListener('message', handler);
+    w.addEventListener('error', () => {
+      workerBroken = true;
+      mainThreadRender(code, onStatus).then(r=>{ activeReject=null; resolve(r); }, fail);
+    }, { once:true });
+    w.postMessage({ id, code });
+  });
+}
+
+/* ---------------- STL / mesh math ---------------- */
+function parseAsciiSTL(text){
+  const pos = [], nrm = [];
+  const re = /facet\s+normal\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)[\s\S]*?vertex\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+vertex\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+vertex\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)/g;
+  let m;
+  while((m = re.exec(text))){
+    nrm.push(+m[1],+m[2],+m[3]);
+    pos.push(+m[4],+m[5],+m[6],+m[7],+m[8],+m[9],+m[10],+m[11],+m[12]);
+  }
+  return { pos: new Float32Array(pos), nrm: new Float32Array(nrm), tris: nrm.length/3 };
+}
+function recomputeNormals(mesh){
+  const p = mesh.pos, n = mesh.nrm;
+  for(let i=0;i<mesh.tris;i++){
+    const a=i*9;
+    const ux=p[a+3]-p[a],uy=p[a+4]-p[a+1],uz=p[a+5]-p[a+2];
+    const vx=p[a+6]-p[a],vy=p[a+7]-p[a+1],vz=p[a+8]-p[a+2];
+    let nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;
+    const l=Math.hypot(nx,ny,nz)||1;
+    n[i*3]=nx/l; n[i*3+1]=ny/l; n[i*3+2]=nz/l;
+  }
+}
+function toBinarySTL(mesh){
+  const n = mesh.tris;
+  const buf = new ArrayBuffer(84 + n*50);
+  const dv = new DataView(buf);
+  new Uint8Array(buf, 0, 80).set(new TextEncoder().encode('PartForge binary STL (mm)'));
+  dv.setUint32(80, n, true);
+  let o = 84;
+  for(let i=0;i<n;i++){
+    dv.setFloat32(o, mesh.nrm[i*3], true); dv.setFloat32(o+4, mesh.nrm[i*3+1], true); dv.setFloat32(o+8, mesh.nrm[i*3+2], true);
+    for(let v=0;v<9;v++) dv.setFloat32(o+12+v*4, mesh.pos[i*9+v], true);
+    dv.setUint16(o+48, 0, true);
+    o += 50;
+  }
+  return buf;
+}
+/* minimal 3MF (zip, stored) */
+function crc32(data){
+  let table = crc32.t;
+  if(!table){ table = crc32.t = new Int32Array(256);
+    for(let i=0;i<256;i++){ let c=i; for(let k=0;k<8;k++) c = (c&1) ? (0xEDB88320 ^ (c>>>1)) : (c>>>1); table[i]=c; } }
+  let crc = -1;
+  for(let i=0;i<data.length;i++) crc = (crc>>>8) ^ table[(crc ^ data[i]) & 0xFF];
+  return (crc ^ -1) >>> 0;
+}
+function zipStore(files){
+  const enc = new TextEncoder();
+  const parts = [], central = [];
+  let offset = 0;
+  for(const f of files){
+    const name = enc.encode(f.name);
+    const data = f.data instanceof Uint8Array ? f.data : enc.encode(f.data);
+    const crc = crc32(data);
+    const head = new DataView(new ArrayBuffer(30));
+    head.setUint32(0, 0x04034b50, true); head.setUint16(4, 20, true); head.setUint16(6, 0, true);
+    head.setUint16(8, 0, true); head.setUint32(10, 0, true);
+    head.setUint32(14, crc, true); head.setUint32(18, data.length, true); head.setUint32(22, data.length, true);
+    head.setUint16(26, name.length, true); head.setUint16(28, 0, true);
+    parts.push(new Uint8Array(head.buffer), name, data);
+    const cd = new DataView(new ArrayBuffer(46));
+    cd.setUint32(0, 0x02014b50, true); cd.setUint16(4, 20, true); cd.setUint16(6, 20, true);
+    cd.setUint32(16, crc, true); cd.setUint32(20, data.length, true); cd.setUint32(24, data.length, true);
+    cd.setUint16(28, name.length, true);
+    cd.setUint32(42, offset, true);
+    central.push(new Uint8Array(cd.buffer), name);
+    offset += 30 + name.length + data.length;
+  }
+  let cdSize = 0; for(const c of central) cdSize += c.length;
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+  const blobParts = [...parts, ...central, new Uint8Array(end.buffer)];
+  return new Blob(blobParts, {type:'model/3mf'});
+}
+function to3MF(mesh){
+  const key = (x,y,z) => x.toFixed(3)+','+y.toFixed(3)+','+z.toFixed(3);
+  const map = new Map(); const verts = []; const tris = [];
+  const p = mesh.pos;
+  for(let i=0;i<mesh.tris;i++){
+    const idx = [];
+    for(let v=0;v<3;v++){
+      const x=p[i*9+v*3], y=p[i*9+v*3+1], z=p[i*9+v*3+2];
+      const k = key(x,y,z);
+      let id = map.get(k);
+      if(id === undefined){ id = verts.length; verts.push(`<vertex x="${x.toFixed(3)}" y="${y.toFixed(3)}" z="${z.toFixed(3)}"/>`); map.set(k, id); }
+      idx.push(id);
+    }
+    tris.push(`<triangle v1="${idx[0]}" v2="${idx[1]}" v3="${idx[2]}"/>`);
+  }
+  const model = `<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+<resources><object id="1" type="model"><mesh><vertices>${verts.join('')}</vertices><triangles>${tris.join('')}</triangles></mesh></object></resources>
+<build><item objectid="1"/></build></model>`;
+  return zipStore([
+    { name:'[Content_Types].xml', data:'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>' },
+    { name:'_rels/.rels', data:'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>' },
+    { name:'3D/3dmodel.model', data: model },
+  ]);
+}
+/* mesh edit ops */
+function meshTransform(mesh, fn){
+  const p = mesh.pos.slice();
+  for(let i=0;i<p.length;i+=3){
+    const [x,y,z] = fn(p[i],p[i+1],p[i+2]);
+    p[i]=x; p[i+1]=y; p[i+2]=z;
+  }
+  const out = { pos:p, nrm: mesh.nrm.slice(), tris: mesh.tris };
+  recomputeNormals(out);
+  return out;
+}
+function meshMirrorX(mesh){
+  const p = mesh.pos.slice();
+  for(let i=0;i<mesh.tris;i++){
+    const a=i*9;
+    for(let v=0;v<3;v++) p[a+v*3] = -p[a+v*3];
+    for(let k=0;k<3;k++){ const t=p[a+3+k]; p[a+3+k]=p[a+6+k]; p[a+6+k]=t; }
+  }
+  const out = { pos:p, nrm: mesh.nrm.slice(), tris: mesh.tris };
+  recomputeNormals(out);
+  return out;
+}
+function meshDropToPlate(mesh){
+  let minZ=1e9; for(let i=2;i<mesh.pos.length;i+=3) if(mesh.pos[i]<minZ) minZ=mesh.pos[i];
+  return meshTransform(mesh, (x,y,z)=>[x,y,z-minZ]);
+}
+function checkManifold(mesh){
+  if(mesh.tris > 150000) return null;
+  const p = mesh.pos;
+  const vkey = (i) => p[i].toFixed(3)+','+p[i+1].toFixed(3)+','+p[i+2].toFixed(3);
+  const edges = new Map();
+  for(let t=0;t<mesh.tris;t++){
+    const a=t*9;
+    const ks = [vkey(a), vkey(a+3), vkey(a+6)];
+    for(let e=0;e<3;e++){
+      const k1 = ks[e], k2 = ks[(e+1)%3];
+      const ek = k1 < k2 ? k1+'|'+k2 : k2+'|'+k1;
+      edges.set(ek, (edges.get(ek)||0)+1);
+    }
+  }
+  let open = 0, over = 0;
+  for(const c of edges.values()){ if(c===1) open++; else if(c>2) over++; }
+  return { open, over, ok: open===0 && over===0 };
+}
+/* orientation advisor */
+const ORIENTATIONS = [
+  { name:'current', fn:(x,y,z)=>[x,y,z] },
+  { name:'flip 180°', fn:(x,y,z)=>[x,-y,-z] },
+  { name:'tilt +90° about X', fn:(x,y,z)=>[x,-z,y] },
+  { name:'tilt −90° about X', fn:(x,y,z)=>[x,z,-y] },
+  { name:'tilt +90° about Y', fn:(x,y,z)=>[z,y,-x] },
+  { name:'tilt −90° about Y', fn:(x,y,z)=>[-z,y,x] },
+];
+function adviseOrientation(mesh, bed){
+  const results = ORIENTATIONS.map(o => {
+    const m2 = meshTransform(mesh, o.fn);
+    const a = analyze(m2, bed);
+    return { name:o.name, fn:o.fn, overhangPct:a.overhangPct };
+  });
+  results.sort((a,b)=>a.overhangPct-b.overhangPct);
+  return results;
+}
+function analyze(mesh, bed){
+  const p = mesh.pos;
+  let minX=1e9,minY=1e9,minZ=1e9,maxX=-1e9,maxY=-1e9,maxZ=-1e9;
+  for(let i=0;i<p.length;i+=3){
+    if(p[i]<minX)minX=p[i]; if(p[i]>maxX)maxX=p[i];
+    if(p[i+1]<minY)minY=p[i+1]; if(p[i+1]>maxY)maxY=p[i+1];
+    if(p[i+2]<minZ)minZ=p[i+2]; if(p[i+2]>maxZ)maxZ=p[i+2];
+  }
+  let vol6 = 0, areaTot = 0, areaOver = 0, areaBottom = 0;
+  const cos45 = Math.cos(Math.PI/4);
+  const overMask = new Uint8Array(mesh.tris);
+  const bottomMask = new Uint8Array(mesh.tris);
+  for(let i=0;i<mesh.tris;i++){
+    const a=i*9;
+    const x1=p[a],y1=p[a+1],z1=p[a+2],x2=p[a+3],y2=p[a+4],z2=p[a+5],x3=p[a+6],y3=p[a+7],z3=p[a+8];
+    vol6 += x1*(y2*z3-y3*z2) - y1*(x2*z3-x3*z2) + z1*(x2*y3-x3*y2);
+    const ux=x2-x1,uy=y2-y1,uz=z2-z1,vx=x3-x1,vy=y3-y1,vz=z3-z1;
+    const nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;
+    const A = Math.sqrt(nx*nx+ny*ny+nz*nz)/2;
+    areaTot += A;
+    if(A > 1e-9){
+      const dz = nz/(2*A);
+      const zc = (z1+z2+z3)/3;
+      const onBottom = z1 < minZ+0.35 && z2 < minZ+0.35 && z3 < minZ+0.35 && dz < -0.5;
+      if(onBottom){ areaBottom += A; bottomMask[i] = 1; }
+      else if(dz < -cos45 - 1e-4 && zc > minZ + 0.35){ areaOver += A; overMask[i] = 1; }
+    }
+  }
+  const volume = Math.abs(vol6)/6/1000;
+  const size = [maxX-minX, maxY-minY, maxZ-minZ];
+  const den = (MATERIALS[settings.material]||MATERIALS.PLA).den;
+  return {
+    size, volume, tris: mesh.tris, overMask, bottomMask,
+    fitsBed: size[0]<=bed[0] && size[1]<=bed[1] && size[2]<=bed[2],
+    overhangPct: areaTot>0 ? 100*areaOver/areaTot : 0,
+    overArea: areaOver/100,
+    footprint: areaBottom/100,
+    onPlate: minZ < 0.5 && minZ > -0.5,
+    massSolid: volume*den, mass15: volume*den*0.35,
+    layers: Math.max(1, Math.ceil(size[2]/0.2)),
+    filamentM: volume*0.4158*0.35,
+    timeMin: volume*2.2 + Math.max(1, Math.ceil(size[2]/0.2))*0.12,
+    costUSD: volume*den*0.35/1000*settings.cost,
+    aspect: size[2] / Math.max(1e-6, Math.min(size[0], size[1])),
+  };
+}
+function lint(code){
+  const warns = [];
+  if(/minkowski\s*\(/.test(code)) warns.push('minkowski() found — very slow in the browser engine');
+  const fn = code.match(/\$fn\s*=\s*(\d+)/); if(fn && +fn[1] > 128) warns.push(`$fn=${fn[1]} is high — long render times`);
+  if(/text\s*\(/.test(code)) warns.push('text() found — fonts unavailable, it renders nothing here');
+  if(/import\s*\(/.test(code)) warns.push('import() found — external files are unavailable in the browser');
+  return warns;
+}
+
+/* ---------------- assembly manifest ---------------- */
+function parseManifest(code){
+  const mods = [...code.matchAll(/^\/\/\s*MODULE:\s*([A-Za-z_]\w*)\s*$/gm)].map(m=>m[1]);
+  if(!mods.length) return null;
+  const vec = s => s.split(',').map(Number);
+  const places = {};
+  for(const m of code.matchAll(/^\/\/\s*PLACE:\s*([A-Za-z_]\w*)\s+t=\[([^\]]*)\]\s+r=\[([^\]]*)\]/gm))
+    places[m[1]] = { t: vec(m[2]), r: vec(m[3]) };
+  const joints = [...code.matchAll(/^\/\/\s*JOINT:\s*(hinge|slider)\s+([A-Za-z_]\w*)\s+origin=\[([^\]]*)\]\s+axis=\[([^\]]*)\]\s+range=\[([^\]]*)\](?:\s+home=(-?[\d.]+))?/gm)]
+    .map(m=>({ type:m[1], part:m[2], origin:vec(m[3]), axis:vec(m[4]), range:vec(m[5]), home:+(m[6]||0) }));
+  return { mods, places, joints };
+}
+
+/* ---------------- three.js viewport (loads async — UI never waits) ---------------- */
+const vp = document.getElementById('viewport');
+let scene = null, perspCam = null, orthoCam = null, camera = null, renderer = null, controls = null;
+let raycaster = null, sectionPlane = null, matPlain = null, matOver = null;
+let clippableMats = [];
+let grid = null, bedRect = null, partMesh = null, overhangsOn = false;
+let assemblyRoot = null, assemblyCache = null, partEntries = [];
+let viewMode = 'plate', lastFit = { span:120, height:40 };
+let lightBg = false, turntable = false, animPlaying = false, animT = 0;
+let scaleRefObj = null, dimsOverlay = null, dimLabels = [];
+let measureOn = false, measurePts = [], measureObjs = [];
+let sectionOn = false;
+const PART_COLORS = [0xe8833a, 0x6aa9e8, 0x7fd08a, 0xd9b25f, 0xb98ae8, 0xe86a6a];
+
+let viewerReadyResolve;
+const viewerReady = new Promise(r => viewerReadyResolve = r);
+async function initViewer(){
+  const [t, oc] = await Promise.all([ import('three'), import('three/addons/controls/OrbitControls.js') ]);
+  THREE = t; OrbitControls = oc.OrbitControls;
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(lightBg ? 0xeef1f4 : 0x0d1117);
+  perspCam = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
+  orthoCam = new THREE.OrthographicCamera(-100,100,100,-100,0.1,5000);
+  camera = perspCam;
+  renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.localClippingEnabled = true;
+  vp.appendChild(renderer.domElement);
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.autoRotate = turntable;
+  scene.add(new THREE.HemisphereLight(0xdde7ff, 0x223, 0.9));
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.6); keyLight.position.set(1,0.8,1.4); scene.add(keyLight);
+  const rimLight = new THREE.DirectionalLight(0xe8833a, 0.5); rimLight.position.set(-1,-0.5,-0.6); scene.add(rimLight);
+  raycaster = new THREE.Raycaster();
+  sectionPlane = new THREE.Plane(new THREE.Vector3(0,-1,0), 0);
+  matPlain = new THREE.MeshStandardMaterial({ color: new THREE.Color(settings.color), metalness:0.1, roughness:0.55, flatShading:true });
+  matOver  = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:0.0, roughness:0.8, flatShading:true, vertexColors:true });
+  clippableMats = [matPlain, matOver];
+  renderer.domElement.addEventListener('pointerdown', onMeasurePointer);
+  renderer.domElement.addEventListener('dblclick', () => fitCamera(lastFit.span, lastFit.height));
+  new ResizeObserver(sizeViewport).observe(vp);
+  sizeViewport();
+  let lastTs = 0;
+  (function loop(ts){
+    requestAnimationFrame(loop);
+    const dt = Math.min(0.05, (ts-lastTs)/1000||0.016); lastTs = ts;
+    if(animPlaying && partEntries.length){
+      animT += dt;
+      for(const pe of partEntries){
+        if(pe.joint){
+          const j = pe.joint;
+          const mid = (j.range[0]+j.range[1])/2, amp = (j.range[1]-j.range[0])/2;
+          setJoint(j, mid + amp*Math.sin(animT*1.6));
+          if(j._rng){ j._rng.value = j._val; j._lbl.textContent = Math.round(j._val) + (j.type==='hinge'?'°':' mm'); }
+        }
+      }
+    }
+    controls.update();
+    renderer.render(scene, camera);
+    updateDimLabels();
+  })(0);
+  if(!partMesh && !assemblyRoot){ addBedAndGrid(); fitCamera(160, 30); }
+  const dimsEl = document.getElementById('dims');
+  if(dimsEl.textContent.includes('viewer')) dimsEl.textContent = '';
+  viewerReadyResolve();
+}
+initViewer().catch(e => {
+  document.getElementById('dims').textContent = '3D viewer failed to load — check connection and reload';
+  console.error('viewer init failed', e);
+});
+
+function sizeViewport(){
+  const w = vp.clientWidth, h = vp.clientHeight;
+  if(w===0||h===0) return;
+  renderer.setSize(w,h,false);
+  perspCam.aspect = w/h; perspCam.updateProjectionMatrix();
+  syncOrtho();
+}
+function syncOrtho(){
+  const w = vp.clientWidth, h = vp.clientHeight;
+  const halfH = lastFit.span * 0.75, halfW = halfH * (w/Math.max(1,h));
+  orthoCam.left=-halfW; orthoCam.right=halfW; orthoCam.top=halfH; orthoCam.bottom=-halfH;
+  orthoCam.near=0.1; orthoCam.far=Math.max(5000, lastFit.span*30);
+  orthoCam.updateProjectionMatrix();
+}
+
+function addBedAndGrid(){
+  if(grid) scene.remove(grid);
+  if(bedRect) scene.remove(bedRect);
+  const bed = settings.bed;
+  const rectG = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-bed[0]/2,0,-bed[1]/2), new THREE.Vector3(bed[0]/2,0,-bed[1]/2),
+    new THREE.Vector3(bed[0]/2,0,bed[1]/2), new THREE.Vector3(-bed[0]/2,0,bed[1]/2),
+    new THREE.Vector3(-bed[0]/2,0,-bed[1]/2)]);
+  bedRect = new THREE.Line(rectG, new THREE.LineBasicMaterial({ color: lightBg?0x9aa4ae:0x4a5460 }));
+  scene.add(bedRect);
+  const gsize = Math.max(bed[0], bed[1]);
+  grid = new THREE.GridHelper(gsize, Math.round(gsize/10), lightBg?0xc4ccd4:0x2d333b, lightBg?0xdde3e8:0x1c2129);
+  scene.add(grid);
+}
+function fitCamera(span, height){
+  if(!camera) return;
+  lastFit = { span, height };
+  const d = Math.max(span*1.9, 120);
+  camera.position.set(d*0.8, d*0.75, d*0.9);
+  perspCam.near = Math.max(span/100, 0.5); perspCam.far = Math.max(span, Math.max(...settings.bed))*30;
+  perspCam.updateProjectionMatrix();
+  syncOrtho();
+  controls.target.set(0, height/2, 0);
+}
+function viewPreset(which){
+  if(!camera) return;
+  const d = Math.max(lastFit.span*1.9, 120), h = lastFit.height;
+  if(which==='front') camera.position.set(0, h/2, d);
+  else if(which==='top') camera.position.set(0, d, 0.001);
+  else if(which==='right') camera.position.set(d, h/2, 0);
+  else camera.position.set(d*0.8, d*0.75, d*0.9);
+  controls.target.set(0, h/2, 0);
+}
+function meshToGeometry(mesh, overMask, bottomMask){
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(mesh.pos.slice(), 3));
+  if(overMask){
+    const cBody = new THREE.Color(0x9aa4ae).convertSRGBToLinear();
+    const cOver = new THREE.Color(0xf85149).convertSRGBToLinear();
+    const cBot  = new THREE.Color(0x3fb950).convertSRGBToLinear();
+    const colors = new Float32Array(mesh.tris * 9);
+    for(let i=0;i<mesh.tris;i++){
+      const c = overMask[i] ? cOver : (bottomMask && bottomMask[i] ? cBot : cBody);
+      for(let v=0;v<3;v++){ colors[i*9+v*3] = c.r; colors[i*9+v*3+1] = c.g; colors[i*9+v*3+2] = c.b; }
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  }
+  g.computeVertexNormals();
+  return g;
+}
+function clearPartViews(){
+  if(partMesh){ scene.remove(partMesh); partMesh.geometry.dispose(); partMesh = null; }
+  if(assemblyRoot){ scene.remove(assemblyRoot); assemblyRoot = null; }
+  partEntries = [];
+  animPlaying = false;
+  document.getElementById('btnPlay').textContent = '▶';
+  document.getElementById('jointsPanel').style.display = 'none';
+  clearMeasure(); clearDimsOverlay();
+}
+function showMesh(mesh, overMask, bottomMask){
+  clearPartViews();
+  viewMode = 'plate';
+  const g = meshToGeometry(mesh, overMask, bottomMask);
+  g.rotateX(-Math.PI/2);
+  g.computeBoundingBox();
+  const bb = g.boundingBox, c = new THREE.Vector3(); bb.getCenter(c);
+  g.translate(-c.x, -bb.min.y, -c.z);
+  partMesh = new THREE.Mesh(g, overhangsOn ? matOver : matPlain);
+  scene.add(partMesh);
+  addBedAndGrid();
+  const span = Math.max(bb.max.x-bb.min.x, bb.max.y-bb.min.y, bb.max.z-bb.min.z);
+  fitCamera(span, bb.max.y-bb.min.y);
+  // plate view is now active — keep the toggle buttons truthful however we got here
+  const ab = document.getElementById('btnAssembly'); if(ab) ab.textContent = '⚙ Assembly';
+  const ob = document.getElementById('btnOverhang'); if(ob) ob.disabled = false;
+}
+function setOverhangView(on){
+  overhangsOn = on;
+  if(partMesh) partMesh.material = on ? matOver : matPlain;
+  document.getElementById('btnOverhang').classList.toggle('active', on);
+}
+
+/* ---- assembly ---- */
+function stripPlate(code){ return code.replace(/print_layout\s*=\s*1/, 'print_layout = 0'); }
+async function buildAssembly(manifest){
+  await viewerReady;
+  if(!assemblyCache){
+    assemblyCache = {};
+    const base = stripPlate(currentCode);
+    for(let i=0;i<manifest.mods.length;i++){
+      const mod = manifest.mods[i];
+      setOverlay(true, `<span class="big">Building assembly</span>part ${i+1} of ${manifest.mods.length}: ${mod.replace(/^part_/,'')}`, {cancel:true});
+      const stl = await renderSCAD(base + '\n' + mod + '();', ()=>{});
+      assemblyCache[mod] = parseAsciiSTL(stl);
+    }
+  }
+  clearPartViews();
+  viewMode = 'assembly';
+  assemblyRoot = new THREE.Group();
+  assemblyRoot.rotation.x = -Math.PI/2;
+  const rad = d => d*Math.PI/180;
+  const jointsByPart = {};
+  for(const j of manifest.joints) jointsByPart[j.part] = j;
+  const centroids = [];
+  manifest.mods.forEach((mod, i) => {
+    const geo = meshToGeometry(assemblyCache[mod], null);
+    const mat = new THREE.MeshStandardMaterial({ color: PART_COLORS[i % PART_COLORS.length], metalness:0.1, roughness:0.55, flatShading:true, clippingPlanes: sectionOn ? [sectionPlane] : [] });
+    const meshObj = new THREE.Mesh(geo, mat);
+    const placeG = new THREE.Group();
+    const pl = manifest.places[mod] || { t:[0,0,0], r:[0,0,0] };
+    placeG.position.set(pl.t[0], pl.t[1], pl.t[2]);
+    placeG.rotation.set(rad(pl.r[0]), rad(pl.r[1]), rad(pl.r[2]), 'ZYX');
+    placeG.add(meshObj);
+    const jointG = new THREE.Group();
+    jointG.matrixAutoUpdate = false;
+    jointG.add(placeG);
+    assemblyRoot.add(jointG);
+    geo.computeBoundingBox();
+    const gc = new THREE.Vector3(); geo.boundingBox.getCenter(gc);
+    placeG.updateMatrix();
+    gc.applyMatrix4(placeG.matrix);
+    centroids.push(gc);
+    const j = jointsByPart[mod] || null;
+    partEntries.push({ mod, jointG, meshObj, mat, joint: j, centroid: gc });
+    const pe = partEntries[partEntries.length-1];
+    if(j){ j._entry = pe; setJoint(j, j.home ?? j.range[0]); }
+    else composePart(pe, new THREE.Matrix4());
+  });
+  const center = centroids.reduce((a,c)=>a.clone().add(c), new THREE.Vector3()).multiplyScalar(1/Math.max(1,centroids.length));
+  for(const pe of partEntries){ pe.explodeDir = pe.centroid.clone().sub(center); composePart(pe, pe.baseMatrix || new THREE.Matrix4()); }
+  scene.add(assemblyRoot);
+  const box = new THREE.Box3().setFromObject(assemblyRoot);
+  const c = new THREE.Vector3(); box.getCenter(c);
+  assemblyRoot.position.set(-c.x, -box.min.y, -c.z);
+  addBedAndGrid();
+  const span = Math.max(box.max.x-box.min.x, box.max.y-box.min.y, box.max.z-box.min.z);
+  fitCamera(span, box.max.y-box.min.y);
+  renderJointsPanel(manifest);
+}
+let explodeFactor = 0;
+function composePart(pe, jointMatrix){
+  pe.baseMatrix = jointMatrix.clone();
+  const ex = pe.explodeDir ? pe.explodeDir.clone().multiplyScalar(explodeFactor*0.9) : new THREE.Vector3();
+  pe.jointG.matrix.copy(new THREE.Matrix4().makeTranslation(ex.x, ex.y, ex.z).multiply(jointMatrix));
+}
+function setJoint(j, val){
+  j._val = val;
+  const o = new THREE.Vector3(...j.origin);
+  const a = new THREE.Vector3(...j.axis).normalize();
+  const m = new THREE.Matrix4();
+  if(j.type === 'hinge'){
+    m.makeTranslation(o.x, o.y, o.z)
+     .multiply(new THREE.Matrix4().makeRotationAxis(a, val*Math.PI/180))
+     .multiply(new THREE.Matrix4().makeTranslation(-o.x, -o.y, -o.z));
+  } else {
+    m.makeTranslation(a.x*val, a.y*val, a.z*val);
+  }
+  if(j._entry) composePart(j._entry, m);
+}
+function applyExplode(f){
+  explodeFactor = f;
+  for(const pe of partEntries) composePart(pe, pe.baseMatrix || new THREE.Matrix4());
+}
+function renderJointsPanel(manifest){
+  const panel = document.getElementById('jointsPanel');
+  panel.style.display = 'block';
+  const plist = document.getElementById('partsList');
+  plist.innerHTML = '';
+  partEntries.forEach((pe) => {
+    const row = document.createElement('div'); row.className = 'prow';
+    const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = true;
+    chk.onchange = () => { pe.meshObj.visible = chk.checked; };
+    const sw = document.createElement('span'); sw.style.cssText = `width:10px;height:10px;border-radius:3px;background:#${pe.mat.color.getHexString()}`;
+    const nm = document.createElement('span'); nm.textContent = pe.mod.replace(/^part_/,'');
+    row.appendChild(chk); row.appendChild(sw); row.appendChild(nm);
+    plist.appendChild(row);
+  });
+  const list = document.getElementById('jointsList');
+  list.innerHTML = '';
+  for(const j of manifest.joints){
+    const div = document.createElement('div'); div.className = 'j';
+    const label = document.createElement('label');
+    const unit = j.type === 'hinge' ? '°' : ' mm';
+    label.innerHTML = `${j.type} · ${j.part.replace(/^part_/,'')} <b>${Math.round(j._val ?? j.home)}${unit}</b>`;
+    const rng = document.createElement('input');
+    rng.type = 'range'; rng.min = j.range[0]; rng.max = j.range[1]; rng.step = 1; rng.value = j._val ?? j.home;
+    rng.addEventListener('input', () => {
+      animPlaying = false; document.getElementById('btnPlay').textContent = '▶';
+      setJoint(j, +rng.value);
+      label.querySelector('b').textContent = rng.value + unit;
+    });
+    j._rng = rng; j._lbl = label.querySelector('b');
+    div.appendChild(label); div.appendChild(rng); list.appendChild(div);
+  }
+  const ex = document.getElementById('explodeSlider');
+  ex.value = 0; explodeFactor = 0;
+  document.getElementById('explodeVal').textContent = '0%';
+  ex.oninput = () => { document.getElementById('explodeVal').textContent = ex.value + '%'; applyExplode(+ex.value/100); };
+}
+document.getElementById('btnPlay').onclick = () => {
+  animPlaying = !animPlaying;
+  document.getElementById('btnPlay').textContent = animPlaying ? '⏸' : '▶';
+};
+
+/* ---- measure tool ---- */
+function clearMeasure(){
+  for(const o of measureObjs) scene.remove(o);
+  measureObjs = []; measurePts = [];
+}
+function setMeasure(on){
+  measureOn = on;
+  document.getElementById('measureHint').style.display = on ? 'block' : 'none';
+  if(!on) clearMeasure();
+}
+function onMeasurePointer(e){
+  if(!measureOn) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  const ndc = new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+  raycaster.setFromCamera(ndc, camera);
+  const targets = partMesh ? [partMesh] : partEntries.map(pe=>pe.meshObj);
+  const hits = raycaster.intersectObjects(targets, true);
+  if(!hits.length) return;
+  if(measurePts.length >= 2) clearMeasure();
+  const pt = hits[0].point;
+  measurePts.push(pt);
+  const s = new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.8, lastFit.span/120)), new THREE.MeshBasicMaterial({ color:0xf85149 }));
+  s.position.copy(pt); scene.add(s); measureObjs.push(s);
+  if(measurePts.length === 2){
+    const [a,b] = measurePts;
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a,b]), new THREE.LineBasicMaterial({ color:0xf85149 }));
+    scene.add(line); measureObjs.push(line);
+    const d = a.distanceTo(b);
+    document.getElementById('dims').textContent = `measured: ${d.toFixed(2)} mm  (ΔX ${Math.abs(a.x-b.x).toFixed(1)} · ΔY ${Math.abs(a.z-b.z).toFixed(1)} · ΔZ ${Math.abs(a.y-b.y).toFixed(1)})`;
+  }
+}
+
+/* ---- dimension overlay ---- */
+function clearDimsOverlay(){
+  if(dimsOverlay){ scene.remove(dimsOverlay); dimsOverlay = null; }
+  for(const l of dimLabels) l.el.remove();
+  dimLabels = [];
+}
+function toggleDimsOverlay(){
+  if(dimsOverlay){ clearDimsOverlay(); return; }
+  const target = partMesh || assemblyRoot;
+  if(!target) return;
+  const box = new THREE.Box3().setFromObject(target);
+  const min = box.min, max = box.max;
+  dimsOverlay = new THREE.Box3Helper(box, new THREE.Color(0xe8833a));
+  scene.add(dimsOverlay);
+  const mk = (anchor, text) => {
+    const el = document.createElement('div'); el.className = 'vlabel'; el.textContent = text;
+    vp.appendChild(el);
+    dimLabels.push({ el, anchor });
+  };
+  mk(new THREE.Vector3((min.x+max.x)/2, min.y, max.z), `X ${ (max.x-min.x).toFixed(1) }`);
+  mk(new THREE.Vector3(max.x, min.y, (min.z+max.z)/2), `Y ${ (max.z-min.z).toFixed(1) }`);
+  mk(new THREE.Vector3(max.x, (min.y+max.y)/2, max.z), `Z ${ (max.y-min.y).toFixed(1) }`);
+}
+function updateDimLabels(){
+  if(!dimLabels.length) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  for(const l of dimLabels){
+    const p = l.anchor.clone().project(camera);
+    l.el.style.left = ((p.x+1)/2*r.width) + 'px';
+    l.el.style.top = ((-p.y+1)/2*r.height) + 'px';
+    l.el.style.display = p.z < 1 ? 'block' : 'none';
+  }
+}
+
+/* ---- section view ---- */
+function setSection(on){
+  if(on && !renderer){ toast('3D viewer still loading…'); return; }
+  sectionOn = on;
+  document.getElementById('sectionPanel').style.display = on ? 'block' : 'none';
+  const planes = on ? [sectionPlane] : [];
+  for(const m of clippableMats) m.clippingPlanes = planes;
+  for(const pe of partEntries) pe.mat.clippingPlanes = planes;
+  if(on) updateSection();
+}
+function updateSection(){
+  const axis = document.getElementById('secAxis').value;
+  const flip = document.getElementById('secFlip').checked;
+  const t = +document.getElementById('secSlider').value / 100;
+  const target = partMesh || assemblyRoot;
+  if(!target) return;
+  const box = new THREE.Box3().setFromObject(target);
+  let n, min, max;
+  if(axis === 'x'){ n = new THREE.Vector3(1,0,0); min = box.min.x; max = box.max.x; }
+  else if(axis === 'y'){ n = new THREE.Vector3(0,0,1); min = box.min.z; max = box.max.z; }
+  else { n = new THREE.Vector3(0,1,0); min = box.min.y; max = box.max.y; }
+  const at = min + (max-min)*t;
+  // keep the half where dot(n,p) < at  (or > at when flipped)
+  if(!flip) sectionPlane.set(n.clone().negate(), at);
+  else sectionPlane.set(n, -at);
+}
+document.getElementById('secAxis').onchange = updateSection;
+document.getElementById('secFlip').onchange = updateSection;
+document.getElementById('secSlider').oninput = updateSection;
+document.getElementById('secClose').onclick = () => setSection(false);
+
+/* ---------------- parameter panel ---------------- */
+const PARAM_RE = /^([A-Za-z_]\w*)\s*=\s*(-?[\d.]+)\s*;\s*\/\/\s*(.*)$/;
+// geometry signature: ignores parameter values and comments, so renames and
+// param tweaks are "the same design"; real geometry edits are a new one
+function codeSig(code){ return code.split('\n').filter(l => !PARAM_RE.test(l) && !l.trim().startsWith('//')).join('\n'); }
+let origParams = [], origParamSig = null, autoTimer = null;
+function extractParams(code){
+  const out = [];
+  for(const line of code.split('\n')){
+    if(line.includes('--- end parameters ---')) break;
+    const m = line.match(PARAM_RE);
+    if(m && m[1] !== '$fn' && m[1] !== 'print_layout') out.push({ name:m[1], value:parseFloat(m[2]), desc:m[3].trim() });
+  }
+  return out;
+}
+function applyParams(code, params){
+  const lines = code.split('\n');
+  let done = false;
+  const byName = Object.fromEntries(params.map(p=>[p.name,p]));
+  return lines.map(line=>{
+    if(done || line.includes('--- end parameters ---')){ done = true; return line; }
+    const m = line.match(PARAM_RE);
+    if(m && byName[m[1]]) return `${m[1]} = ${byName[m[1]].value}; // ${m[3]}`;
+    return line;
+  }).join('\n');
+}
+function sliderRange(v){
+  const av = Math.abs(v);
+  if(av <= 1) return { min: 0, max: Math.max(2, av*4), step: 0.05 };
+  if(av <= 10) return { min: 0, max: av*3, step: 0.1 };
+  return { min: Math.round(av*0.25), max: Math.round(av*3), step: 1 };
+}
+function renderParamPanel(code){
+  const params = extractParams(code);
+  // "Reset ↺" returns to the values the design was GENERATED with — a param-only
+  // re-render keeps the original baseline; a new design captures a new one.
+  const sig = codeSig(code);
+  if(sig !== origParamSig){ origParams = params.map(p=>({...p})); origParamSig = sig; }
+  const card = document.getElementById('paramsCard');
+  const box = document.getElementById('params');
+  box.innerHTML = '';
+  if(params.length === 0){ card.style.display='none'; return; }
+  card.style.display='block';
+  document.getElementById('autoApply').checked = settings.autoApply;
+  for(const pdef of params){
+    const row = document.createElement('div'); row.className='p';
+    const top = document.createElement('div'); top.className='top';
+    const label = document.createElement('label');
+    label.textContent = pdef.name;
+    const small = document.createElement('small'); small.textContent = pdef.desc; label.appendChild(small);
+    const inp = document.createElement('input');
+    inp.type='number'; inp.value = pdef.value; inp.step = 'any'; inp.dataset.pname = pdef.name;
+    const r = sliderRange(pdef.value);
+    const rng = document.createElement('input');
+    rng.type='range'; rng.min=r.min; rng.max=r.max; rng.step=r.step; rng.value=pdef.value;
+    inp.addEventListener('input', () => { rng.value = inp.value; maybeAuto(); });
+    inp.addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('btnRerender').click(); });
+    rng.addEventListener('input', () => { inp.value = rng.value; maybeAuto(); });
+    top.appendChild(label); top.appendChild(inp);
+    row.appendChild(top); row.appendChild(rng); box.appendChild(row);
+  }
+}
+function maybeAuto(){
+  if(!document.getElementById('autoApply').checked) return;
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(() => { if(!busy && currentCode) document.getElementById('btnRerender').click(); }, 900);
+}
+function collectParams(){
+  return [...document.querySelectorAll('#params input[type=number]')].map(i=>({ name:i.dataset.pname, value:parseFloat(i.value)||0 }));
+}
+document.getElementById('autoApply').addEventListener('change', e => settings.autoApply = e.target.checked);
+document.getElementById('btnResetParams').onclick = () => {
+  for(const p of origParams){
+    const inp = document.querySelector(`#params input[data-pname="${p.name}"]`);
+    if(inp){ inp.value = p.value; }
+  }
+  document.getElementById('btnRerender').click();
+};
+
+/* ---------------- report ---------------- */
+let lastAnalysis = null, lastManifoldInfo = null, lastOrientAdvice = null;
+function renderReport(a, code){
+  lastAnalysis = a;
+  const card = document.getElementById('reportCard');
+  const rep = document.getElementById('report');
+  card.style.display = 'block';
+  const f=(x,d=1)=>x.toFixed(d);
+  const tag = (ok,warn) => ok ? `<span class="tag good">OK</span>` : (warn ? `<span class="tag warn">CHECK</span>` : `<span class="tag bad">FAIL</span>`);
+  const man = lastManifoldInfo;
+  const time = a.timeMin < 60 ? `${Math.round(a.timeMin)} min` : `${Math.floor(a.timeMin/60)}h ${Math.round(a.timeMin%60)}m`;
+  const bestOrient = lastOrientAdvice && lastOrientAdvice[0].name !== 'current' && lastOrientAdvice[0].overhangPct < a.overhangPct - 2
+    ? `<div class="line"><span>Better orientation</span><span><button class="btn small" id="btnApplyOrient">${lastOrientAdvice[0].name} → ${f(lastOrientAdvice[0].overhangPct)}%</button></span></div>` : '';
+  const pinfo = printerById(settings.printer);
+  const compat = materialCompat();
+  rep.innerHTML = `
+    <div class="line"><span>Size (X·Y·Z)</span><b>${f(a.size[0])} × ${f(a.size[1])} × ${f(a.size[2])} mm</b></div>
+    <div class="line"><span>Fits ${pinfo ? escapeHtml(pinfo.m) : 'bed'}</span><span>${tag(a.fitsBed,false)}</span></div>
+    ${compat ? `<div class="line"><span>Material vs printer</span><span class="tag bad">CHECK</span></div><div class="w" style="color:var(--warn);font-size:12px">⚠ ${escapeHtml(compat)}</div>` : ''}
+    <div class="line"><span>Sits on plate (Z=0)</span><span>${a.onPlate?tag(true):'<button class="btn small" id="btnDrop">Drop to plate</button>'}</span></div>
+    <div class="line"><span>Watertight</span><span>${man===undefined?'<span class="tag warn">checking…</span>':(man===null?'<span class="tag warn">SKIPPED (huge mesh)</span>':(man.ok?tag(true):`<span class="tag bad">${man.open} open edges</span>`))}</span></div>
+    <div class="line"><span>Solid volume</span><b>${f(a.volume,1)} cm³</b></div>
+    <div class="line"><span>Material ≈ (${settings.material})</span><b>${f(a.mass15,0)}–${f(a.massSolid,0)} g · ~$${f(a.costUSD,2)}</b></div>
+    <div class="line"><span>Filament / layers</span><b>~${f(a.filamentM,1)} m · ${a.layers} layers @0.2</b></div>
+    <div class="line"><span>Print time (very rough)</span><b>~${time}</b></div>
+    <div class="line"><span>Overhangs &gt;45°</span><span>${a.overhangPct<1?tag(true):(a.overhangPct<8?tag(false,true):tag(false,false))} <b>${f(a.overhangPct)}% (${f(a.overArea,1)} cm²)</b></span></div>
+    ${bestOrient}
+    <div class="line"><span>First layer / footprint</span><b>${f(a.footprint,1)} cm²${a.aspect>4?' · <span class="tag warn">TALL — add brim</span>':''}</b></div>
+    <div class="line"><span>Triangles</span><b>${a.tris.toLocaleString()}</b></div>`;
+  const dropBtn = document.getElementById('btnDrop');
+  if(dropBtn) dropBtn.onclick = () => applyMeshOp(meshDropToPlate(currentMesh), 'dropped to plate');
+  const orientBtn = document.getElementById('btnApplyOrient');
+  if(orientBtn) orientBtn.onclick = () => {
+    const best = lastOrientAdvice[0];
+    applyMeshOp(meshDropToPlate(meshTransform(currentMesh, best.fn)), 'reoriented: ' + best.name);
+  };
+  const warns = lint(code);
+  document.getElementById('lint').innerHTML = warns.map(w=>`<div class="w">⚠ ${escapeHtml(w)}</div>`).join('');
+  const notes = [...code.matchAll(/^\/\/\s*(PART|PRINT|NOTE):\s*(.*)$/gm)]
+    .map(m=>`<b>${m[1]}</b>  ${escapeHtml(m[2])}`).join('\n');
+  document.getElementById('notes').innerHTML = notes;
+  document.getElementById('reviewOut').style.display = 'none';
+}
+function reportText(){
+  if(!lastAnalysis) return '';
+  const a = lastAnalysis;
+  return [
+    `PartForge print checklist — ${firstPartName(currentCode)}`,
+    `Size: ${a.size.map(s=>s.toFixed(1)).join(' × ')} mm  ·  ${a.volume.toFixed(1)} cm³  ·  ~${a.mass15.toFixed(0)}–${a.massSolid.toFixed(0)} g ${settings.material}`,
+    `Overhangs >45°: ${a.overhangPct.toFixed(1)}%  ·  Footprint: ${a.footprint.toFixed(1)} cm²  ·  Layers @0.2: ${a.layers}`,
+    ...(lint(currentCode).map(w=>'Warning: '+w)),
+    ...[...currentCode.matchAll(/^\/\/\s*(PRINT|NOTE):\s*(.*)$/gm)].map(m=>`${m[1]}: ${m[2]}`),
+  ].join('\n');
+}
+
+/* ---------------- mesh-op application ---------------- */
+let meshModified = false;
+function applyMeshOp(newMesh, label){
+  currentMesh = newMesh;
+  meshModified = true;
+  document.getElementById('modFlag').style.display = 'block';
+  const a = analyze(currentMesh, settings.bed);
+  lastManifoldInfo = checkManifold(currentMesh);
+  lastOrientAdvice = currentMesh.tris <= 60000 ? adviseOrientation(currentMesh, settings.bed) : null;
+  showMesh(currentMesh, a.overMask, a.bottomMask);
+  renderReport(a, currentCode);
+  document.getElementById('dims').textContent = `${a.size[0].toFixed(1)} × ${a.size[1].toFixed(1)} × ${a.size[2].toFixed(1)} mm`;
+  toast(label);
+}
+
+/* ---------------- images ---------------- */
+let attachedImages = [];
+async function fileToImage(file){
+  const bmp = await createImageBitmap(file);
+  const maxSide = 1280;
+  const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bmp.width*scale); canvas.height = Math.round(bmp.height*scale);
+  canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  const url = canvas.toDataURL('image/jpeg', 0.85);
+  return { data: url.split(',')[1], mime: 'image/jpeg', url };
+}
+function renderThumbs(){
+  const t = document.getElementById('thumbs');
+  t.innerHTML = '';
+  attachedImages.forEach((img, i) => {
+    const d = document.createElement('div'); d.className = 'th';
+    const im = document.createElement('img'); im.src = img.url;
+    const x = document.createElement('button'); x.className = 'x'; x.textContent = '✕';
+    x.onclick = () => { attachedImages.splice(i,1); renderThumbs(); };
+    d.appendChild(im); d.appendChild(x); t.appendChild(d);
+  });
+}
+document.getElementById('btnAttach').onclick = () => document.getElementById('fileInput').click();
+document.getElementById('fileInput').addEventListener('change', async (e) => {
+  for(const f of e.target.files){
+    try { attachedImages.push(await fileToImage(f)); } catch(err){ toast('Could not read image'); }
+  }
+  e.target.value = '';
+  renderThumbs();
+});
+
+/* ---------------- voice input ---------------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if(SR){
+  const mic = document.getElementById('btnMic');
+  mic.style.display = 'inline-block';
+  let rec = null, listening = false;
+  mic.onclick = () => {
+    if(listening){ rec.stop(); return; }
+    rec = new SR(); rec.lang = 'en-US'; rec.interimResults = false;
+    rec.onresult = e => {
+      const t = [...e.results].map(r=>r[0].transcript).join(' ');
+      const p = document.getElementById('prompt');
+      p.value = (p.value ? p.value + ' ' : '') + t;
+    };
+    rec.onend = () => { listening = false; mic.classList.remove('active'); };
+    rec.start(); listening = true; mic.classList.add('active');
+  };
+}
+
+/* ---------------- Anthropic client ---------------- */
+let chat = [];
+let tokensIn = 0, tokensOut = 0;
+function contextLine(){
+  const bed = settings.bed;
+  const compat = materialCompat();
+  return `Printer: ${printerDescriptor()}. Bed: ${bed[0]}×${bed[1]}×${bed[2]} mm. Nozzle width: ${settings.nozzle} mm. Material: ${settings.material}.${compat ? ' MATERIAL WARNING: ' + compat + ' — design accordingly and repeat this warning in a NOTE line.' : ''} Calibrated extra fit clearance: +${settings.fitOffset} mm (add to all clearances). Clarify policy: ${settings.clarify === 'ask' ? 'you may ask ONE round of questions first' : 'never ask; state assumptions in NOTE lines'}.`;
+}
+async function callClaude(userContent){
+  if(chat.length === 0){ // first message always carries printer/material context — including photo-first requests
+    if(typeof userContent === 'string') userContent = contextLine() + '\n\nRequest: ' + userContent;
+    else if(Array.isArray(userContent))
+      userContent = userContent.map(b => b.type === 'text' ? { ...b, text: contextLine() + '\n\nRequest: ' + b.text } : b);
+  }
+  chat.push({ role:'user', content: userContent });
+  if(chat.length > 12){
+    let tail = chat.slice(-8);
+    while(tail.length && tail[0].role !== 'user') tail.shift(); // keep user/assistant alternation intact
+    chat = [chat[0], chat[1], ...tail];
+  }
+  const body = { model: settings.model, max_tokens: 9000, system: SYSTEM_PROMPT, messages: chat };
+  if(settings.search) body.tools = [{ type:'web_search_20250305', name:'web_search', max_uses:3 }];
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{
+      'content-type':'application/json',
+      'x-api-key': settings.key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body: JSON.stringify(body)
+  });
+  if(!res.ok){
+    chat.pop();
+    let detail=''; try{ detail = (await res.json()).error?.message || ''; }catch(e){}
+    if(res.status === 401) detail = 'Invalid API key. Check it in ⚙ Settings.';
+    if(res.status === 404 && /model/i.test(detail)) detail += ' — pick a different model in ⚙ Settings.';
+    if(res.status === 429) detail = 'Rate limited — wait a moment and try again.';
+    throw new Error(`API ${res.status}: ${detail || res.statusText}`);
+  }
+  const data = await res.json();
+  if(data.usage){ tokensIn += data.usage.input_tokens||0; tokensOut += data.usage.output_tokens||0; }
+  const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+  chat.push({ role:'assistant', content: text });
+  return text;
+}
+async function callClaudeOneShot(system, userText){
+  const body = { model: settings.model, max_tokens: 1500, system, messages:[{role:'user', content:userText}] };
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{ 'content-type':'application/json', 'x-api-key': settings.key, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+    body: JSON.stringify(body)
+  });
+  if(!res.ok) throw new Error('API ' + res.status);
+  const data = await res.json();
+  if(data.usage){ tokensIn += data.usage.input_tokens||0; tokensOut += data.usage.output_tokens||0; }
+  return (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+}
+function parseCode(text){
+  const m = text.match(/```(?:openscad|scad)\s*\n([\s\S]*?)```/) || text.match(/```\s*\n(\/\/[\s\S]*?)```/);
+  return m ? m[1] : null;
+}
+function parseQuestions(text){
+  const m = text.match(/```json\s*\n([\s\S]*?)```/);
+  if(!m) return null;
+  try {
+    const obj = JSON.parse(m[1]);
+    if(Array.isArray(obj.questions) && obj.questions.length) return obj.questions.slice(0,4);
+  } catch(e){}
+  return null;
+}
+
+/* ---------------- UI state + actions ---------------- */
+const $ = id => document.getElementById(id);
+const overlay = $('vpOverlay'), vpStatus = $('vpStatus'), vpSpin = $('vpSpin'), btnCancel = $('btnCancel');
+let currentCode = '', currentMesh = null, currentManifest = null, busy = false, qaAsked = false;
+let elapsedTimer = null;
+
+function setOverlay(show, msg, opts={}){
+  overlay.classList.toggle('hidden', !show);
+  if(msg != null) vpStatus.innerHTML = msg;
+  vpSpin.style.display = opts.spin === false ? 'none' : 'block';
+  btnCancel.style.display = opts.cancel ? 'inline-block' : 'none';
+  clearInterval(elapsedTimer);
+  $('vpElapsed').textContent = '';
+  if(show && opts.spin !== false){
+    const t0 = Date.now();
+    elapsedTimer = setInterval(() => {
+      const s = Math.round((Date.now()-t0)/1000);
+      $('vpElapsed').textContent = s >= 3 ? `${s}s elapsed${s>90?' — complex CSG can take a while; Cancel is safe':''}` : '';
+    }, 1000);
+  }
+}
+function statusText(s, pct, prefix=''){
+  if(s === 'engine-progress') return `${prefix}<span class="big">Loading geometry engine</span>${pct}% — one-time download, cached after`;
+  if(s === 'loading-engine') return `${prefix}<span class="big">Loading geometry engine</span>one-time ~14 MB download, cached after`;
+  return `${prefix}<span class="big">Rendering geometry…</span>`;
+}
+function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function msg(el, kind, text){ el.className = 'msg ' + kind; el.textContent = text; if(!text) el.className='msg'; }
+function toast(t){
+  const el = $('toast'); el.textContent = t; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2000);
+}
+function setBusy(b){
+  busy = b;
+  for(const id of ['btnGenerate','btnRunCode','btnRerender','btnAssembly','qaSubmit','qaSkip']) $(id).disabled = b;
+  $('btnRefine').disabled = b || !(settings.key && currentCode);
+}
+function showRenderError(err){
+  setOverlay(true, '⚠ ' + escapeHtml(String(err.message||err)).slice(0,600), {spin:false});
+}
+
+async function runCode(code, statusPrefix=''){
+  if(busy) throw new Error('busy');
+  setBusy(true);
+  try{
+    setOverlay(true, statusText('rendering',0,statusPrefix), {cancel:true});
+    const stl = await renderSCAD(code, (s,pct) => setOverlay(true, statusText(s,pct,statusPrefix), {cancel:true}));
+    await viewerReady; // geometry engine and 3D viewer download in parallel; display needs the viewer
+    const mesh = parseAsciiSTL(stl);
+    if(mesh.tris === 0) throw new Error('No triangles in output.');
+    currentCode = code; currentMesh = mesh;
+    meshModified = false; $('modFlag').style.display = 'none';
+    assemblyCache = null;
+    currentManifest = parseManifest(code);
+    $('code').value = code;
+    $('logView').textContent = lastLog || '(no engine output)';
+    store.set('pf_last', code);
+    pushSessionHistory(code);
+    const a = analyze(mesh, settings.bed);
+    // heavy checks run after first paint so the part appears instantly
+    lastManifoldInfo = undefined; lastOrientAdvice = null;
+    showMesh(mesh, a.overMask, a.bottomMask);
+    renderReport(a, code);
+    setTimeout(() => {
+      if(currentMesh !== mesh) return; // superseded by a newer render
+      lastManifoldInfo = checkManifold(mesh);
+      lastOrientAdvice = mesh.tris <= 60000 ? adviseOrientation(mesh, settings.bed) : null;
+      renderReport(a, code);
+    }, 30);
+    renderParamPanel(code);
+    $('dims').textContent = `${a.size[0].toFixed(1)} × ${a.size[1].toFixed(1)} × ${a.size[2].toFixed(1)} mm`;
+    for(const id of ['btnSTL','btnShare']) $(id).disabled = false;
+    $('btnOverhang').disabled = false;
+    $('btnAssembly').style.display = currentManifest ? 'inline-block' : 'none';
+    $('btnAssembly').textContent = '⚙ Assembly';
+    if(sectionOn) updateSection();
+    setOverlay(false);
+    return a;
+  } finally {
+    setBusy(false);
+  }
+}
+
+function pushHistory(role, text){
+  const h = $('history');
+  const d = document.createElement('div');
+  d.className = 'h' + (role==='user'?' user':'');
+  d.textContent = (role==='user'?'▸ ':'✓ ') + text;
+  h.appendChild(d); h.scrollTop = h.scrollHeight;
+}
+function firstPartName(code){
+  const m = code.match(/^\/\/\s*PART:\s*(.*)$/m);
+  return m ? m[1] : 'part';
+}
+
+/* ---- library + histories ---- */
+function getLib(){ try { return JSON.parse(store.get('pf_lib'))||{}; } catch(e){ return {}; } }
+function setLib(l){ store.set('pf_lib', JSON.stringify(l)); renderLibrary(); }
+let sessionHistory = [];
+function pushSessionHistory(code){
+  const last = sessionHistory[sessionHistory.length-1];
+  if(last && last.code === code) return;
+  // parameter tweaks / renames update the latest entry instead of flooding history
+  const sig = codeSig(code);
+  const at = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  if(last && last.sig === sig){ last.code = code; last.at = at; renderLibrary(); return; }
+  sessionHistory.push({ code, sig, name: firstPartName(code), at });
+  if(sessionHistory.length > 15) sessionHistory.shift();
+  renderLibrary();
+}
+function getPromptHistory(){ try { return JSON.parse(store.get('pf_prompts'))||[]; } catch(e){ return []; } }
+function pushPromptHistory(p){
+  let h = getPromptHistory().filter(x=>x!==p);
+  h.unshift(p); h = h.slice(0,6);
+  store.set('pf_prompts', JSON.stringify(h));
+  renderIdeas();
+}
+function renderLibrary(){
+  const el = $('library');
+  const lib = getLib();
+  const names = Object.keys(lib);
+  el.innerHTML = '';
+  if(!names.length && sessionHistory.length <= 1){
+    el.innerHTML = '<div class="hint">Saved parts and session history appear here.</div>';
+    return;
+  }
+  if(names.length){
+    const sec = document.createElement('div'); sec.className='sec'; sec.textContent = 'Saved parts';
+    el.appendChild(sec);
+    for(const n of names){
+      const row = document.createElement('div'); row.className = 'item';
+      const nm = document.createElement('span'); nm.className='nm'; nm.textContent = n;
+      nm.onclick = () => { if(!busy){ chat=[]; qaAsked=false; runCode(lib[n].code).catch(err=>{ if(String(err.message)!=='cancelled') showRenderError(err); }); } };
+      const del = document.createElement('button'); del.className='btn small'; del.textContent='✕';
+      del.onclick = () => { const l = getLib(); delete l[n]; setLib(l); };
+      row.appendChild(nm); row.appendChild(del); el.appendChild(row);
+    }
+  }
+  if(sessionHistory.length > 1){
+    const sec = document.createElement('div'); sec.className='sec'; sec.textContent = 'Session history';
+    el.appendChild(sec);
+    [...sessionHistory].reverse().slice(0, 6).forEach((h) => {
+      const row = document.createElement('div'); row.className = 'item';
+      const nm = document.createElement('span'); nm.className='nm'; nm.textContent = `${h.name} · ${h.at}`;
+      nm.onclick = () => { if(!busy && h.code !== currentCode) runCode(h.code).catch(err=>{ if(String(err.message)!=='cancelled') showRenderError(err); }); };
+      row.appendChild(nm); el.appendChild(row);
+    });
+  }
+}
+$('btnSaveLib').onclick = () => {
+  if(!currentCode){ toast('Nothing to save yet'); return; }
+  const name = prompt('Save as:', firstPartName(currentCode));
+  if(!name) return;
+  const l = getLib(); l[name] = { code: currentCode }; setLib(l);
+  toast('Saved to library');
+};
+
+/* ---- question flow ---- */
+let pendingQuestions = null;
+function showQuestions(qs){
+  pendingQuestions = qs;
+  const card = $('qaCard'), list = $('qaList');
+  list.innerHTML = '';
+  qs.forEach((q, qi) => {
+    const div = document.createElement('div'); div.className = 'q';
+    const qt = document.createElement('div'); qt.className = 'qt'; qt.textContent = q.q;
+    div.appendChild(qt);
+    const chips = document.createElement('div'); chips.className = 'chips';
+    (q.options||[]).forEach(opt => {
+      const c = document.createElement('button');
+      c.className = 'chip'; c.textContent = opt; c.dataset.qi = qi;
+      c.onclick = () => {
+        chips.querySelectorAll('.chip').forEach(x=>x.classList.remove('sel'));
+        c.classList.add('sel');
+        const other = div.querySelector('input'); if(other) other.value = '';
+      };
+      chips.appendChild(c);
+    });
+    div.appendChild(chips);
+    if(q.custom !== false){
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.placeholder = 'Or type your own answer…'; inp.dataset.qi = qi;
+      inp.addEventListener('input', () => chips.querySelectorAll('.chip').forEach(x=>x.classList.remove('sel')));
+      div.appendChild(inp);
+    }
+    list.appendChild(div);
+  });
+  card.style.display = 'block';
+  card.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+function collectAnswers(){
+  const answers = [];
+  pendingQuestions.forEach((q, qi) => {
+    const sel = $('qaList').querySelector(`.chip.sel[data-qi="${qi}"]`);
+    const other = $('qaList').querySelector(`input[data-qi="${qi}"]`);
+    const a = (other && other.value.trim()) || (sel && sel.textContent) || 'no preference — you choose';
+    answers.push(`${qi+1}. ${q.q} → ${a}`);
+  });
+  return 'Answers:\n' + answers.join('\n') + '\nNow generate the part.';
+}
+function hideQuestions(){ $('qaCard').style.display = 'none'; pendingQuestions = null; }
+
+/* ---- AI driver ---- */
+const MAX_REPAIRS = 2;
+async function aiTurn(userContent, label){
+  setOverlay(true, label, {cancel:false});
+  let text = await callClaude(userContent);
+  attachedImages = []; renderThumbs();
+  let forced = 0;
+  for(;;){
+    const qs = parseQuestions(text);
+    if(qs){
+      if(qaAsked){
+        if(++forced > 2) throw new Error('The model kept asking questions instead of designing. Try again, or set "Just build" in ⚙ Settings.');
+        setOverlay(true, `<span class="big">Designing part</span>finalizing with stated assumptions`, {cancel:false});
+        text = await callClaude('Do not ask more questions. Generate now with your best assumptions, stating them in NOTE lines.');
+        continue;
+      }
+      qaAsked = true;
+      pushHistory('ai', `asked ${qs.length} question${qs.length>1?'s':''}`);
+      showQuestions(qs);
+      setOverlay(!currentMesh, currentMesh ? null : '<span class="big">A few quick questions first</span>answer on the left, or hit Skip', {spin:false});
+      if(currentMesh) setOverlay(false);
+      return;
+    }
+    let code = parseCode(text);
+    if(!code) throw new Error('The model replied without code. Try rephrasing, or hit Generate again.');
+    for(let attempt = 0; ; attempt++){
+      try {
+        await runCode(code);
+        pushHistory('ai', firstPartName(code));
+        return;
+      } catch(err){
+        if(String(err.message) === 'cancelled'){ setOverlay(false); return; }
+        if(attempt >= MAX_REPAIRS) throw err;
+        setOverlay(true, `<span class="big">Fixing a compile error</span>auto-repair attempt ${attempt+1} of ${MAX_REPAIRS}`, {cancel:false});
+        const fixText = await callClaude(`That code failed to render. Error output:\n${String(err.message).slice(0,1500)}\nReturn the FULL corrected file.`);
+        const fixed = parseCode(fixText);
+        if(!fixed) throw err;
+        code = fixed;
+      }
+    }
+  }
+}
+async function generate(isRefine){
+  const p = $('prompt').value.trim();
+  msg($('genMsg'),'','');
+  if(!p && !attachedImages.length){ msg($('genMsg'),'err', isRefine ? 'Describe the change first.' : 'Describe the part (or attach a photo) first.'); return; }
+  if(!settings.key){ msg($('genMsg'),'err','Add your Anthropic API key in ⚙ Settings, or use a template.'); return; }
+  if(busy) return;
+  hideQuestions();
+  $('btnGenerate').disabled = true; $('btnRefine').disabled = true;
+  try{
+    if(!isRefine){ chat = []; qaAsked = false; }
+    const promptText = p || 'Design a useful part based on the attached photo(s).';
+    if(p) pushPromptHistory(p);
+    let ask = isRefine
+      ? `Here is the current part (it may include my manual edits):\n\`\`\`openscad\n${$('code').value.trim() || currentCode}\n\`\`\`\nRefine it: ${promptText}`
+      : promptText;
+    let content = ask;
+    if(attachedImages.length){
+      content = [
+        ...attachedImages.map(img => ({ type:'image', source:{ type:'base64', media_type:img.mime, data:img.data } })),
+        { type:'text', text: ask }
+      ];
+    }
+    pushHistory('user', promptText.slice(0,80) + (attachedImages.length ? ` (+${attachedImages.length} photo)` : ''));
+    $('prompt').value = '';
+    try {
+      await aiTurn(content, `<span class="big">${isRefine?'Refining design':'Designing part'}</span>${escapeHtml(settings.model)}${settings.search?' · web search on':''}`);
+    } catch(err){ $('prompt').value = p; throw err; } // failed: give the prompt back for retry
+  } catch(err){
+    if(currentMesh) setOverlay(false); else showRenderError(err);
+    msg($('genMsg'),'err', String(err.message||err).slice(0,300));
+  } finally {
+    $('btnGenerate').disabled = false; $('btnRefine').disabled = !(settings.key && currentCode);
+  }
+}
+$('qaSubmit').onclick = async () => {
+  if(!pendingQuestions || busy) return;
+  const answers = collectAnswers();
+  hideQuestions();
+  pushHistory('user', 'answered questions');
+  try { await aiTurn(answers, `<span class="big">Designing part</span>${escapeHtml(settings.model)}`); }
+  catch(err){ if(currentMesh) setOverlay(false); else showRenderError(err); msg($('genMsg'),'err', String(err.message||err).slice(0,300)); }
+};
+$('qaSkip').onclick = async () => {
+  if(busy) return;
+  hideQuestions();
+  pushHistory('user', 'skipped questions');
+  try { await aiTurn('Skip the questions — generate now with your best assumptions, stating them in NOTE lines.', `<span class="big">Designing part</span>${escapeHtml(settings.model)}`); }
+  catch(err){ if(currentMesh) setOverlay(false); else showRenderError(err); msg($('genMsg'),'err', String(err.message||err).slice(0,300)); }
+};
+
+$('btnGenerate').onclick = () => generate(false);
+$('btnRefine').onclick = () => generate(true);
+$('prompt').addEventListener('keydown', e => { if(e.key==='Enter' && (e.metaKey||e.ctrlKey)) generate(false); });
+$('btnRunCode').onclick = (e) => {
+  e.stopPropagation();
+  const c = $('code').value.trim();
+  if(c && !busy){ chat = []; qaAsked = false; runCode(c).catch(err => { if(String(err.message)!=='cancelled') showRenderError(err); }); }
+};
+$('btnRerender').onclick = () => {
+  if(currentCode && !busy) runCode(applyParams(currentCode, collectParams()))
+    .catch(err => { if(String(err.message)!=='cancelled') showRenderError(err); });
+};
+btnCancel.onclick = () => { cancelRender(); setOverlay(false); toast('Render cancelled'); };
+$('btnOverhang').onclick = () => { if(viewMode==='plate') setOverhangView(!overhangsOn); };
+$('btnAssembly').onclick = async () => {
+  if(!currentManifest || busy) return;
+  if(viewMode === 'assembly'){
+    const a = analyze(currentMesh, settings.bed);
+    showMesh(currentMesh, a.overMask, a.bottomMask);
+    $('btnAssembly').textContent = '⚙ Assembly';
+    $('btnOverhang').disabled = false;
+    return;
+  }
+  setBusy(true);
+  try {
+    await buildAssembly(currentManifest);
+    $('btnAssembly').textContent = '⬒ Plate';
+    $('btnOverhang').disabled = true;
+    setOverlay(false);
+  } catch(err){
+    if(String(err.message) !== 'cancelled') showRenderError(err); else setOverlay(false);
+  } finally { setBusy(false); }
+};
+/* code drawer */
+$('codeBar').onclick = (e) => {
+  if(e.target.id === 'tabSource' || e.target.id === 'tabLog' || e.target.tagName === 'BUTTON') return;
+  const d = $('codeDrawer'); d.classList.toggle('collapsed');
+  $('codeChevron').textContent = d.classList.contains('collapsed') ? '▲ show' : '▼ hide';
+};
+$('tabSource').onclick = () => { $('code').style.display='block'; $('logView').style.display='none'; $('tabSource').style.opacity=1; $('tabLog').style.opacity=.5; $('codeDrawer').classList.remove('collapsed'); };
+$('tabLog').onclick = () => { $('code').style.display='none'; $('logView').style.display='block'; $('tabSource').style.opacity=.5; $('tabLog').style.opacity=1; $('codeDrawer').classList.remove('collapsed'); };
+$('btnCopyCode').onclick = async (e) => { e.stopPropagation(); if(currentCode){ try{ await navigator.clipboard.writeText($('code').value); toast('Code copied'); }catch(err){} } };
+
+/* report card actions */
+$('btnCopyReport').onclick = async () => { try { await navigator.clipboard.writeText(reportText()); toast('Checklist copied'); } catch(e){} };
+$('btnRename').onclick = () => {
+  if(!currentCode) return;
+  const name = prompt('Part name:', firstPartName(currentCode));
+  if(!name) return;
+  currentCode = /^\/\/\s*PART:/m.test(currentCode)
+    ? currentCode.replace(/^\/\/\s*PART:.*$/m, '// PART: ' + name)
+    : '// PART: ' + name + '\n' + currentCode;
+  $('code').value = currentCode;
+  store.set('pf_last', currentCode);
+  if(lastAnalysis) renderReport(lastAnalysis, currentCode);
+  toast('Renamed');
+};
+$('btnReview').onclick = async () => {
+  if(!currentCode){ return; }
+  if(!settings.key){ toast('Review needs an API key (⚙ Settings)'); return; }
+  const out = $('reviewOut');
+  out.style.display = 'block'; out.textContent = 'Reviewing design…';
+  try {
+    const text = await callClaudeOneShot(REVIEW_PROMPT, 'Review this OpenSCAD part:\n```openscad\n' + currentCode.slice(0, 12000) + '\n```');
+    out.textContent = text.trim();
+  } catch(err){ out.textContent = 'Review failed: ' + err.message; }
+};
+
+/* templates + ideas */
+const tWrap = $('templates');
+for(const t of TEMPLATES){
+  const c = document.createElement('button');
+  c.className = 'chip'; c.textContent = t.name;
+  c.onclick = () => {
+    if(busy) return;
+    chat = []; qaAsked = false; hideQuestions(); $('history').innerHTML=''; pushHistory('user', 'Template: '+t.name);
+    runCode(t.code).catch(err => { if(String(err.message)!=='cancelled') showRenderError(err); });
+  };
+  tWrap.appendChild(c);
+}
+function renderIdeas(){
+  const ideas = $('ideas');
+  ideas.innerHTML = '';
+  for(const rp of getPromptHistory().slice(0,2)){
+    const c = document.createElement('button');
+    c.className = 'chip recent'; c.textContent = '↺ ' + rp.split(' ').slice(0,4).join(' ') + '…'; c.title = rp;
+    c.onclick = () => { $('prompt').value = rp; $('prompt').focus(); };
+    ideas.appendChild(c);
+  }
+  for(const ex of IDEA_PROMPTS.slice(0,2)){
+    const c = document.createElement('button');
+    c.className = 'chip ghost'; c.textContent = ex.split(' ').slice(0,4).join(' ') + '…'; c.title = ex;
+    c.onclick = () => { $('prompt').value = ex; $('prompt').focus(); };
+    ideas.appendChild(c);
+  }
+  const dice = document.createElement('button');
+  dice.className = 'chip ghost'; dice.textContent = '🎲 surprise me';
+  dice.onclick = () => { $('prompt').value = IDEA_PROMPTS[Math.floor(Math.random()*IDEA_PROMPTS.length)]; $('prompt').focus(); };
+  ideas.appendChild(dice);
+}
+renderIdeas();
+
+/* downloads + share + more menu */
+function download(name, blob){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+function slug(){ return firstPartName(currentCode).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,40) || 'part'; }
+$('btnSTL').onclick = () => { if(currentMesh) download(slug()+'.stl', new Blob([toBinarySTL(currentMesh)], {type:'model/stl'})); };
+const b64e = s => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+const b64d = s => new TextDecoder().decode(Uint8Array.from(atob(s), c=>c.charCodeAt(0)));
+function shareUrl(){ return location.origin + location.pathname + '#c=' + encodeURIComponent(b64e(currentCode)); }
+$('btnShare').onclick = async () => {
+  if(!currentCode) return;
+  try { await navigator.clipboard.writeText(shareUrl()); toast('Link copied — opens this exact part'); }
+  catch(e){ prompt('Copy this link:', shareUrl()); }
+};
+const moreMenu = $('moreMenu');
+function menuItem(label, fn, cap){
+  if(cap){ const c = document.createElement('div'); c.className='cap'; c.textContent = cap; moreMenu.appendChild(c); return; }
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.onclick = () => { moreMenu.style.display='none'; fn(); };
+  moreMenu.appendChild(b);
+}
+function rebuildMoreMenu(){
+  moreMenu.innerHTML = '';
+  menuItem(null, null, 'Export');
+  menuItem('⬇ 3MF (with units)', () => { if(currentMesh) download(slug()+'.3mf', to3MF(currentMesh)); else toast('Render a part first'); });
+  menuItem('⬇ OpenSCAD source', () => { if(currentCode) download(slug()+'.scad', new Blob([currentCode], {type:'text/plain'})); });
+  if(currentManifest && assemblyCache){
+    for(const mod of currentManifest.mods)
+      menuItem(`⬇ STL: ${mod.replace(/^part_/,'')}`, () => download(slug()+'-'+mod.replace(/^part_/,'')+'.stl', new Blob([toBinarySTL(assemblyCache[mod])], {type:'model/stl'})));
+  }
+  menuItem('⬇ Project file (.json)', () => {
+    if(!currentCode) return toast('Render a part first');
+    download(slug()+'.partforge.json', new Blob([JSON.stringify({ v:1, app:'PartForge', name:firstPartName(currentCode), code: currentCode })], {type:'application/json'}));
+  });
+  menuItem('⬆ Open project file…', () => $('projInput').click());
+  menuItem('📸 Screenshot (PNG)', () => {
+    if(!renderer) return toast('3D viewer still loading…');
+    renderer.render(scene, camera);
+    renderer.domElement.toBlob(b => b && download(slug()+'-view.png', b));
+  });
+  menuItem('🔳 QR code for this part', () => {
+    if(!currentCode) return toast('Render a part first');
+    const u = shareUrl();
+    $('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(u);
+    $('qrUrl').textContent = u.slice(0, 140) + (u.length>140?'…':'');
+    $('dlgQR').showModal();
+  });
+  menuItem(null, null, 'View');
+  menuItem('⛶ Fit view (F) · double-click also fits', () => fitCamera(lastFit.span, lastFit.height));
+  menuItem('① Front', () => viewPreset('front'));
+  menuItem('② Top', () => viewPreset('top'));
+  menuItem('③ Right', () => viewPreset('right'));
+  menuItem('④ Isometric', () => viewPreset('iso'));
+  menuItem((camera && camera===orthoCam?'✓ ':'') + '📐 Orthographic', () => {
+    if(!renderer) return toast('3D viewer still loading…');
+    const to = camera === perspCam ? orthoCam : perspCam;
+    to.position.copy(camera.position); camera = to;
+    controls.object = camera; syncOrtho();
+  });
+  menuItem((dimsOverlay?'✓ ':'') + '📏 Dimension overlay (D)', () => toggleDimsOverlay());
+  menuItem((measureOn?'✓ ':'') + '🎯 Measure two points (M)', () => setMeasure(!measureOn));
+  menuItem((sectionOn?'✓ ':'') + '✂ Section view (X)', () => setSection(!sectionOn));
+  menuItem((matPlain && matPlain.wireframe?'✓ ':'') + '🕸 Wireframe (W)', () => {
+    if(!matPlain) return toast('3D viewer still loading…');
+    const on = !matPlain.wireframe;
+    matPlain.wireframe = matOver.wireframe = on;
+    for(const pe of partEntries) pe.mat.wireframe = on;
+  });
+  menuItem((turntable?'✓ ':'') + '💿 Turntable spin (T)', () => { if(!controls) return toast('3D viewer still loading…'); turntable = !turntable; controls.autoRotate = turntable; controls.autoRotateSpeed = 2.5; });
+  menuItem((lightBg?'✓ ':'') + '☀ Light background', () => {
+    if(!scene) return toast('3D viewer still loading…');
+    lightBg = !lightBg;
+    scene.background = new THREE.Color(lightBg ? 0xeef1f4 : 0x0d1117);
+    addBedAndGrid();
+  });
+  menuItem((scaleRefObj?'✓ ':'') + '💳 Card for scale (85.6 mm)', () => {
+    if(!scene) return toast('3D viewer still loading…');
+    if(scaleRefObj){ scene.remove(scaleRefObj); scaleRefObj = null; }
+    else {
+      const g = new THREE.BoxGeometry(85.6, 0.8, 54);
+      scaleRefObj = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color:0x6aa9e8, transparent:true, opacity:0.55 }));
+      scaleRefObj.position.set(-settings.bed[0]/2 + 50, 0.4, settings.bed[1]/2 - 35);
+      scene.add(scaleRefObj);
+    }
+  });
+  menuItem(null, null, 'Mesh tools (export-level edits)');
+  menuItem('◀▶ Mirror (X)', () => { if(currentMesh) applyMeshOp(meshMirrorX(currentMesh), 'mirrored'); });
+  menuItem('↻ Rotate 90° on plate', () => { if(currentMesh) applyMeshOp(meshDropToPlate(meshTransform(currentMesh, (x,y,z)=>[-y,x,z])), 'rotated 90°'); });
+  menuItem('⤓ Drop to plate', () => { if(currentMesh) applyMeshOp(meshDropToPlate(currentMesh), 'dropped to plate'); });
+  menuItem('⚖ Scale…', () => {
+    if(!currentMesh) return;
+    const s = parseFloat(prompt('Scale factor (e.g. 1.5 = 150%):', '1.0'));
+    if(!s || s <= 0) return;
+    applyMeshOp(meshTransform(currentMesh, (x,y,z)=>[x*s,y*s,z*s]), `scaled ×${s}`);
+  });
+  menuItem('🧭 Auto-orient (min overhang)', () => {
+    if(!currentMesh || !lastOrientAdvice) return;
+    const best = lastOrientAdvice[0];
+    if(best.name === 'current'){ toast('Already optimal orientation'); return; }
+    applyMeshOp(meshDropToPlate(meshTransform(currentMesh, best.fn)), 'auto-oriented: ' + best.name);
+  });
+}
+$('btnMore').onclick = (e) => {
+  e.stopPropagation();
+  if(moreMenu.style.display === 'block'){ moreMenu.style.display = 'none'; return; }
+  rebuildMoreMenu();
+  moreMenu.style.display = 'block';
+};
+document.addEventListener('click', (e) => { if(!moreMenu.contains(e.target) && e.target.id !== 'btnMore') moreMenu.style.display = 'none'; });
+$('projInput').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  try {
+    const obj = JSON.parse(await f.text());
+    if(!obj.code) throw new Error('no code field');
+    chat = []; qaAsked = false;
+    await runCode(obj.code);
+    toast('Project loaded');
+  } catch(err){ toast('Could not open project: ' + err.message); }
+});
+
+/* keyboard shortcuts */
+document.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if(t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') return;
+  if(document.querySelector('dialog[open]') && e.key !== 'Escape') return;
+  const k = e.key.toLowerCase();
+  if(k === 'g') generate(false);
+  else if(k === 'r' && !$('btnRefine').disabled) generate(true);
+  else if(k === 'a' && currentManifest) $('btnAssembly').click();
+  else if(k === 'i' && !$('btnOverhang').disabled) $('btnOverhang').click();
+  else if(k === 'm') setMeasure(!measureOn);
+  else if(k === 'x') setSection(!sectionOn);
+  else if(k === 'd') toggleDimsOverlay();
+  else if(k === 'w' && matPlain){ const on=!matPlain.wireframe; matPlain.wireframe=matOver.wireframe=on; for(const pe of partEntries) pe.mat.wireframe=on; }
+  else if(k === 't' && controls){ turntable=!turntable; controls.autoRotate=turntable; controls.autoRotateSpeed=2.5; }
+  else if(k === 'f') fitCamera(lastFit.span, lastFit.height);
+  else if(k === 's' && !$('btnSTL').disabled) $('btnSTL').click();
+  else if(k === '1') viewPreset('front');
+  else if(k === '2') viewPreset('top');
+  else if(k === '3') viewPreset('right');
+  else if(k === '4') viewPreset('iso');
+  else if(k === '?') $('dlgHelp').showModal();
+  else if(k === 'escape'){ setMeasure(false); moreMenu.style.display='none'; }
+});
+
+/* settings + dialogs */
+const dlg = $('dlgSettings');
+$('btnSettings').onclick = () => {
+  $('setKey').value = settings.key; $('setModel').value = settings.model;
+  $('setClarify').value = settings.clarify; $('setSearch').checked = settings.search;
+  $('setMaterial').value = settings.material; $('setNozzle').value = settings.nozzle;
+  $('setCost').value = settings.cost; $('setFitOffset').value = settings.fitOffset;
+  $('setColor').value = settings.color;
+  $('setPrinter').value = settings.printer;
+  showPrinterInfo();
+  const b = settings.bed; $('bedX').value=b[0]; $('bedY').value=b[1]; $('bedZ').value=b[2];
+  $('tokenStats').textContent = tokensIn+tokensOut > 0 ? `This session: ${(tokensIn/1000).toFixed(1)}k in / ${(tokensOut/1000).toFixed(1)}k out tokens` : '';
+  dlg.showModal();
+};
+/* printer picker: populate grouped by brand from the hardwired database */
+(function populatePrinters(){
+  const sel = $('setPrinter');
+  let curBrand = null, og = null;
+  for(const p of PRINTERS){
+    if(p.b !== curBrand){ curBrand = p.b; og = document.createElement('optgroup'); og.label = p.b; sel.appendChild(og); }
+    const o = document.createElement('option');
+    o.value = p.b+' '+p.m;
+    o.textContent = `${p.m} — ${p.bed.join('×')}`;
+    og.appendChild(o);
+  }
+})();
+function showPrinterInfo(){
+  const p = printerById($('setPrinter').value);
+  $('printerInfo').textContent = p
+    ? `${p.bed.join('×')} mm · ${p.encl?'enclosed':'open frame'}${p.cham?` · ${p.cham}°C chamber`:''} · nozzle to ${p.noz}°C${p.multi?' · multi-material':''}`
+    : 'Enter your bed size below.';
+}
+$('setPrinter').onchange = () => {
+  const p = printerById($('setPrinter').value);
+  if(p){ $('bedX').value=p.bed[0]; $('bedY').value=p.bed[1]; $('bedZ').value=p.bed[2]; }
+  showPrinterInfo();
+};
+// manual bed edits mean "not that printer any more"
+for(const id of ['bedX','bedY','bedZ'])
+  $(id).addEventListener('input', () => { $('setPrinter').value = ''; showPrinterInfo(); });
+$('setCancel').onclick = () => dlg.close();
+$('setSave').onclick = () => {
+  settings.key = $('setKey').value.trim();
+  settings.model = $('setModel').value.trim() || 'claude-sonnet-4-6';
+  settings.clarify = $('setClarify').value;
+  settings.search = $('setSearch').checked;
+  settings.material = $('setMaterial').value;
+  settings.nozzle = +$('setNozzle').value || 0.4;
+  settings.cost = +$('setCost').value || 20;
+  settings.fitOffset = +$('setFitOffset').value || 0;
+  settings.color = $('setColor').value;
+  if(matPlain) matPlain.color = new THREE.Color(settings.color);
+  settings.printer = $('setPrinter').value;
+  settings.bed = [+$('bedX').value||220, +$('bedY').value||220, +$('bedZ').value||250];
+  updateLlmHint();
+  if(currentMesh && !busy){ const a = analyze(currentMesh, settings.bed); renderReport(a, currentCode); if(viewMode==='plate') addBedAndGrid(); }
+  dlg.close();
+  toast('Settings saved');
+};
+$('btnHelp').onclick = () => $('dlgHelp').showModal();
+$('helpClose').onclick = () => $('dlgHelp').close();
+$('qrClose').onclick = () => $('dlgQR').close();
+function updateLlmHint(){
+  const pn = printerById(settings.printer);
+  $('llmHint').textContent = settings.key
+    ? `AI ready (${settings.model}) · ${settings.clarify==='ask'?'asks first':'just builds'} · search ${settings.search?'on':'off'} · ${settings.material} on ${pn ? pn.m : settings.bed.join('×')}`
+    : 'AI generation needs an Anthropic API key (⚙ Settings). Templates work without one — try “Hinged box ⚙” then its Assembly view, or print the “Fit coupon 🎯”.';
+  $('btnRefine').disabled = !(settings.key && currentCode);
+}
+updateLlmHint();
+
+/* startup */
+const APP_VERSION = 'v5';
+console.log('PartForge', APP_VERSION);
+/* warm the geometry engine on first sign of intent (worker downloads it in the background) */
+let enginePrefetched = false;
+function prefetchEngine(){
+  if(enginePrefetched || workerBroken) return;
+  enginePrefetched = true;
+  try { getWorker().postMessage({ id: -999, code: 'cube(1);' }); } catch(e){}
+}
+$('prompt').addEventListener('focus', prefetchEngine, { once:true });
+$('templates').addEventListener('pointerdown', prefetchEngine, { once:true });
+(function startup(){
+  $('dims').textContent = 'loading 3D viewer…'; // cleared by initViewer
+  const m = location.hash.match(/#c=(.+)/);
+  if(m){
+    try {
+      const code = b64d(decodeURIComponent(m[1]));
+      $('code').value = code;
+      pushHistory('user', 'Opened from shared link');
+      setOverlay(true, '<span class="big">Opening shared part…</span>', {cancel:true});
+      runCode(code).catch(err => { if(String(err.message)!=='cancelled') showRenderError(err); });
+      return;
+    } catch(e){}
+  }
+  const last = store.get('pf_last');
+  if(last){
+    $('code').value = last;
+    setOverlay(true, `<span class="big">Welcome back</span>Your last part (“${escapeHtml(firstPartName(last))}”) is in the code drawer — tap Run ▸ to rebuild it, or start something new.`, {spin:false});
+  } else {
+    setOverlay(true, '<span class="big">Describe a part, attach a photo, or pick a template</span>First render downloads the geometry engine (~14 MB), then it’s cached.', {spin:false});
+  }
+  renderLibrary();
+})();
+
+/* test hooks */
+window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parseManifest, TEMPLATES, viewerReady,
+  get camera(){ return perspCam; }, get controls(){ return controls; },
+  buildAssembly: () => buildAssembly(currentManifest),
+  meshTransform, meshMirrorX, meshDropToPlate, checkManifold, adviseOrientation, to3MF, toBinarySTL, lint,
+  PRINTERS, printerById, materialCompat, printerDescriptor, settings,
+  setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
+  get mesh(){ return currentMesh; }, get code(){ return currentCode; }, get manifest(){ return currentManifest; },
+  get viewMode(){ return viewMode; }, get joints(){ return currentManifest ? currentManifest.joints : []; },
+  get partEntries(){ return partEntries; }, get sessionHistory(){ return sessionHistory; } };
+</script>
+</body>
+</html>
