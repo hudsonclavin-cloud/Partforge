@@ -23,6 +23,14 @@ prompt / photo -> Claude (clarify -> design) -> parametric OpenSCAD
   and nozzle limits, and warns when a material can't work on your machine.
 - **Self-repairing.** If generated code fails to compile, the error is fed back for a
   corrected version, up to twice, automatically.
+- **Catches floating pieces.** The mesh is split into connected components over shared
+  vertices, so a limb that never joined the torso — or any island hovering above the
+  plate — shows up as **Single connected object** in the report instead of as a part
+  that prints in mid-air. Skipped above 120k triangles.
+- **Looks at its own work.** **Look & fix** renders the part from three angles, sends
+  those images back with the measured dimensions, overhang percentage and footprint,
+  and asks for a corrected model. Until now the designer wrote geometry it could
+  never see.
 - **Assemblies move.** Multi-part designs come back with joints you can drive with
   sliders, plus an exploded view and per-part STL export.
 
@@ -32,6 +40,10 @@ Templates work with **no API key** — start with **Hinged box** and press **Ass
 
 For AI generation, add an Anthropic API key in Settings. The key is stored only in your
 browser's local storage and is sent only to api.anthropic.com.
+
+Once a part is on screen, **✨ Look & fix** shows the model its own render and lets it
+revise; the reply opens with a `// NOTE:` line naming what changed and why. Like
+**🔍 Review**, it needs an API key.
 
 Calibration: print the **Fit coupon** template, find the hole that fits its peg snugly,
 and enter the offset in Settings — every later design compensates for your printer
