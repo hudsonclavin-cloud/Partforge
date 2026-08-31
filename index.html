@@ -558,12 +558,21 @@ FDM DESIGN RULES — always:
 - Mating clearances per side: press 0.05, snug 0.20, sliding 0.35, rotating 0.50. Printed-in-place ≥ 0.4. ADD the user's calibrated fit offset (given in context) to every clearance.
 - Holes print undersized: +0.2 mm on any hole that must fit something. Screw holes: M3→3.4, M4→4.5, M5→5.5. Self-tap pilot M3→2.5. Heat-set M3→4.0 in ≥8 mm boss.
 - Chamfer bottom outer edges 0.4 mm × 45° (never fillet bottoms). Overhangs >45° need support — prefer 45° chamfers; holes in vertical walls get teardrop roofs.
+- ONE CONNECTED SOLID: in a single-part model every element must physically overlap its neighbour by ≥1.5 mm — limbs into a torso, bosses into a wall, details into the surface. Pieces that merely touch, or float near, are separate islands: they print in mid-air and fail. If a design genuinely needs several pieces, use MODE 3 and lay them out on the plate.
 - Min pin 2 mm. Bridges ≤ 10 mm. Anisotropy: 40–70% weaker across layers — bending loads in-plane, snap-fits never bend across layers, ribs over bulk.
 - Part must fit the print bed given in context. Respect the stated material's traits (TPU flexes; PLA creeps under load; ABS shrinks).
 
 IMAGES: When the user attaches photos, identify the object, estimate its dimensions from visible references, and design to fit/complement it. If scale is uncertain, that is your MOST important clarify question (ask for one key measurement). State every estimated dimension in a NOTE line so the user can correct it.
 
 WEB SEARCH: If available, use it to find real dimensions and standards that materially affect the design (device sizes, screw specs, rail/mount patterns). Put what you found and assumed in NOTE lines. Never search for things you already know.
+
+FIGURES, CHARACTERS AND ORGANIC SHAPES: when the request is a creature, character, figurine or decorative form rather than a functional part, switch technique:
+- Build each volume as hull() of 2–4 spheres/cylinders. This is the ONE case where hull() on 3D solids is expected — it is what makes limbs and torsos read as smooth and organic instead of stacked boxes.
+- $fn = 32 for spheres (smooth enough; keeps browser compile time sane). Never exceed 48 on a figure.
+- Attach every limb with a hull() that spans INTO the torso, or an overlapping union — the whole figure must come out as one connected solid (see the ONE CONNECTED SOLID rule; a floating arm is the classic failure here).
+- Stability: give it feet or a base pad whose width is at least 25% of the figure's height, or add an explicit base disc.
+- Arms or legs held away from the body are overhangs — tuck them toward the body, keep them within 45° of vertical, or say in a NOTE that supports are needed.
+- Budget ~40 hull operations maximum so it still compiles in a browser.
 
 CODE STYLE: Prefer 2D profiles (polygon/square/circle) + linear_extrude over stacked 3D booleans. No minkowski; no hull() on high-$fn 3D solids. No text() — fonts are unavailable; use geometric marks instead and note it. Keep total boolean ops under ~60 — this compiles in a browser.
 
@@ -1121,6 +1130,43 @@ function meshMirrorX(mesh){
 function meshDropToPlate(mesh){
   let minZ=1e9; for(let i=2;i<mesh.pos.length;i+=3) if(mesh.pos[i]<minZ) minZ=mesh.pos[i];
   return meshTransform(mesh, (x,y,z)=>[x,y,z-minZ]);
+}
+/* Connected components over shared vertices. A single-part model that comes back
+   as several pieces — or with any piece floating above the plate — would print in
+   mid-air. This is the check that catches AI-generated limbs that never joined the body. */
+function connectivity(mesh){
+  if(mesh.tris > 120000) return null;
+  const p = mesh.pos;
+  const parent = [];
+  const find = a => { while(parent[a] !== a) a = parent[a] = parent[parent[a]]; return a; };
+  const unite = (a,b) => { a = find(a); b = find(b); if(a !== b) parent[b] = a; };
+  const vid = new Map();
+  const triV = new Int32Array(mesh.tris);
+  const idOf = (i) => {
+    const k = p[i].toFixed(3)+','+p[i+1].toFixed(3)+','+p[i+2].toFixed(3);
+    let id = vid.get(k);
+    if(id === undefined){ id = parent.length; parent.push(id); vid.set(k, id); }
+    return id;
+  };
+  for(let t=0;t<mesh.tris;t++){
+    const a = t*9;
+    const i0 = idOf(a), i1 = idOf(a+3), i2 = idOf(a+6);
+    unite(i0,i1); unite(i1,i2);
+    triV[t] = i0;
+  }
+  let minZall = Infinity;
+  for(let i=2;i<p.length;i+=3) if(p[i] < minZall) minZall = p[i];
+  const groups = new Map();
+  for(let t=0;t<mesh.tris;t++){
+    const r = find(triV[t]);
+    let g = groups.get(r);
+    if(!g){ g = { tris:0, minZ:Infinity }; groups.set(r, g); }
+    g.tris++;
+    const a = t*9;
+    for(let v=0;v<3;v++){ const z = p[a+v*3+2]; if(z < g.minZ) g.minZ = z; }
+  }
+  const parts = [...groups.values()].filter(g => g.tris > 3); // ignore degenerate slivers
+  return { count: parts.length, floating: parts.filter(g => g.minZ > minZall + 0.5).length };
 }
 function checkManifold(mesh){
   if(mesh.tris > 150000) return null;
@@ -1706,7 +1752,7 @@ document.getElementById('btnResetParams').onclick = () => {
 };
 
 /* ---------------- report ---------------- */
-let lastAnalysis = null, lastManifoldInfo = null, lastOrientAdvice = null;
+let lastAnalysis = null, lastManifoldInfo = null, lastOrientAdvice = null, lastConnInfo = undefined;
 function renderReport(a, code){
   lastAnalysis = a;
   const card = document.getElementById('reportCard');
@@ -1725,6 +1771,12 @@ function renderReport(a, code){
     <div class="line"><span>Fits ${pinfo ? escapeHtml(pinfo.m) : 'bed'}</span><span>${tag(a.fitsBed,false)}</span></div>
     ${compat ? `<div class="line"><span>Material vs printer</span><span class="tag bad">CHECK</span></div><div class="w" style="color:var(--warn);font-size:12px">⚠ ${escapeHtml(compat)}</div>` : ''}
     <div class="line"><span>Sits on plate (Z=0)</span><span>${a.onPlate?tag(true):'<button class="btn small" id="btnDrop">Drop to plate</button>'}</span></div>
+    <div class="line"><span>Single connected object</span><span>${
+      lastConnInfo === undefined ? '<span class="tag warn">checking…</span>'
+      : lastConnInfo === null ? '<span class="tag warn">SKIPPED (huge mesh)</span>'
+      : lastConnInfo.floating > 0 ? `<span class="tag bad">${lastConnInfo.floating} FLOATING — will print in mid-air</span>`
+      : lastConnInfo.count > 1 ? `<span class="tag warn">${lastConnInfo.count} separate pieces on the plate</span>`
+      : tag(true)}</span></div>
     <div class="line"><span>Watertight</span><span>${man===undefined?'<span class="tag warn">checking…</span>':(man===null?'<span class="tag warn">SKIPPED (huge mesh)</span>':(man.ok?tag(true):`<span class="tag bad">${man.open} open edges</span>`))}</span></div>
     <div class="line"><span>Solid volume</span><b>${f(a.volume,1)} cm³</b></div>
     <div class="line"><span>Material ≈ (${settings.material})</span><b>${f(a.mass15,0)}–${f(a.massSolid,0)} g · ~$${f(a.costUSD,2)}</b></div>
@@ -1768,6 +1820,7 @@ function applyMeshOp(newMesh, label){
   document.getElementById('modFlag').style.display = 'block';
   const a = analyze(currentMesh, settings.bed);
   lastManifoldInfo = checkManifold(currentMesh);
+  lastConnInfo = connectivity(currentMesh);
   lastOrientAdvice = currentMesh.tris <= 60000 ? adviseOrientation(currentMesh, settings.bed) : null;
   showMesh(currentMesh, a.overMask, a.bottomMask);
   renderReport(a, currentCode);
@@ -1967,12 +2020,13 @@ async function runCode(code, statusPrefix=''){
     pushSessionHistory(code);
     const a = analyze(mesh, settings.bed);
     // heavy checks run after first paint so the part appears instantly
-    lastManifoldInfo = undefined; lastOrientAdvice = null;
+    lastManifoldInfo = undefined; lastConnInfo = undefined; lastOrientAdvice = null;
     showMesh(mesh, a.overMask, a.bottomMask);
     renderReport(a, code);
     setTimeout(() => {
       if(currentMesh !== mesh) return; // superseded by a newer render
       lastManifoldInfo = checkManifold(mesh);
+      lastConnInfo = connectivity(mesh);
       lastOrientAdvice = mesh.tris <= 60000 ? adviseOrientation(mesh, settings.bed) : null;
       renderReport(a, code);
     }, 30);
@@ -2600,7 +2654,7 @@ $('templates').addEventListener('pointerdown', prefetchEngine, { once:true });
 window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parseManifest, TEMPLATES, viewerReady,
   get camera(){ return perspCam; }, get controls(){ return controls; },
   buildAssembly: () => buildAssembly(currentManifest),
-  meshTransform, meshMirrorX, meshDropToPlate, checkManifold, adviseOrientation, to3MF, toBinarySTL, lint,
+  meshTransform, meshMirrorX, meshDropToPlate, checkManifold, connectivity, adviseOrientation, to3MF, toBinarySTL, lint,
   PRINTERS, printerById, materialCompat, printerDescriptor, settings, PROVIDERS, P,
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
   get mesh(){ return currentMesh; }, get code(){ return currentCode; }, get manifest(){ return currentManifest; },
