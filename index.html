@@ -277,16 +277,22 @@
 
 <dialog id="dlgSettings">
   <h2>Settings</h2>
-  <p>Your Anthropic API key is used directly from this browser. It is stored only on this device and sent only to api.anthropic.com.</p>
-  <label>Anthropic API key</label>
+  <p>Your API key is used directly from this browser. It is stored only on this device and sent only to the provider you choose below.</p>
+  <label>AI provider</label>
+  <select id="setProvider">
+    <option value="anthropic">Anthropic (Claude) — works directly in the browser</option>
+    <option value="openai">OpenAI-compatible — OpenRouter, local model, or proxy</option>
+  </select>
+  <p class="hint" id="provNote" style="margin-top:-4px"></p>
+  <label id="lblKey">API key</label>
   <input id="setKey" type="password" placeholder="sk-ant-..." autocomplete="off">
+  <div id="baseRow" style="display:none">
+    <label>API base URL</label>
+    <input id="setBase" type="text" placeholder="https://openrouter.ai/api/v1">
+  </div>
   <label>Model</label>
   <input id="setModel" type="text" list="modelList" value="claude-sonnet-4-6">
-  <datalist id="modelList">
-    <option value="claude-sonnet-4-6">best balance (recommended)</option>
-    <option value="claude-opus-4-8">strongest, pricier</option>
-    <option value="claude-haiku-4-5">fastest, cheapest</option>
-  </datalist>
+  <datalist id="modelList"></datalist>
   <label>Before designing</label>
   <select id="setClarify">
     <option value="ask">Ask clarifying questions first (recommended)</option>
@@ -442,9 +448,53 @@ function materialCompat(){
     return `${settings.material} needs ~${mat.needs.nozzle}°C+; the ${p.m} tops out at ${p.noz}°C`;
   return null;
 }
+/* ---------------- AI providers ----------------
+   Only Anthropic officially permits browser-direct calls (it ships an explicit
+   opt-in header). OpenAI and Google send no Access-Control-Allow-Origin, so a
+   static page cannot reach them directly — they are available through any
+   OpenAI-compatible gateway: OpenRouter, a local model server, or the
+   Cloudflare Worker in worker.js. */
+const PROVIDERS = {
+  anthropic: {
+    label: 'Anthropic (Claude)', base: 'https://api.anthropic.com', fixedBase: true,
+    keyHint: 'sk-ant-...', defaultModel: 'claude-sonnet-4-6', search: true,
+    models: ['claude-sonnet-4-6','claude-opus-4-8','claude-haiku-4-5'],
+    url: b => b.replace(/\/+$/,'') + '/v1/messages',
+    headers: k => ({ 'content-type':'application/json', 'x-api-key': k,
+      'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' }),
+    body: (system, msgs, maxTok, search) => {
+      const b = { model: settings.model, max_tokens: maxTok, system, messages: msgs };
+      if(search) b.tools = [{ type:'web_search_20250305', name:'web_search', max_uses:3 }];
+      return b;
+    },
+    image: img => ({ type:'image', source:{ type:'base64', media_type: img.mime, data: img.data } }),
+    parse: d => (d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n'),
+    usage: d => [d.usage?.input_tokens||0, d.usage?.output_tokens||0],
+  },
+  openai: {
+    label: 'OpenAI-compatible (OpenRouter / local / proxy)', base: 'https://openrouter.ai/api/v1',
+    fixedBase: false, keyHint: 'gateway key', defaultModel: '', search: false, models: [],
+    url: b => b.replace(/\/+$/,'') + '/chat/completions',
+    headers: k => ({ 'content-type':'application/json', 'authorization': 'Bearer ' + k }),
+    body: (system, msgs, maxTok) => ({ model: settings.model, max_tokens: maxTok,
+      messages: [{ role:'system', content: system }, ...msgs] }),
+    image: img => ({ type:'image_url', image_url:{ url:`data:${img.mime};base64,${img.data}` } }),
+    parse: d => (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || '',
+    usage: d => [d.usage?.prompt_tokens||0, d.usage?.completion_tokens||0],
+  },
+};
+function P(){ return PROVIDERS[settings.provider] || PROVIDERS.anthropic; }
+
 const settings = {
-  get key(){ return store.get('pf_key')||''; }, set key(v){ v?store.set('pf_key',v):store.del('pf_key'); },
-  get model(){ return store.get('pf_model')||'claude-sonnet-4-6'; }, set model(v){ store.set('pf_model',v); },
+  get provider(){ const v = store.get('pf_provider')||'anthropic'; return PROVIDERS[v] ? v : 'anthropic'; },
+  set provider(v){ store.set('pf_provider', PROVIDERS[v] ? v : 'anthropic'); },
+  // keys/models/base are stored PER provider so switching never loses the other one
+  get key(){ return store.get('pf_key_'+this.provider)||''; },
+  set key(v){ const k='pf_key_'+this.provider; v?store.set(k,v):store.del(k); },
+  get model(){ return store.get('pf_model_'+this.provider) || P().defaultModel; },
+  set model(v){ store.set('pf_model_'+this.provider, v); },
+  get base(){ return store.get('pf_base_'+this.provider) || P().base; },
+  set base(v){ store.set('pf_base_'+this.provider, v || P().base); },
   get clarify(){ return store.get('pf_clarify')||'ask'; }, set clarify(v){ store.set('pf_clarify',v); },
   get search(){ return store.get('pf_search')!=='off'; }, set search(v){ store.set('pf_search', v?'on':'off'); },
   get bed(){ try{ return JSON.parse(store.get('pf_bed'))||[220,220,250]; }catch(e){ return [220,220,250]; } },
@@ -457,6 +507,14 @@ const settings = {
   get autoApply(){ return store.get('pf_auto')==='on'; }, set autoApply(v){ store.set('pf_auto', v?'on':'off'); },
   get printer(){ return store.get('pf_printer')||''; }, set printer(v){ v?store.set('pf_printer',v):store.del('pf_printer'); },
 };
+
+/* one-time migration: the pre-multi-provider build stored a single Anthropic key */
+(function migrateKeys(){
+  const old = store.get('pf_key');
+  if(old && !store.get('pf_key_anthropic')) store.set('pf_key_anthropic', old);
+  const om = store.get('pf_model');
+  if(om && !store.get('pf_model_anthropic')) store.set('pf_model_anthropic', om);
+})();
 
 /* ---------------- system prompt ---------------- */
 const SYSTEM_PROMPT = `You are PartForge, an expert mechanical designer generating OpenSCAD for functional FDM 3D-printed parts and small mechanisms (0.4 mm nozzle class, consumer printer, PLA/PETG).
@@ -1788,18 +1846,17 @@ async function callClaude(userContent){
     while(tail.length && tail[0].role !== 'user') tail.shift(); // keep user/assistant alternation intact
     chat = [chat[0], chat[1], ...tail];
   }
-  const body = { model: settings.model, max_tokens: 9000, system: SYSTEM_PROMPT, messages: chat };
-  if(settings.search) body.tools = [{ type:'web_search_20250305', name:'web_search', max_uses:3 }];
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method:'POST',
-    headers:{
-      'content-type':'application/json',
-      'x-api-key': settings.key,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-direct-browser-access':'true'
-    },
-    body: JSON.stringify(body)
-  });
+  const prov = P();
+  const body = prov.body(SYSTEM_PROMPT, chat, 9000, settings.search && prov.search);
+  let res;
+  try {
+    res = await fetch(prov.url(settings.base), {
+      method:'POST', headers: prov.headers(settings.key), body: JSON.stringify(body)
+    });
+  } catch(netErr){
+    chat.pop();
+    throw new Error(reachError(netErr));
+  }
   if(!res.ok){
     chat.pop();
     let detail=''; try{ detail = (await res.json()).error?.message || ''; }catch(e){}
@@ -1809,22 +1866,32 @@ async function callClaude(userContent){
     throw new Error(`API ${res.status}: ${detail || res.statusText}`);
   }
   const data = await res.json();
-  if(data.usage){ tokensIn += data.usage.input_tokens||0; tokensOut += data.usage.output_tokens||0; }
-  const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+  const [ti, to] = prov.usage(data); tokensIn += ti; tokensOut += to;
+  const text = prov.parse(data);
+  if(!text) throw new Error('The provider returned an empty reply. Check the model name in ⚙ Settings.');
   chat.push({ role:'assistant', content: text });
   return text;
 }
+/* a fetch that rejects (rather than returning a status) is almost always CORS or offline */
+function reachError(err){
+  const host = (() => { try { return new URL(P().url(settings.base)).host; } catch(e){ return 'the provider'; } })();
+  return `Couldn't reach ${host}. Most AI providers block direct browser calls (CORS) — `
+    + `only Anthropic allows them. Use Anthropic, an OpenAI-compatible gateway like OpenRouter, `
+    + `a local model server, or your own proxy URL. (${String(err.message||err).slice(0,80)})`;
+}
 async function callClaudeOneShot(system, userText){
-  const body = { model: settings.model, max_tokens: 1500, system, messages:[{role:'user', content:userText}] };
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method:'POST',
-    headers:{ 'content-type':'application/json', 'x-api-key': settings.key, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
-    body: JSON.stringify(body)
-  });
+  const prov = P();
+  const body = prov.body(system, [{ role:'user', content: userText }], 1500, false);
+  let res;
+  try {
+    res = await fetch(prov.url(settings.base), {
+      method:'POST', headers: prov.headers(settings.key), body: JSON.stringify(body)
+    });
+  } catch(netErr){ throw new Error(reachError(netErr)); }
   if(!res.ok) throw new Error('API ' + res.status);
   const data = await res.json();
-  if(data.usage){ tokensIn += data.usage.input_tokens||0; tokensOut += data.usage.output_tokens||0; }
-  return (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+  const [ti, to] = prov.usage(data); tokensIn += ti; tokensOut += to;
+  return prov.parse(data);
 }
 function parseCode(text){
   const m = text.match(/```(?:openscad|scad)\s*\n([\s\S]*?)```/) || text.match(/```\s*\n(\/\/[\s\S]*?)```/);
@@ -2104,14 +2171,14 @@ async function generate(isRefine){
     let content = ask;
     if(attachedImages.length){
       content = [
-        ...attachedImages.map(img => ({ type:'image', source:{ type:'base64', media_type:img.mime, data:img.data } })),
+        ...attachedImages.map(img => P().image(img)),
         { type:'text', text: ask }
       ];
     }
     pushHistory('user', promptText.slice(0,80) + (attachedImages.length ? ` (+${attachedImages.length} photo)` : ''));
     $('prompt').value = '';
     try {
-      await aiTurn(content, `<span class="big">${isRefine?'Refining design':'Designing part'}</span>${escapeHtml(settings.model)}${settings.search?' · web search on':''}`);
+      await aiTurn(content, `<span class="big">${isRefine?'Refining design':'Designing part'}</span>${escapeHtml(settings.model)}${settings.search && P().search ?' · web search on':''}`);
     } catch(err){ $('prompt').value = p; throw err; } // failed: give the prompt back for retry
   } catch(err){
     if(currentMesh) setOverlay(false); else showRenderError(err);
@@ -2399,7 +2466,10 @@ document.addEventListener('keydown', (e) => {
 /* settings + dialogs */
 const dlg = $('dlgSettings');
 $('btnSettings').onclick = () => {
+  $('setProvider').value = settings.provider;
+  syncProviderUI();
   $('setKey').value = settings.key; $('setModel').value = settings.model;
+  $('setBase').value = settings.base;
   $('setClarify').value = settings.clarify; $('setSearch').checked = settings.search;
   $('setMaterial').value = settings.material; $('setNozzle').value = settings.nozzle;
   $('setCost').value = settings.cost; $('setFitOffset').value = settings.fitOffset;
@@ -2436,10 +2506,34 @@ $('setPrinter').onchange = () => {
 // manual bed edits mean "not that printer any more"
 for(const id of ['bedX','bedY','bedZ'])
   $(id).addEventListener('input', () => { $('setPrinter').value = ''; showPrinterInfo(); });
+function syncProviderUI(){
+  const prov = PROVIDERS[$('setProvider').value] || PROVIDERS.anthropic;
+  $('lblKey').textContent = prov.label + ' API key';
+  $('setKey').placeholder = prov.keyHint;
+  $('baseRow').style.display = prov.fixedBase ? 'none' : 'block';
+  $('modelList').innerHTML = prov.models.map(m=>`<option value="${m}"></option>`).join('');
+  $('setModel').placeholder = prov.fixedBase ? '' : 'model id from your gateway, e.g. anthropic/claude-sonnet-4-6';
+  $('setSearch').disabled = !prov.search;
+  $('provNote').textContent = prov.search
+    ? 'Anthropic is the only provider that allows direct browser calls, and the only one with server-side web search.'
+    : 'Browsers block direct calls to OpenAI and Google (CORS). Point this at OpenRouter, a local model server, or your own proxy. Web search is unavailable here.';
+}
+$('setProvider').onchange = () => {
+  const prov = PROVIDERS[$('setProvider').value] || PROVIDERS.anthropic;
+  const wasProvider = settings.provider;
+  settings.provider = $('setProvider').value;      // read that provider's saved values
+  $('setKey').value = settings.key;
+  $('setBase').value = settings.base;
+  $('setModel').value = settings.model;
+  settings.provider = wasProvider;                 // don't commit until Save
+  syncProviderUI();
+};
 $('setCancel').onclick = () => dlg.close();
 $('setSave').onclick = () => {
+  settings.provider = $('setProvider').value;   // set first: key/model/base are stored per provider
   settings.key = $('setKey').value.trim();
-  settings.model = $('setModel').value.trim() || 'claude-sonnet-4-6';
+  settings.base = $('setBase').value.trim();
+  settings.model = $('setModel').value.trim() || P().defaultModel;
   settings.clarify = $('setClarify').value;
   settings.search = $('setSearch').checked;
   settings.material = $('setMaterial').value;
@@ -2461,7 +2555,7 @@ $('qrClose').onclick = () => $('dlgQR').close();
 function updateLlmHint(){
   const pn = printerById(settings.printer);
   $('llmHint').textContent = settings.key
-    ? `AI ready (${settings.model}) · ${settings.clarify==='ask'?'asks first':'just builds'} · search ${settings.search?'on':'off'} · ${settings.material} on ${pn ? pn.m : settings.bed.join('×')}`
+    ? `${P().label.split(' ')[0]} · ${settings.model || 'set a model'} · ${settings.clarify==='ask'?'asks first':'just builds'}${P().search ? ` · search ${settings.search?'on':'off'}` : ''} · ${settings.material} on ${pn ? pn.m : settings.bed.join('×')}`
     : 'AI generation needs an Anthropic API key (⚙ Settings). Templates work without one — try “Hinged box ⚙” then its Assembly view, or print the “Fit coupon 🎯”.';
   $('btnRefine').disabled = !(settings.key && currentCode);
 }
@@ -2507,7 +2601,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   get camera(){ return perspCam; }, get controls(){ return controls; },
   buildAssembly: () => buildAssembly(currentManifest),
   meshTransform, meshMirrorX, meshDropToPlate, checkManifold, adviseOrientation, to3MF, toBinarySTL, lint,
-  PRINTERS, printerById, materialCompat, printerDescriptor, settings,
+  PRINTERS, printerById, materialCompat, printerDescriptor, settings, PROVIDERS, P,
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
   get mesh(){ return currentMesh; }, get code(){ return currentCode; }, get manifest(){ return currentManifest; },
   get viewMode(){ return viewMode; }, get joints(){ return currentManifest ? currentManifest.joints : []; },

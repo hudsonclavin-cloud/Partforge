@@ -37,6 +37,15 @@ Calibration: print the **Fit coupon** template, find the hole that fits its peg 
 and enter the offset in Settings — every later design compensates for your printer
 automatically.
 
+## AI providers
+
+Anthropic works directly from the browser — it is the only major provider that
+permits it. OpenAI and Google send no CORS headers, so a static page cannot call
+them; reach those through any OpenAI-compatible gateway (OpenRouter, a local model
+server) or through `worker.js`, a Cloudflare Worker that relays requests and keeps
+your key as a Worker secret instead of in the page. Setup instructions are in the
+comments at the top of that file. Web search is Anthropic-only.
+
 ## Keyboard
 
 G generate · R refine · A assembly · I inspect · M measure · X section ·
