@@ -2044,6 +2044,7 @@ function hideQuestions(){ $('qaCard').style.display = 'none'; pendingQuestions =
 
 /* ---- AI driver ---- */
 const MAX_REPAIRS = 2;
+let aiBusy = false; // an API request is in flight — blocks a second billable call
 async function aiTurn(userContent, label){
   setOverlay(true, label, {cancel:false});
   let text = await callClaude(userContent);
@@ -2089,7 +2090,8 @@ async function generate(isRefine){
   msg($('genMsg'),'','');
   if(!p && !attachedImages.length){ msg($('genMsg'),'err', isRefine ? 'Describe the change first.' : 'Describe the part (or attach a photo) first.'); return; }
   if(!settings.key){ msg($('genMsg'),'err','Add your Anthropic API key in ⚙ Settings, or use a template.'); return; }
-  if(busy) return;
+  if(busy || aiBusy) return;
+  aiBusy = true;
   hideQuestions();
   $('btnGenerate').disabled = true; $('btnRefine').disabled = true;
   try{
@@ -2115,23 +2117,28 @@ async function generate(isRefine){
     if(currentMesh) setOverlay(false); else showRenderError(err);
     msg($('genMsg'),'err', String(err.message||err).slice(0,300));
   } finally {
+    aiBusy = false;
     $('btnGenerate').disabled = false; $('btnRefine').disabled = !(settings.key && currentCode);
   }
 }
 $('qaSubmit').onclick = async () => {
-  if(!pendingQuestions || busy) return;
+  if(!pendingQuestions || busy || aiBusy) return;
+  aiBusy = true;
   const answers = collectAnswers();
   hideQuestions();
   pushHistory('user', 'answered questions');
   try { await aiTurn(answers, `<span class="big">Designing part</span>${escapeHtml(settings.model)}`); }
   catch(err){ if(currentMesh) setOverlay(false); else showRenderError(err); msg($('genMsg'),'err', String(err.message||err).slice(0,300)); }
+  finally { aiBusy = false; }
 };
 $('qaSkip').onclick = async () => {
-  if(busy) return;
+  if(busy || aiBusy) return;
+  aiBusy = true;
   hideQuestions();
   pushHistory('user', 'skipped questions');
   try { await aiTurn('Skip the questions — generate now with your best assumptions, stating them in NOTE lines.', `<span class="big">Designing part</span>${escapeHtml(settings.model)}`); }
   catch(err){ if(currentMesh) setOverlay(false); else showRenderError(err); msg($('genMsg'),'err', String(err.message||err).slice(0,300)); }
+  finally { aiBusy = false; }
 };
 
 $('btnGenerate').onclick = () => generate(false);
@@ -2194,12 +2201,15 @@ $('btnRename').onclick = () => {
 $('btnReview').onclick = async () => {
   if(!currentCode){ return; }
   if(!settings.key){ toast('Review needs an API key (⚙ Settings)'); return; }
+  if(aiBusy) return;
+  aiBusy = true;
   const out = $('reviewOut');
   out.style.display = 'block'; out.textContent = 'Reviewing design…';
   try {
     const text = await callClaudeOneShot(REVIEW_PROMPT, 'Review this OpenSCAD part:\n```openscad\n' + currentCode.slice(0, 12000) + '\n```');
     out.textContent = text.trim();
   } catch(err){ out.textContent = 'Review failed: ' + err.message; }
+  finally { aiBusy = false; }
 };
 
 /* templates + ideas */
