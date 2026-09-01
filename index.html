@@ -569,6 +569,16 @@ One fenced code block of complete, valid OpenSCAD. No prose outside it.
    // PRINT: <orientation on bed, support needs, suggested material>
    // NOTE: <fit/assembly notes, stated assumptions> (repeatable)
 4. $fn = 64 (96 only for a single smooth cylinder). Part rests on Z=0 in print orientation.
+5. DESIGN SPEC — declare what you are building BEFORE the geometry, as comment lines right after the header. The app compiles each declared part alone and checks the geometry against your own declaration, so say what is true:
+   // SPEC-BEGIN
+   // {"name":"<what it is>","size_mm":[x,y,z],
+   //  "parts":[{"name":"torso","role":"main body","size_mm":[30,18,40]},{"name":"left_arm","role":"arm, hangs at the side","size_mm":[10,10,28]}],
+   //  "joints":[{"a":"left_arm","b":"torso","overlap_mm":2}],
+   //  "proportions":["shoulder width about 2x head width","legs about 45% of total height"]}
+   // SPEC-END
+   Valid JSON; every line prefixed with //. 2–10 parts, lowercase identifier names. A joint is a pair of parts that must share volume. Proportions are the rules you designed to.
+6. ONE MODULE PER PART, named EXACTLY as in the SPEC. Each module produces its part ALREADY IN ITS FINAL POSITION in the finished object — put the translate()/rotate() INSIDE the module, so left_arm() on its own appears where the arm goes. Then module main() unions all parts, and the ONLY top-level statement in the file is main();
+   The app renders intersection(){ left_arm(); torso(); } for every declared joint. Parts that merely touch have an EMPTY intersection and are rejected — overlap them by the declared amount.
 
 MODE 3 — ASSEMBLY (when the design has multiple parts or moving parts):
 Same contract as MODE 2, plus:
@@ -970,10 +980,10 @@ function getModule(){
 }
 self.onmessage = async (e) => {
   const { id, code } = e.data;
+  const logs = [];   // hoisted so the catch below can report WHY the engine failed
   try {
     self.postMessage({ id, status: 'loading-engine' });
     const m = await getModule();
-    const logs = [];
     const inst = await m.createOpenSCAD({ printErr: t => logs.push(t), print: t => logs.push(t) });
     self.postMessage({ id, status: 'rendering' });
     const stl = await inst.renderToStl(code);
@@ -984,7 +994,12 @@ self.onmessage = async (e) => {
       self.postMessage({ id, stl, log: logs.slice(-60).join('\\n') });
     }
   } catch(err) {
-    self.postMessage({ id, error: String(err && err.message || err) });
+    // The engine's exit object may carry no .message — never surface "[object Object]".
+    let msg = (err && typeof err.message === 'string' && err.message) ? err.message
+            : (err && err.status != null) ? 'engine exited with status ' + err.status : String(err);
+    if(msg === '[object Object]'){ try { msg = 'engine error ' + JSON.stringify(err).slice(0, 200); } catch(e){ msg = 'engine error'; } }
+    const errLines = logs.filter(l=>/ERROR|WARNING/i.test(l));
+    self.postMessage({ id, error: msg + '\\n' + (errLines.length?errLines:logs).slice(-15).join('\\n') });
   }
 };
 `;
@@ -1278,6 +1293,107 @@ function gateSummary(g){
   if(!g) return '';
   if(!g.fails.length) return 'passed';
   return g.fails.length + ' issue' + (g.fails.length>1?'s':'');
+}
+
+/* ---------------- spec verification ----------------
+   The model declares what it built — parts, sizes, joints — in a SPEC block that
+   travels inside the code as comments. The program then compiles each declared
+   part ALONE and each declared joint as an intersection(), and checks the geometry
+   against the declaration. Understanding, operationalised: stated intent that
+   survives contact with measurement. A failure names the model's own broken
+   promise ("left_arm does not intersect torso; you declared 2 mm overlap"), which
+   is a far sharper retry signal than "1 piece floating".
+   Degrades gracefully: no SPEC, or an assembly (own manifest contract) → skipped. */
+function parseSpec(code){
+  const m = code.match(/\/\/\s*SPEC-BEGIN\s*\n([\s\S]*?)\/\/\s*SPEC-END/);
+  if(!m) return null;
+  const json = m[1].split('\n').map(l => l.replace(/^\s*\/\/ ?/, '')).join('\n');
+  try {
+    const s = JSON.parse(json);
+    if(!s || !Array.isArray(s.parts)) return null;
+    s.parts = s.parts.filter(p => p && typeof p.name === 'string')
+      .map(p => ({ name: p.name.trim(), role: String(p.role || ''), size_mm: Array.isArray(p.size_mm) && p.size_mm.length === 3 ? p.size_mm.map(Number) : null }));
+    s.joints = (Array.isArray(s.joints) ? s.joints : []).filter(j => j && j.a && j.b)
+      .map(j => ({ a: String(j.a).trim(), b: String(j.b).trim(), overlap_mm: Number(j.overlap_mm) || 0 }));
+    s.proportions = (Array.isArray(s.proportions) ? s.proportions : []).map(String).slice(0, 8);
+    return s.parts.length ? s : null;
+  } catch(e){ return null; }
+}
+function meshBBox(mesh){
+  if(!mesh || !mesh.tris) return [0,0,0];
+  const p = mesh.pos, mn = [Infinity,Infinity,Infinity], mx = [-Infinity,-Infinity,-Infinity];
+  for(let i=0;i<p.length;i+=3) for(let k=0;k<3;k++){ const v = p[i+k]; if(v < mn[k]) mn[k] = v; if(v > mx[k]) mx[k] = v; }
+  return [mx[0]-mn[0], mx[1]-mn[1], mx[2]-mn[2]];
+}
+/* Render one subtree of the design. `!` is OpenSCAD's root modifier: render ONLY
+   this, ignore everything else in the file — so main() need not be stripped. */
+async function renderProbe(code, expr){
+  try {
+    const stl = await renderSCAD(code + '\n!' + expr + ';\n', () => {});
+    return parseAsciiSTL(stl || '');
+  } catch(err){
+    // OpenSCAD reports an empty result as an error ("Current top level object is empty",
+    // "No top level geometry to render"); the worker forwards the log tail with it.
+    const msg = String(err && err.message || err);
+    if(/object is empty|no top.level geometry|produced no geometry|nothing to export|no geometry/i.test(msg))
+      return { pos:new Float32Array(0), nrm:new Float32Array(0), tris:0 };
+    throw err;
+  }
+}
+const SPEC_MAX_PROBES = 16;   // each probe is a WASM compile of one module — cap the bill
+async function specCheck(code, g, onStatus){
+  g.spec = null; g.parts = []; g.joints = []; g.specNote = '';
+  if(g.isAssembly){ g.specNote = 'assembly — manifest contract applies'; return g; }
+  const spec = parseSpec(code);
+  if(!spec){ g.specNote = 'no SPEC block — part checks skipped'; return g; }
+  g.spec = spec;
+  const defined = new Set([...code.matchAll(/^\s*module\s+([A-Za-z_]\w*)\s*\(/gm)].map(m => m[1]));
+  let probes = 0;
+  for(const p of spec.parts){
+    const row = { name:p.name, spec:p.size_mm, size:null, ok:false, note:'' };
+    g.parts.push(row);
+    if(!defined.has(p.name)){
+      row.note = 'no module';
+      g.fails.push(`The SPEC declares a part "${p.name}" but there is no module ${p.name}() in the code. Every declared part must be its own module, named exactly as in the SPEC, producing the part in its final position.`);
+      continue;
+    }
+    if(probes >= SPEC_MAX_PROBES){ row.note = 'not probed (cap)'; continue; }
+    onStatus && onStatus(`part ${p.name}`);
+    probes++;
+    let m; try { m = await renderProbe(code, p.name + '()'); } catch(e){ row.note = 'probe error'; continue; }
+    if(!m.tris){
+      row.note = 'renders nothing';
+      g.fails.push(`module ${p.name}() renders nothing, but the SPEC says it is the ${p.role || 'part'}. Give it real geometry.`);
+      continue;
+    }
+    row.size = meshBBox(m).map(v => Math.round(v*10)/10);
+    if(p.size_mm && p.size_mm.every(v => v > 0)){
+      const want = Math.max(...p.size_mm), got = Math.max(...row.size);
+      if(got > want*2 || got < want*0.5){
+        row.note = `spec ${want}, got ${got.toFixed(0)}`;
+        g.fails.push(`${p.name}() is ${got.toFixed(0)} mm across; your SPEC said about ${want} mm. Either the SPEC or the geometry is wrong — make them agree.`);
+        continue;
+      }
+    }
+    row.ok = true;
+  }
+  for(const j of spec.joints){
+    const row = { a:j.a, b:j.b, ok:false, note:'' };
+    g.joints.push(row);
+    if(!defined.has(j.a) || !defined.has(j.b)){ row.note = 'missing module'; continue; }   // reported above
+    if(probes >= SPEC_MAX_PROBES){ row.note = 'not probed (cap)'; continue; }
+    onStatus && onStatus(`joint ${j.a} ∩ ${j.b}`);
+    probes++;
+    let m; try { m = await renderProbe(code, `intersection(){ ${j.a}(); ${j.b}(); }`); } catch(e){ row.note = 'probe error'; continue; }
+    if(!m.tris){
+      row.note = 'no overlap';
+      g.fails.push(`${j.a}() does not intersect ${j.b}() — their intersection is empty, so they are not joined. Your SPEC promised ${j.overlap_mm || 1.5} mm of overlap. Move ${j.a} into ${j.b} so the two solids share volume.`);
+      continue;
+    }
+    row.ok = true;
+  }
+  g.probes = probes;
+  return g;
 }
 
 /* orientation advisor */
@@ -1906,7 +2022,11 @@ function renderReport(a, code){
     ${lastGate ? `<div class="line"><span>Geometry gate</span><span>${
       lastGate.fails.length === 0 ? '<span class="tag good">PASSED</span>'
       : `<span class="tag bad">${lastGate.fails.length} FAILED</span>`}</span></div>`
-      + (lastGate.fails.length ? `<div class="w" style="color:var(--warn);font-size:12px">${lastGate.fails.map(f=>'⚠ '+escapeHtml(f)).join('<br>')}</div>` : '') : ''}
+      + (lastGate.fails.length ? `<div class="w" style="color:var(--warn);font-size:12px">${lastGate.fails.map(f=>'⚠ '+escapeHtml(f)).join('<br>')}</div>` : '')
+      + (lastGate.spec
+          ? `<div class="line"><span>Spec check</span><span>${lastGate.parts.filter(p=>p.ok).length}/${lastGate.parts.length} parts · ${lastGate.joints.filter(j=>j.ok).length}/${lastGate.joints.length} joints${lastGate.parts.length + lastGate.joints.length > 0 && lastGate.parts.every(p=>p.ok) && lastGate.joints.every(j=>j.ok) ? ' <span class="tag good">OK</span>' : ''}</span></div>`
+            + `<div class="w" style="font-size:11px;color:var(--dim)">${lastGate.parts.map(p => `${escapeHtml(p.name)} ${p.size ? p.size.map(v=>Math.round(v)).join('×') : ''}${p.ok ? '' : ' <span class="tag bad">' + escapeHtml(p.note || 'fail') + '</span>'}`).join(' · ')}${lastGate.joints.length ? '<br>' + lastGate.joints.map(j => `${escapeHtml(j.a)}∩${escapeHtml(j.b)}${j.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(j.note || 'fail') + '</span>'}`).join(' · ') : ''}</div>`
+          : (lastGate.specNote ? `<div class="line"><span>Spec check</span><span class="tag warn">${escapeHtml(lastGate.specNote)}</span></div>` : '')) : ''}
     <div class="line"><span>Size (X·Y·Z)</span><b>${f(a.size[0])} × ${f(a.size[1])} × ${f(a.size[2])} mm</b></div>
     <div class="line"><span>Fits ${pinfo ? escapeHtml(pinfo.m) : 'bed'}</span><span>${tag(a.fitsBed,false)}</span></div>
     ${compat ? `<div class="line"><span>Material vs printer</span><span class="tag bad">CHECK</span></div><div class="w" style="color:var(--warn);font-size:12px">⚠ ${escapeHtml(compat)}</div>` : ''}
@@ -2357,6 +2477,9 @@ function benchScore(c, a, code, gate){
   const declared = partKind(code);
   const bodies = manifest ? manifest.mods.length : (a.conn ? a.conn.count : 1);
 
+  r.specOK = !!(gate && gate.spec);                 // declared a checkable spec (single parts only)
+  r.probes = gate && gate.probes ? gate.probes : 0;
+  if(!r.specOK && !manifest) r.notes.push('no SPEC block');
   r.kindOK = declared === c.kind;
   if(!r.kindOK) r.notes.push(`declared KIND: ${declared}, expected ${c.kind}`);
 
@@ -2448,7 +2571,8 @@ function benchSummary(results){
   const clean = results.filter(r=>r.compiled && r.fails.length===0).length;
   const judged = results.filter(r => r.intent && typeof r.intent.score === 'number');
   const intent = judged.length ? Math.round(10 * judged.reduce((s,r)=>s+r.intent.score,0) / judged.length) / 10 : null;
-  return { n, passed, compiled, clean, intent, judged: judged.length,
+  const spec = results.filter(r => r.specOK).length;
+  return { n, passed, compiled, clean, intent, judged: judged.length, spec, specRate: n ? Math.round(100*spec/n) : 0,
     rate: n ? Math.round(100*passed/n) : 0,
     compileRate: n ? Math.round(100*compiled/n) : 0,
     cleanRate: n ? Math.round(100*clean/n) : 0 };
@@ -2475,6 +2599,7 @@ function renderBench(results, status){
     + (results.length ? `<div class="line"><span><b>Score</b></span><b>${s.passed}/${s.n} pass · ${s.rate}%</b></div>`
        + `<div class="line"><span>Rendered without error</span><b>${s.compileRate}%</b></div>`
        + `<div class="line"><span>Passed the geometry gate</span><b>${s.cleanRate}%</b></div>`
+       + `<div class="line"><span>Declared a checkable spec</span><b>${s.specRate}%</b></div>`
        + (s.intent != null ? `<div class="line"><span>Reads as requested (judge avg)</span><b>${s.intent}/10 · n=${s.judged}</b></div>` : '') : '')
     + rows
     + (hist ? `<h3 style="margin-top:14px">Previous runs</h3>${hist}` : '');
@@ -2524,15 +2649,19 @@ async function aiTurn(userContent, label){
         }
       }
       const g = settings.gate ? gateCheck(currentMesh, a, code, a.conn) : null;
+      if(g){
+        await specCheck(code, g, s => setOverlay(true, `<span class="big">Checking the design against its own spec</span>${escapeHtml(s)}`, {cancel:false}));
+        if(currentMesh) setOverlay(false);
+      }
       lastGate = g;
       renderReport(a, code);
-      if(!best || (g ? g.fails.length : 0) < best.n) best = { code, n: g ? g.fails.length : 0 };
+      if(!best || (g ? g.fails.length : 0) < best.n) best = { code, n: g ? g.fails.length : 0, g };
       if(!g || !g.fails.length || round >= GATE_MAX_RETRIES){
         // Always show the best candidate — never withhold a result.
         if(best.code !== code){
           pushHistory('ai', 'kept the best of ' + (round+1) + ' attempts');
           await runCode(best.code);
-          lastGate = gateCheck(currentMesh, lastAnalysis, best.code, lastAnalysis.conn);
+          lastGate = best.g;   // already scored, spec probes included — no need to recompute
           renderReport(lastAnalysis, best.code);
         } else {
           pushHistory('ai', firstPartName(code) + (g && g.fails.length ? ` — ${g.fails.length} check${g.fails.length>1?'s':''} still failing` : ''));
@@ -2722,6 +2851,10 @@ async function improveByLooking(){
     // report shows a verdict instead of silently dropping the row. No retry loop here —
     // the user asked for one revision and gets exactly one.
     lastGate = settings.gate ? gateCheck(currentMesh, a2, code, a2.conn) : null;
+    if(lastGate){
+      await specCheck(code, lastGate, s => setOverlay(true, `<span class="big">Checking the revision against its spec</span>${escapeHtml(s)}`, {cancel:false}));
+      if(currentMesh) setOverlay(false);
+    }
     renderReport(a2, code);
     pushHistory('ai', 'looked at it and revised' + (lastGate && lastGate.fails.length ? ` — ${lastGate.fails.length} check${lastGate.fails.length>1?'s':''} failing` : ''));
   } catch(err){
@@ -3071,7 +3204,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   PRINTERS, printerById, materialCompat, printerDescriptor, settings, PROVIDERS, P,
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
   captureViews, improveByLooking, gateCheck, partKind,
-  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor,
+  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox,
   get benchRunning(){ return benchRunning; },
   get aiBusy(){ return aiBusy; }, get lastGate(){ return lastGate; }, get lastAnalysis(){ return lastAnalysis; },
   get mesh(){ return currentMesh; }, get code(){ return currentCode; }, get manifest(){ return currentManifest; },
