@@ -58,25 +58,39 @@ server) or through `worker.js`, a Cloudflare Worker that relays requests and kee
 your key as a Worker secret instead of in the page. Setup instructions are in the
 comments at the top of that file. Web search is Anthropic-only.
 
-## Geometry gate and bench
+## Design spec, geometry gate and bench
 
-The report's deterministic checks — connectivity, on-plate, bed fit, volume, and
-figure proportions — decide whether a generated part is **accepted**. A rejected
-candidate is sent back to the model with the failed check named in text plus the
-measured numbers, and regenerated, up to twice. The best-scoring candidate is always
-rendered, so a part is never withheld. **Look & fix** results are scored by the same
-gate. Off switch in ⚙ Settings.
+A generated part opens with a **SPEC** — what it is, its parts and their sizes, which
+parts join which, the proportion rules it designed to, and how the parts sit relative
+to each other — travelling inside the code as comments. Each declared part is its own
+module, placed in its final position, and `main()` unions them.
+
+The program then checks the geometry against that declaration. It compiles every part
+alone (size against the spec), every joint as an `intersection()` (empty means not
+joined), every proportion rule from the measured parts, and every layout relation
+from their bounding boxes. A failure goes back quoting the model's own promise —
+*"left_arm() does not intersect torso(); your SPEC promised 2 mm of overlap"* — and
+the part is regenerated, up to twice, keeping the best candidate. Understanding,
+operationalised: stated intent that survives contact with measurement. The
+whole-mesh checks (floating pieces, on-plate, bed fit, volume, figure proportions)
+still run underneath. No SPEC, or an assembly, skips the part checks with a note.
+**Look & fix** is scored the same way. Off switch in ⚙ Settings.
+
+**🧩 Parts** colours each declared part exactly as the checker saw it; the chips in
+the report's Spec check row use the same colours.
 
 Each retry carries the previous attempt, so budget roughly 4–5× a clean run in tokens
-for a part that needs both retries. Web search is off during retries — the model
-already has the measurements.
+for a part that needs both. Web search is off during retries. On Anthropic the
+system prompt is cached, so every call after the first reads it at a tenth of the
+price.
 
-Add `?bench=1` to the URL for the bench: 20 fixed prompts with expected kind, body
-count and size, scored by the same gate. **Run raw** measures the generator alone;
-**Run gated** measures it with retries — the difference is what the gate is worth.
-**Judge intent** adds one vision call per case: the model sees its own render and
-scores whether it reads as requested. That column is non-deterministic, so it is
-reported separately and is never part of pass. Run history stays in localStorage.
+Add `?bench=1` for the bench: 20 fixed prompts with expected kind, body count and
+size, scored by the same gate. **Run raw** measures the generator alone; **Run
+gated** measures it with retries — the difference is what the gate is worth. **Judge
+intent** shows a model the render and the declared design and scores whether it
+reads as requested; raise the samples per case to get a spread, and set a separate
+judge model in ⚙ Settings so the designer does not grade its own work. That column
+is non-deterministic and never part of pass. Run history stays in localStorage.
 
 ## Keyboard
 

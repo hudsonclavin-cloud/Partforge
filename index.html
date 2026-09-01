@@ -588,9 +588,10 @@ One fenced code block of complete, valid OpenSCAD. No prose outside it.
    // {"name":"<what it is>","size_mm":[x,y,z],
    //  "parts":[{"name":"torso","role":"main body","size_mm":[30,18,40]},{"name":"left_arm","role":"arm, hangs at the side","size_mm":[10,10,28]}],
    //  "joints":[{"a":"left_arm","b":"torso","overlap_mm":2}],
-   //  "proportions":[{"a":"torso","b":"head","axis":"x","min":1.8,"max":2.5,"why":"shoulders about 2x head width"},{"a":"legs","b":"torso","axis":"z","min":0.8,"max":1.2,"why":"legs about as tall as the torso"}]}
+   //  "proportions":[{"a":"torso","b":"head","axis":"x","min":1.8,"max":2.5,"why":"shoulders about 2x head width"},{"a":"legs","b":"torso","axis":"z","min":0.8,"max":1.2,"why":"legs about as tall as the torso"}],
+   //  "layout":[{"a":"head","rel":"above","b":"torso"},{"a":"head","rel":"centered","b":"torso"},{"a":"left_arm","rel":"left","b":"torso"}]}
    // SPEC-END
-   Valid JSON; every line prefixed with //. 2–10 parts, lowercase identifier names. A joint is a pair of parts that must share volume. A proportion is a rule you designed to: the ratio of part a's extent to part b's on an axis (x, y, z, or max), with the range you intend. The app measures every part and checks every rule against the actual geometry — state only rules you built to.
+   Valid JSON; every line prefixed with //. 2–10 parts, lowercase identifier names. A joint is a pair of parts that must share volume. A proportion is a rule you designed to: the ratio of part a's extent to part b's on an axis (x, y, z, or max), with the range you intend. The app measures every part and checks every rule against the actual geometry — state only rules you built to. A layout entry is a spatial relation between two parts — above, below, left (−x), right (+x), front (−y), back (+y), inside, or centered (same x and y centre) — checked from the parts' bounding boxes with 3 mm tolerance.
 6. ONE MODULE PER PART, named EXACTLY as in the SPEC. Each module produces its part ALREADY IN ITS FINAL POSITION in the finished object — put the translate()/rotate() INSIDE the module, so left_arm() on its own appears where the arm goes. Then module main() unions all parts, and the ONLY top-level statement in the file is main();
    The app renders intersection(){ left_arm(); torso(); } for every declared joint. Parts that merely touch have an EMPTY intersection and are rejected — overlap them by the declared amount.
 
@@ -1336,6 +1337,10 @@ function parseSpec(code){
       .map(r => ({ a:String(r.a).trim(), b:String(r.b).trim(), axis: /^(x|y|z|max|min)$/.test(String(r.axis||'')) ? String(r.axis) : 'max',
                    min:Number(r.min), max:Number(r.max), why:String(r.why||'').slice(0,80) })).slice(0, 8);
     s.proportions = props.filter(r => typeof r === 'string').map(String).slice(0, 8);
+    // Layout relations: {a, rel, b} — where a sits relative to b, checked from bounding boxes.
+    const REL = /^(above|below|left|right|front|back|inside|centered)$/;
+    s.layout = (Array.isArray(s.layout) ? s.layout : []).filter(l => l && l.a && l.b && REL.test(String(l.rel || '')))
+      .map(l => ({ a:String(l.a).trim(), rel:String(l.rel), b:String(l.b).trim(), tol_mm: isFinite(l.tol_mm) && Number(l.tol_mm) > 0 ? Number(l.tol_mm) : 3 })).slice(0, 12);
     return s.parts.length ? s : null;
   } catch(e){ return null; }
 }
@@ -1346,7 +1351,14 @@ function specSummary(spec){
   const parts = spec.parts.map(p => `${p.name}${p.size_mm ? ' ' + p.size_mm.map(v=>Math.round(v)).join('×') + ' mm' : ''}${p.role ? ' (' + p.role + ')' : ''}`).join('; ');
   const joints = spec.joints.map(j => `${j.a}→${j.b}`).join(', ');
   const rules = (spec.rules || []).map(r => `${r.why || r.a + '/' + r.b} [${r.a}.${r.axis}/${r.b}.${r.axis} ${r.min}–${r.max}]`).concat(spec.proportions || []).join('; ');
-  return `Declared design${spec.name ? ' "' + spec.name + '"' : ''}: parts ${parts}` + (joints ? `. Joints: ${joints}` : '') + (rules ? `. Proportion rules: ${rules}` : '') + '.';
+  const layout = (spec.layout || []).map(l => `${l.a} ${l.rel} ${l.b}`).join(', ');
+  return `Declared design${spec.name ? ' "' + spec.name + '"' : ''}: parts ${parts}` + (joints ? `. Joints: ${joints}` : '') + (rules ? `. Proportion rules: ${rules}` : '') + (layout ? `. Layout: ${layout}` : '') + '.';
+}
+function meshBounds(mesh){
+  if(!mesh || !mesh.tris) return { min:[0,0,0], max:[0,0,0] };
+  const p = mesh.pos, mn = [Infinity,Infinity,Infinity], mx = [-Infinity,-Infinity,-Infinity];
+  for(let i=0;i<p.length;i+=3) for(let k=0;k<3;k++){ const v = p[i+k]; if(v < mn[k]) mn[k] = v; if(v > mx[k]) mx[k] = v; }
+  return { min:mn, max:mx };
 }
 function meshBBox(mesh){
   if(!mesh || !mesh.tris) return [0,0,0];
@@ -1371,7 +1383,7 @@ async function renderProbe(code, expr){
 }
 const SPEC_MAX_PROBES = 16;   // each probe is a WASM compile of one module — cap the bill
 async function specCheck(code, g, onStatus){
-  g.spec = null; g.parts = []; g.joints = []; g.rules = []; g.specNote = '';
+  g.spec = null; g.parts = []; g.joints = []; g.rules = []; g.layout = []; g.specNote = '';
   if(g.isAssembly){ g.specNote = 'assembly — manifest contract applies'; return g; }
   const spec = parseSpec(code);
   if(!spec){ g.specNote = 'no SPEC block — part checks skipped'; return g; }
@@ -1396,6 +1408,7 @@ async function specCheck(code, g, onStatus){
       continue;
     }
     row.size = meshBBox(m).map(v => Math.round(v*10)/10);
+    row.bounds = meshBounds(m);         // for layout relations
     if(m.tris <= 60000) row.mesh = m;   // kept for the Parts view — the user sees what was checked
     if(p.size_mm && p.size_mm.every(v => v > 0)){
       // Compare extents sorted largest→smallest so orientation does not matter, with
@@ -1442,6 +1455,38 @@ async function specCheck(code, g, onStatus){
     if(row.got < r.min * (1 - slack) || row.got > r.max * (1 + slack)){
       row.note = `got ${row.got}`;
       g.fails.push(`Your SPEC rule "${r.why || r.a + '/' + r.b}" says ${r.a}.${r.axis} / ${r.b}.${r.axis} should be ${r.min}–${r.max}; measured ${num.toFixed(0)} / ${den.toFixed(0)} = ${row.got}. Fix the geometry to match the rule you set, or fix the rule.`);
+      continue;
+    }
+    row.ok = true;
+  }
+  // --- layout relations: where parts sit relative to each other, from their bounding
+  //     boxes. "head above torso" is something the model can state and the program can
+  //     verify — and the classic failure (a limb inside the body, a head off to one
+  //     side) is exactly a layout violation.
+  const boundsOf = new Map(g.parts.filter(p => p.bounds).map(p => [p.name, p.bounds]));
+  for(const l of (spec.layout || [])){
+    const row = { a:l.a, rel:l.rel, b:l.b, ok:false, note:'', detail:'' };
+    g.layout.push(row);
+    const A = boundsOf.get(l.a), B = boundsOf.get(l.b);
+    if(!A || !B){ row.note = 'unmeasured part'; continue; }
+    const t = l.tol_mm;
+    const span = (P, k) => `${P.min[k].toFixed(0)}–${P.max[k].toFixed(0)}`;
+    let ok = false, detail = '';
+    switch(l.rel){
+      case 'above':  ok = A.min[2] >= B.max[2] - t; detail = `${l.a} z ${span(A,2)} vs ${l.b} z ${span(B,2)}`; break;
+      case 'below':  ok = A.max[2] <= B.min[2] + t; detail = `${l.a} z ${span(A,2)} vs ${l.b} z ${span(B,2)}`; break;
+      case 'left':   ok = A.max[0] <= B.min[0] + t; detail = `${l.a} x ${span(A,0)} vs ${l.b} x ${span(B,0)}`; break;
+      case 'right':  ok = A.min[0] >= B.max[0] - t; detail = `${l.a} x ${span(A,0)} vs ${l.b} x ${span(B,0)}`; break;
+      case 'front':  ok = A.max[1] <= B.min[1] + t; detail = `${l.a} y ${span(A,1)} vs ${l.b} y ${span(B,1)}`; break;
+      case 'back':   ok = A.min[1] >= B.max[1] - t; detail = `${l.a} y ${span(A,1)} vs ${l.b} y ${span(B,1)}`; break;
+      case 'inside': ok = [0,1,2].every(k => A.min[k] >= B.min[k] - t && A.max[k] <= B.max[k] + t); detail = `${l.a} box ${['x','y','z'].map((n,k)=>n+' '+span(A,k)).join(', ')} is not within ${l.b}`; break;
+      case 'centered': { const off = k => Math.abs((A.min[k]+A.max[k])/2 - (B.min[k]+B.max[k])/2); ok = off(0) <= t && off(1) <= t; detail = `centre offset x ${off(0).toFixed(1)} mm, y ${off(1).toFixed(1)} mm`; break; }
+      default: row.note = 'unknown relation'; continue;
+    }
+    row.detail = detail;
+    if(!ok){
+      row.note = 'violated';
+      g.fails.push(`Your SPEC says ${l.a} is ${l.rel} ${l.b}, but measured: ${detail}. Move ${l.a} so it is ${l.rel} ${l.b}${l.rel === 'centered' ? ' (same x and y centre)' : ''}.`);
       continue;
     }
     row.ok = true;
@@ -2111,8 +2156,8 @@ function renderReport(a, code){
       : `<span class="tag bad">${lastGate.fails.length} FAILED</span>`}</span></div>`
       + (lastGate.fails.length ? `<div class="w" style="color:var(--warn);font-size:12px">${lastGate.fails.map(f=>'⚠ '+escapeHtml(f)).join('<br>')}</div>` : '')
       + (lastGate.spec
-          ? `<div class="line"><span>Spec check</span><span>${lastGate.parts.filter(p=>p.ok).length}/${lastGate.parts.length} parts · ${lastGate.joints.filter(j=>j.ok).length}/${lastGate.joints.length} joints${lastGate.rules && lastGate.rules.length ? ` · ${lastGate.rules.filter(r=>r.ok).length}/${lastGate.rules.length} rules` : ''}${lastGate.parts.length + lastGate.joints.length > 0 && lastGate.parts.every(p=>p.ok) && lastGate.joints.every(j=>j.ok) && (lastGate.rules||[]).every(r=>r.ok) ? ' <span class="tag good">OK</span>' : ''}</span></div>`
-            + `<div class="w" style="font-size:11px;color:var(--dim)">${lastGate.parts.map((p, i) => `<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${partColorHex(i)};vertical-align:middle;margin-right:3px"></span>${escapeHtml(p.name)}${p.size ? p.size.map(v=>Math.round(v)).join('×') : ''}${p.ok ? '' : ' <span class="tag bad">' + escapeHtml(p.note || 'fail') + '</span>'}`).join(' · ')}${lastGate.joints.length ? '<br>' + lastGate.joints.map(j => `${escapeHtml(j.a)}∩${escapeHtml(j.b)}${j.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(j.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.rules && lastGate.rules.length ? '<br>' + lastGate.rules.map(r => `${escapeHtml(r.why || r.a + '/' + r.b)}${r.got != null ? ' = ' + r.got : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}</div>`
+          ? `<div class="line"><span>Spec check</span><span>${lastGate.parts.filter(p=>p.ok).length}/${lastGate.parts.length} parts · ${lastGate.joints.filter(j=>j.ok).length}/${lastGate.joints.length} joints${lastGate.rules && lastGate.rules.length ? ` · ${lastGate.rules.filter(r=>r.ok).length}/${lastGate.rules.length} rules` : ''}${lastGate.layout && lastGate.layout.length ? ` · ${lastGate.layout.filter(l=>l.ok).length}/${lastGate.layout.length} layout` : ''}${lastGate.parts.length + lastGate.joints.length > 0 && lastGate.parts.every(p=>p.ok) && lastGate.joints.every(j=>j.ok) && (lastGate.rules||[]).every(r=>r.ok) && (lastGate.layout||[]).every(l=>l.ok) ? ' <span class="tag good">OK</span>' : ''}</span></div>`
+            + `<div class="w" style="font-size:11px;color:var(--dim)">${lastGate.parts.map((p, i) => `<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${partColorHex(i)};vertical-align:middle;margin-right:3px"></span>${escapeHtml(p.name)}${p.size ? p.size.map(v=>Math.round(v)).join('×') : ''}${p.ok ? '' : ' <span class="tag bad">' + escapeHtml(p.note || 'fail') + '</span>'}`).join(' · ')}${lastGate.joints.length ? '<br>' + lastGate.joints.map(j => `${escapeHtml(j.a)}∩${escapeHtml(j.b)}${j.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(j.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.rules && lastGate.rules.length ? '<br>' + lastGate.rules.map(r => `${escapeHtml(r.why || r.a + '/' + r.b)}${r.got != null ? ' = ' + r.got : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.layout && lastGate.layout.length ? '<br>' + lastGate.layout.map(l => `${escapeHtml(l.a)} ${escapeHtml(l.rel)} ${escapeHtml(l.b)}${l.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(l.note || 'fail') + '</span>'}`).join(' · ') : ''}</div>`
           : (lastGate.specNote ? `<div class="line"><span>Spec check</span><span class="tag warn">${escapeHtml(lastGate.specNote)}</span></div>` : '')) : ''}
     <div class="line"><span>Size (X·Y·Z)</span><b>${f(a.size[0])} × ${f(a.size[1])} × ${f(a.size[2])} mm</b></div>
     <div class="line"><span>Fits ${pinfo ? escapeHtml(pinfo.m) : 'bed'}</span><span>${tag(a.fitsBed,false)}</span></div>
@@ -3316,7 +3361,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   PRINTERS, printerById, materialCompat, printerDescriptor, settings, PROVIDERS, P,
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
   captureViews, improveByLooking, gateCheck, partKind,
-  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort, showSpecParts, partColorHex,
+  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort, showSpecParts, partColorHex, meshBounds,
   get specRoot(){ return specRoot; }, get partMesh(){ return partMesh; },
   get benchRunning(){ return benchRunning; },
   get aiBusy(){ return aiBusy; }, get lastGate(){ return lastGate; }, get lastAnalysis(){ return lastAnalysis; },
