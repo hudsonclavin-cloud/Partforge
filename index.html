@@ -238,7 +238,8 @@
           <button class="btn small" id="benchRun5">First 5 only</button>
           <button class="btn small danger" id="benchStop" disabled>Stop</button>
         </div>
-        <div class="check" style="margin-bottom:8px"><input type="checkbox" id="benchJudge" checked><span>Judge intent — show the model its own render and score whether it reads as requested. One extra vision call per case. Separate column; never part of pass.</span></div>
+        <div class="check" style="margin-bottom:4px"><input type="checkbox" id="benchJudge" checked><span>Judge intent — show the model its own render and score whether it reads as requested. Separate column; never part of pass.</span></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px"><label for="benchJudgeK" style="margin:0">Judge samples per case</label><input id="benchJudgeK" type="number" min="1" max="5" value="1" style="width:56px"><span style="color:var(--dim)">more samples → a spread you can trust; each is one vision call. Judge model: ⚙ Settings.</span></div>
         <div id="benchOut"></div>
       </div>
 
@@ -308,6 +309,8 @@
   <label>Model</label>
   <input id="setModel" type="text" list="modelList" value="claude-sonnet-5">
   <datalist id="modelList"></datalist>
+  <label>Judge model <span style="font-weight:normal;color:var(--dim)">(bench intent score · blank = same as the designer · a different model avoids grading its own work)</span></label>
+  <input id="setJudgeModel" type="text" list="modelList" placeholder="same as the designer">
   <label>Before designing</label>
   <select id="setClarify">
     <option value="ask">Ask clarifying questions first (recommended)</option>
@@ -475,6 +478,8 @@ function materialCompat(){
 function searchToolFor(model){
   return /^claude-(opus-(5|4-[678])|sonnet-(5|4-6))(?:$|-)/.test(model || '') ? 'web_search_20260209' : 'web_search_20250305';
 }
+/* output_config.effort exists on the 4.6+ family; older models reject it with a 400. */
+function supportsEffort(model){ return /^claude-(opus-(5|4-[678])|sonnet-(5|4-6)|fable)/.test(model || ''); }
 const PROVIDERS = {
   anthropic: {
     label: 'Anthropic (Claude)', base: 'https://api.anthropic.com', fixedBase: true,
@@ -487,9 +492,15 @@ const PROVIDERS = {
     url: b => b.replace(/\/+$/,'') + '/v1/messages',
     headers: k => ({ 'content-type':'application/json', 'x-api-key': k,
       'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' }),
-    body: (system, msgs, maxTok, search) => {
-      const b = { model: settings.model, max_tokens: maxTok, system, messages: msgs };
-      if(search) b.tools = [{ type: searchToolFor(settings.model), name:'web_search', max_uses:3 }];
+    body: (system, msgs, maxTok, search, extra = {}) => {
+      const model = extra.model || settings.model;
+      // cache_control on the system block: the prompt is identical on every call, so
+      // after the first call each read of it is billed at 10%. Minimum cacheable prefix
+      // is 512 tokens on Opus 5 and 1024 on Sonnet 5 (4096 on Haiku 4.5, where this
+      // silently no-ops). The prompt is ~2.2k tokens.
+      const b = { model, max_tokens: maxTok, system: [{ type:'text', text: system, cache_control:{ type:'ephemeral' } }], messages: msgs };
+      if(search) b.tools = [{ type: searchToolFor(model), name:'web_search', max_uses:3 }];
+      if(extra.effort && supportsEffort(model)) b.output_config = { effort: extra.effort };
       return b;
     },
     image: img => ({ type:'image', source:{ type:'base64', media_type: img.mime, data: img.data } }),
@@ -505,7 +516,7 @@ const PROVIDERS = {
     fixedBase: false, keyHint: 'gateway key', defaultModel: '', search: false, models: [],
     url: b => b.replace(/\/+$/,'') + '/chat/completions',
     headers: k => ({ 'content-type':'application/json', 'authorization': 'Bearer ' + k }),
-    body: (system, msgs, maxTok) => ({ model: settings.model, max_tokens: maxTok,
+    body: (system, msgs, maxTok, search, extra = {}) => ({ model: extra.model || settings.model, max_tokens: maxTok,
       messages: [{ role:'system', content: system }, ...msgs] }),
     image: img => ({ type:'image_url', image_url:{ url:`data:${img.mime};base64,${img.data}` } }),
     parse: d => (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || '',
@@ -522,6 +533,8 @@ const settings = {
   set key(v){ const k='pf_key_'+this.provider; v?store.set(k,v):store.del(k); },
   get model(){ return store.get('pf_model_'+this.provider) || P().defaultModel; },
   set model(v){ store.set('pf_model_'+this.provider, v); },
+  get judgeModel(){ return store.get('pf_judge_'+this.provider) || ''; },   // '' = same as the designer
+  set judgeModel(v){ store.set('pf_judge_'+this.provider, v || ''); },
   get base(){ return store.get('pf_base_'+this.provider) || P().base; },
   set base(v){ store.set('pf_base_'+this.provider, v || P().base); },
   get clarify(){ return store.get('pf_clarify')||'ask'; }, set clarify(v){ store.set('pf_clarify',v); },
@@ -2233,9 +2246,9 @@ function reachError(err){
     + `only Anthropic allows them. Use Anthropic, an OpenAI-compatible gateway like OpenRouter, `
     + `a local model server, or your own proxy URL. (${String(err.message||err).slice(0,80)})`;
 }
-async function callClaudeOneShot(system, userText){
+async function callClaudeOneShot(system, userText, opts = {}){
   const prov = P();
-  const body = prov.body(system, [{ role:'user', content: userText }], 1500, false);
+  const body = prov.body(system, [{ role:'user', content: userText }], opts.maxTokens || 1500, false, { model: opts.model, effort: opts.effort });
   let res;
   try {
     res = await fetch(prov.url(settings.base), {
@@ -2544,7 +2557,7 @@ function benchScore(c, a, code, gate){
    reads as what was asked. Non-deterministic by construction, so it is a SEPARATE
    column — never part of `pass`, which stays strictly deterministic. */
 const JUDGE_SYSTEM = 'You judge whether a 3D-printed part matches a request. You will see three rendered views (front, three-quarter, side) and the one-line request it was made for. Judge ONLY whether the silhouette and proportions read as the thing requested — not print quality, not colour, not the code. Reply with exactly one line: SCORE: <0-10> — <under 15 words naming the single biggest gap, or "matches">';
-async function judgeIntent(prompt, spec){
+async function judgeIntent(prompt, spec, k = 1){
   const shots = captureViews();
   if(!shots.length) return null;
   const datas = [];
@@ -2554,10 +2567,23 @@ async function judgeIntent(prompt, spec){
     ...datas.map(d => P().image({ mime:'image/jpeg', data:d })),
     { type:'text', text:`Request: "${prompt}"\n${spec ? specSummary(spec) + '\n' : ''}Do these views read as the request? Judge against the request first; if the render contradicts the declared design, say which part. Reply with one line: SCORE: <0-10> — <reason>` },
   ];
-  const text = await callClaudeOneShot(JUDGE_SYSTEM, content);
-  const m = text.match(/SCORE:\s*(\d+(?:\.\d+)?)\s*(?:\/\s*10)?\s*[—–-]?\s*(.*)/i);
-  if(!m) return { score:null, why:text.trim().slice(0,80) };
-  return { score: Math.max(0, Math.min(10, parseFloat(m[1]))), why:(m[2]||'').trim().slice(0,80) };
+  // k samples: the judge is non-deterministic, so one number is a guess and the spread
+  // says how far to trust the mean. A different judge model (⚙ Settings) stops the
+  // designer grading its own work; low effort keeps each judge call cheap.
+  const opts = { model: settings.judgeModel || undefined, effort: 'low' };
+  const samples = [];
+  let why = '';
+  for(let i = 0; i < Math.max(1, k|0); i++){
+    const text = await callClaudeOneShot(JUDGE_SYSTEM, content, opts);
+    const m = text.match(/SCORE:\s*(\d+(?:\.\d+)?)\s*(?:\/\s*10)?\s*[—–-]?\s*(.*)/i);
+    if(!m){ if(!why) why = text.trim().slice(0,80); continue; }
+    samples.push(Math.max(0, Math.min(10, parseFloat(m[1]))));
+    if(!why) why = (m[2]||'').trim().slice(0,80);
+  }
+  const model = opts.model || settings.model;
+  if(!samples.length) return { score:null, why, samples:[], model };
+  const score = Math.round(10 * samples.reduce((a,b)=>a+b,0) / samples.length) / 10;
+  return { score, why, samples, spread:[Math.min(...samples), Math.max(...samples)], model };
 }
 
 let benchAbort = false, benchRunning = false;
@@ -2568,6 +2594,7 @@ async function runBench(count, useGate){
   const savedGate = settings.gate, savedClarify = settings.clarify;
   settings.gate = !!useGate; settings.clarify = 'never';
   const judge = !!($('benchJudge') && $('benchJudge').checked);
+  const judgeK = Math.max(1, Math.min(5, parseInt(($('benchJudgeK') || {}).value, 10) || 1));
   const cases = BENCH.slice(0, count || BENCH.length);
   const results = [];
   const t0 = Date.now();
@@ -2584,7 +2611,7 @@ async function runBench(count, useGate){
         r = benchScore(c, lastAnalysis, currentCode, lastGate);
         if(judge){
           renderBench(results, `${i+1}/${cases.length} — ${c.id} · judging`);
-          try { r.intent = await judgeIntent(c.p, parseSpec(currentCode)); }
+          try { r.intent = await judgeIntent(c.p, parseSpec(currentCode), judgeK); }
           catch(err){ r.intent = { score:null, why:'judge failed: ' + String(err.message||err).slice(0,50) }; }
         }
       } catch(err){
@@ -2621,13 +2648,14 @@ function saveBenchRun(results, gated, ms){
   const runs = getBenchRuns();
   const s = benchSummary(results);
   runs.unshift({ at:new Date().toISOString().slice(0,16).replace('T',' '), gated, ms, ...s,
+                 model: settings.model, judgeModel: settings.judgeModel || settings.model,
                  fails: results.filter(r=>!r.pass).map(r=>r.id) });
   store.set('pf_bench', JSON.stringify(runs.slice(0,20)));
 }
 function renderBench(results, status){
   const el = $('benchOut'); if(!el) return;
   const s = benchSummary(results);
-  const rows = results.map(r => `<div class="line"><span>${r.pass?'<span class="tag good">PASS</span>':'<span class="tag bad">FAIL</span>'} ${escapeHtml(r.id)}</span><span style="font-size:11px;color:var(--dim);text-align:right">${r.intent && r.intent.score != null ? `<b title="${escapeHtml(r.intent.why||'')}">${r.intent.score}/10</b> · ` : ''}${
+  const rows = results.map(r => `<div class="line"><span>${r.pass?'<span class="tag good">PASS</span>':'<span class="tag bad">FAIL</span>'} ${escapeHtml(r.id)}</span><span style="font-size:11px;color:var(--dim);text-align:right">${r.intent && r.intent.score != null ? `<b title="${escapeHtml(r.intent.why||'')}${r.intent.model ? ' · judge: ' + escapeHtml(r.intent.model) : ''}">${r.intent.score}${r.intent.spread && r.intent.spread[0] !== r.intent.spread[1] ? ' (' + r.intent.spread[0] + '–' + r.intent.spread[1] + ')' : ''}/10</b> · ` : ''}${
     !r.compiled ? 'did not render'
     : (r.notes.length ? escapeHtml(r.notes.join('; ')).slice(0,90)
        : (r.fails.length ? escapeHtml(r.fails[0]).slice(0,70)+'…' : r.size.join('×')+' mm'))}</span></div>`).join('');
@@ -3111,6 +3139,7 @@ $('btnSettings').onclick = () => {
   $('setBase').value = settings.base;
   $('setClarify').value = settings.clarify; $('setSearch').checked = settings.search;
   $('setGate').checked = settings.gate;
+  $('setJudgeModel').value = settings.judgeModel;
   $('setMaterial').value = settings.material; $('setNozzle').value = settings.nozzle;
   $('setCost').value = settings.cost; $('setFitOffset').value = settings.fitOffset;
   $('setColor').value = settings.color;
@@ -3165,6 +3194,7 @@ $('setProvider').onchange = () => {
   $('setKey').value = settings.key;
   $('setBase').value = settings.base;
   $('setModel').value = settings.model;
+  $('setJudgeModel').value = settings.judgeModel;
   settings.provider = wasProvider;                 // don't commit until Save
   syncProviderUI();
 };
@@ -3177,6 +3207,7 @@ $('setSave').onclick = () => {
   settings.clarify = $('setClarify').value;
   settings.search = $('setSearch').checked;
   settings.gate = $('setGate').checked;
+  settings.judgeModel = $('setJudgeModel').value.trim();
   settings.material = $('setMaterial').value;
   settings.nozzle = +$('setNozzle').value || 0.4;
   settings.cost = +$('setCost').value || 20;
@@ -3245,7 +3276,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   PRINTERS, printerById, materialCompat, printerDescriptor, settings, PROVIDERS, P,
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
   captureViews, improveByLooking, gateCheck, partKind,
-  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary,
+  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort,
   get benchRunning(){ return benchRunning; },
   get aiBusy(){ return aiBusy; }, get lastGate(){ return lastGate; }, get lastAnalysis(){ return lastAnalysis; },
   get mesh(){ return currentMesh; }, get code(){ return currentCode; }, get manifest(){ return currentManifest; },
