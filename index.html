@@ -219,6 +219,7 @@
           <span class="right">
             <button class="btn small" id="btnRename" title="Rename part">✎</button>
             <button class="btn small" id="btnCopyReport" title="Copy print checklist">⧉</button>
+            <button class="btn small" id="btnParts" title="Colour each part the spec declared, exactly as the checker saw it">🧩 Parts</button>
             <button class="btn small" id="btnImprove" title="Show the model its own render and let it fix what looks wrong (uses API)">✨ Look &amp; fix</button>
             <button class="btn small" id="btnReview" title="AI design review (uses API)">🔍 Review</button>
           </span>
@@ -1395,6 +1396,7 @@ async function specCheck(code, g, onStatus){
       continue;
     }
     row.size = meshBBox(m).map(v => Math.round(v*10)/10);
+    if(m.tris <= 60000) row.mesh = m;   // kept for the Parts view — the user sees what was checked
     if(p.size_mm && p.size_mm.every(v => v > 0)){
       // Compare extents sorted largest→smallest so orientation does not matter, with
       // 2 mm absolute slack so tiny features do not trip the ratio band.
@@ -1541,6 +1543,7 @@ let raycaster = null, sectionPlane = null, matPlain = null, matOver = null;
 let clippableMats = [];
 let grid = null, bedRect = null, partMesh = null, overhangsOn = false;
 let assemblyRoot = null, assemblyCache = null, partEntries = [];
+let specRoot = null, lastPlacement = null;   // decomposition view: the spec's parts, each in its own colour
 let viewMode = 'plate', lastFit = { span:120, height:40 };
 let lightBg = false, turntable = false, animPlaying = false, animT = 0;
 let scaleRefObj = null, dimsOverlay = null, dimLabels = [];
@@ -1674,6 +1677,8 @@ function meshToGeometry(mesh, overMask, bottomMask){
 function clearPartViews(){
   if(partMesh){ scene.remove(partMesh); partMesh.geometry.dispose(); partMesh = null; }
   if(assemblyRoot){ scene.remove(assemblyRoot); assemblyRoot = null; }
+  if(specRoot){ scene.remove(specRoot); specRoot.traverse(o => { if(o.geometry) o.geometry.dispose(); }); specRoot = null; }
+  { const pb = document.getElementById('btnParts'); if(pb) pb.textContent = '🧩 Parts'; }
   partEntries = [];
   animPlaying = false;
   document.getElementById('btnPlay').textContent = '▶';
@@ -1688,6 +1693,7 @@ function showMesh(mesh, overMask, bottomMask){
   g.computeBoundingBox();
   const bb = g.boundingBox, c = new THREE.Vector3(); bb.getCenter(c);
   g.translate(-c.x, -bb.min.y, -c.z);
+  lastPlacement = { cx:c.x, minY:bb.min.y, cz:c.z };   // so part meshes can be placed identically
   partMesh = new THREE.Mesh(g, overhangsOn ? matOver : matPlain);
   scene.add(partMesh);
   addBedAndGrid();
@@ -1696,6 +1702,34 @@ function showMesh(mesh, overMask, bottomMask){
   // plate view is now active — keep the toggle buttons truthful however we got here
   const ab = document.getElementById('btnAssembly'); if(ab) ab.textContent = '⚙ Assembly';
   const ob = document.getElementById('btnOverhang'); if(ob) ob.disabled = false;
+}
+/* Decomposition view: draw the spec's parts, each in its own colour, exactly where
+   the probes rendered them — the user sees what the program checked, and a
+   misplaced or missing part is obvious at a glance. */
+function partColorHex(i){ return '#' + PART_COLORS[i % PART_COLORS.length].toString(16).padStart(6,'0'); }
+function showSpecParts(on){
+  if(specRoot){ scene.remove(specRoot); specRoot.traverse(o => { if(o.geometry) o.geometry.dispose(); }); specRoot = null; }
+  const all = (lastGate && lastGate.parts) || [];
+  const parts = all.filter(p => p.mesh);
+  const pb = document.getElementById('btnParts');
+  if(on && parts.length && partMesh && lastPlacement){
+    specRoot = new THREE.Group();
+    for(const p of parts){
+      const g = meshToGeometry(p.mesh);
+      g.rotateX(-Math.PI/2);
+      g.translate(-lastPlacement.cx, -lastPlacement.minY, -lastPlacement.cz);
+      const mat = new THREE.MeshStandardMaterial({ color: PART_COLORS[all.indexOf(p) % PART_COLORS.length], metalness:0.1, roughness:0.55, flatShading:true,
+        wireframe: !!(matPlain && matPlain.wireframe), clippingPlanes: sectionOn ? [sectionPlane] : [] });
+      const m = new THREE.Mesh(g, mat); m.name = p.name; specRoot.add(m);
+    }
+    scene.add(specRoot);
+    partMesh.visible = false;
+    if(pb) pb.textContent = '🧩 Parts ✓';
+    return true;
+  }
+  if(partMesh) partMesh.visible = true;
+  if(pb) pb.textContent = '🧩 Parts';
+  return false;
 }
 function setOverhangView(on){
   overhangsOn = on;
@@ -1949,6 +1983,7 @@ function updateDimLabels(){
 function setSection(on){
   if(on && !renderer){ toast('3D viewer still loading…'); return; }
   sectionOn = on;
+  if(specRoot) specRoot.traverse(o => { if(o.material) o.material.clippingPlanes = on ? [sectionPlane] : []; });
   document.getElementById('sectionPanel').style.display = on ? 'block' : 'none';
   const planes = on ? [sectionPlane] : [];
   for(const m of clippableMats) m.clippingPlanes = planes;
@@ -2077,7 +2112,7 @@ function renderReport(a, code){
       + (lastGate.fails.length ? `<div class="w" style="color:var(--warn);font-size:12px">${lastGate.fails.map(f=>'⚠ '+escapeHtml(f)).join('<br>')}</div>` : '')
       + (lastGate.spec
           ? `<div class="line"><span>Spec check</span><span>${lastGate.parts.filter(p=>p.ok).length}/${lastGate.parts.length} parts · ${lastGate.joints.filter(j=>j.ok).length}/${lastGate.joints.length} joints${lastGate.rules && lastGate.rules.length ? ` · ${lastGate.rules.filter(r=>r.ok).length}/${lastGate.rules.length} rules` : ''}${lastGate.parts.length + lastGate.joints.length > 0 && lastGate.parts.every(p=>p.ok) && lastGate.joints.every(j=>j.ok) && (lastGate.rules||[]).every(r=>r.ok) ? ' <span class="tag good">OK</span>' : ''}</span></div>`
-            + `<div class="w" style="font-size:11px;color:var(--dim)">${lastGate.parts.map(p => `${escapeHtml(p.name)} ${p.size ? p.size.map(v=>Math.round(v)).join('×') : ''}${p.ok ? '' : ' <span class="tag bad">' + escapeHtml(p.note || 'fail') + '</span>'}`).join(' · ')}${lastGate.joints.length ? '<br>' + lastGate.joints.map(j => `${escapeHtml(j.a)}∩${escapeHtml(j.b)}${j.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(j.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.rules && lastGate.rules.length ? '<br>' + lastGate.rules.map(r => `${escapeHtml(r.why || r.a + '/' + r.b)}${r.got != null ? ' = ' + r.got : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}</div>`
+            + `<div class="w" style="font-size:11px;color:var(--dim)">${lastGate.parts.map((p, i) => `<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${partColorHex(i)};vertical-align:middle;margin-right:3px"></span>${escapeHtml(p.name)}${p.size ? p.size.map(v=>Math.round(v)).join('×') : ''}${p.ok ? '' : ' <span class="tag bad">' + escapeHtml(p.note || 'fail') + '</span>'}`).join(' · ')}${lastGate.joints.length ? '<br>' + lastGate.joints.map(j => `${escapeHtml(j.a)}∩${escapeHtml(j.b)}${j.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(j.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.rules && lastGate.rules.length ? '<br>' + lastGate.rules.map(r => `${escapeHtml(r.why || r.a + '/' + r.b)}${r.got != null ? ' = ' + r.got : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}</div>`
           : (lastGate.specNote ? `<div class="line"><span>Spec check</span><span class="tag warn">${escapeHtml(lastGate.specNote)}</span></div>` : '')) : ''}
     <div class="line"><span>Size (X·Y·Z)</span><b>${f(a.size[0])} × ${f(a.size[1])} × ${f(a.size[2])} mm</b></div>
     <div class="line"><span>Fits ${pinfo ? escapeHtml(pinfo.m) : 'bed'}</span><span>${tag(a.fitsBed,false)}</span></div>
@@ -2932,6 +2967,10 @@ async function improveByLooking(){
   } finally { aiBusy = false; }
 }
 $('btnImprove').onclick = improveByLooking;
+$('btnParts').onclick = () => {
+  if(specRoot){ showSpecParts(false); return; }
+  if(!showSpecParts(true)) toast('No spec parts to show — generate a part with a SPEC first.');
+};
 $('btnReview').onclick = async () => {
   if(!currentCode){ return; }
   if(!settings.key){ toast('Review needs an API key (⚙ Settings)'); return; }
@@ -3051,6 +3090,7 @@ function rebuildMoreMenu(){
     const on = !matPlain.wireframe;
     matPlain.wireframe = matOver.wireframe = on;
     for(const pe of partEntries) pe.mat.wireframe = on;
+    if(specRoot) specRoot.traverse(o => { if(o.material) o.material.wireframe = on; });
   });
   menuItem((turntable?'✓ ':'') + '💿 Turntable spin (T)', () => { if(!controls) return toast('3D viewer still loading…'); turntable = !turntable; controls.autoRotate = turntable; controls.autoRotateSpeed = 2.5; });
   menuItem((lightBg?'✓ ':'') + '☀ Light background', () => {
@@ -3118,7 +3158,7 @@ document.addEventListener('keydown', (e) => {
   else if(k === 'm') setMeasure(!measureOn);
   else if(k === 'x') setSection(!sectionOn);
   else if(k === 'd') toggleDimsOverlay();
-  else if(k === 'w' && matPlain){ const on=!matPlain.wireframe; matPlain.wireframe=matOver.wireframe=on; for(const pe of partEntries) pe.mat.wireframe=on; }
+  else if(k === 'w' && matPlain){ const on=!matPlain.wireframe; matPlain.wireframe=matOver.wireframe=on; for(const pe of partEntries) pe.mat.wireframe=on; if(specRoot) specRoot.traverse(o => { if(o.material) o.material.wireframe = on; }); }
   else if(k === 't' && controls){ turntable=!turntable; controls.autoRotate=turntable; controls.autoRotateSpeed=2.5; }
   else if(k === 'f') fitCamera(lastFit.span, lastFit.height);
   else if(k === 's' && !$('btnSTL').disabled) $('btnSTL').click();
@@ -3276,7 +3316,8 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   PRINTERS, printerById, materialCompat, printerDescriptor, settings, PROVIDERS, P,
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
   captureViews, improveByLooking, gateCheck, partKind,
-  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort,
+  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort, showSpecParts, partColorHex,
+  get specRoot(){ return specRoot; }, get partMesh(){ return partMesh; },
   get benchRunning(){ return benchRunning; },
   get aiBusy(){ return aiBusy; }, get lastGate(){ return lastGate; }, get lastAnalysis(){ return lastAnalysis; },
   get mesh(){ return currentMesh; }, get code(){ return currentCode; }, get manifest(){ return currentManifest; },
