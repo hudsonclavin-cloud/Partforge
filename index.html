@@ -74,8 +74,9 @@
   #qaCard .q{margin-bottom:12px}
   #qaCard .q .qt{font-size:13px;margin-bottom:6px}
   #qaCard input[type=text]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12.5px;margin-top:6px}
-  #report .line{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:12.5px}
-  #report .line b{font-family:var(--mono);font-weight:500}
+  #report .line, #benchOut .line{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:12.5px}
+  #report .line b, #benchOut .line b{font-family:var(--mono);font-weight:500}
+  #benchOut .line span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600}
   .tag.good{background:rgba(63,185,80,.15);color:var(--good)}
   .tag.warn{background:rgba(210,153,34,.15);color:var(--warn)}
@@ -228,6 +229,18 @@
         <div id="reviewOut"></div>
       </div>
 
+      <div class="card" id="benchCard" style="display:none">
+        <h3>Bench <span class="right" style="font-size:11px;color:var(--dim)">20 prompts, scored</span></h3>
+        <p class="hint">Runs the fixed prompt set through the model and scores the geometry. Raw measures the generator alone; gated measures it with retries, so the difference is what the gate is worth. Costs one API call per case (gated: up to three).</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <button class="btn small" id="benchRun">Run raw</button>
+          <button class="btn small" id="benchRunGated">Run gated</button>
+          <button class="btn small" id="benchRun5">First 5 only</button>
+          <button class="btn small danger" id="benchStop" disabled>Stop</button>
+        </div>
+        <div id="benchOut"></div>
+      </div>
+
       <div class="card" id="libraryCard">
         <h3>Library <span class="right"><button class="btn small" id="btnSaveLib" title="Save current part">＋ Save</button></span></h3>
         <div id="library"><div class="hint">Saved parts and session history appear here.</div></div>
@@ -300,6 +313,7 @@
     <option value="never">Just build — never ask</option>
   </select>
   <div class="check"><input type="checkbox" id="setSearch" checked><span>Let the designer search the web for real dimensions &amp; standards (≈1¢/search)</span></div>
+  <div class="check"><input type="checkbox" id="setGate" checked><span>Check the finished geometry and retry if it fails (catches floating pieces and slabs; costs up to 2 extra generations)</span></div>
   <h3>Printer</h3>
   <label>Your printer <span style="color:var(--dim)">(sets bed + tells the designer what your machine can do)</span></label>
   <select id="setPrinter"><option value="">Custom / other</option></select>
@@ -498,6 +512,7 @@ const settings = {
   set base(v){ store.set('pf_base_'+this.provider, v || P().base); },
   get clarify(){ return store.get('pf_clarify')||'ask'; }, set clarify(v){ store.set('pf_clarify',v); },
   get search(){ return store.get('pf_search')!=='off'; }, set search(v){ store.set('pf_search', v?'on':'off'); },
+  get gate(){ return store.get('pf_gate')!=='off'; }, set gate(v){ store.set('pf_gate', v?'on':'off'); },
   get bed(){ try{ return JSON.parse(store.get('pf_bed'))||[220,220,250]; }catch(e){ return [220,220,250]; } },
   set bed(v){ store.set('pf_bed', JSON.stringify(v)); },
   get material(){ return store.get('pf_mat')||'PLA'; }, set material(v){ store.set('pf_mat',v); },
@@ -536,6 +551,7 @@ One fenced code block of complete, valid OpenSCAD. No prose outside it.
 2. Then a line: // --- end parameters ---
 3. File starts with header comments:
    // PART: <one-line name>
+   // KIND: figure|mechanical   (figure = creature, character, figurine or decorative form; mechanical = everything else. Required — the app runs different automatic checks per kind.)
    // PRINT: <orientation on bed, support needs, suggested material>
    // NOTE: <fit/assembly notes, stated assumptions> (repeatable)
 4. $fn = 64 (96 only for a single smooth cylinder). Part rests on Z=0 in print orientation.
@@ -1190,6 +1206,66 @@ function checkManifold(mesh){
   for(const c of edges.values()){ if(c===1) open++; else if(c>2) over++; }
   return { open, over, ok: open===0 && over===0 };
 }
+
+/* ---------------- geometry acceptance gate ----------------
+   The deterministic checks below are the SAME ones the report shows. Here they
+   decide whether a generated candidate is accepted, rejected and regenerated,
+   or kept as best-of-N. Evidence: CAD-Recode (ICCV 2025) — geometric best-of-N
+   cuts invalid output 4.9%->0.4%; the gain is invalidity filtering, not polish.
+   Every check must be actionable in one sentence, or it does not belong here. */
+function partKind(code){
+  const m = code.match(/^\/\/\s*KIND:\s*(\w+)/m);
+  return m ? m[1].toLowerCase() : 'mechanical';
+}
+function gateCheck(mesh, a, code, conn){
+  const fails = [];
+  const isAssembly = !!parseManifest(code);
+  const kind = partKind(code);
+  const [sx, sy, sz] = a.size;
+  const mx = Math.max(sx, sy, sz), mn = Math.min(sx, sy, sz);
+
+  // --- connectivity: only meaningful for a single part. An assembly is
+  //     legitimately several bodies, and a lid placed on a box is legitimately
+  //     off the plate — never reject those.
+  if(!isAssembly && conn){
+    if(conn.floating > 0)
+      fails.push(`${conn.floating} piece${conn.floating>1?'s are':' is'} floating in mid-air with nothing under ${conn.floating>1?'them':'it'}. Overlap every element into its neighbour by at least 1.5 mm so the whole part unions into ONE connected solid.`);
+    else if(conn.count > 1 && kind === 'figure')
+      fails.push(`The figure came out as ${conn.count} separate solids sitting side by side. A figure must be one connected body — make every limb physically intersect the torso.`);
+    // Deliberately NOT a failure: several GROUNDED solids in a mechanical part.
+    // That is a normal print-plate layout (box + lid, part + jig), and rejecting
+    // it would be the classic over-tight gate. The report still flags it.
+  }
+
+  // --- degenerate output: nothing to print
+  if(a.volume < 0.02)
+    fails.push(`The result has almost no volume (${a.volume.toFixed(3)} cm³) — the booleans probably cancelled out. Check that difference() subtracts only what it should.`);
+  else if(mn < 0.8)
+    fails.push(`The smallest dimension is ${mn.toFixed(2)} mm — thinner than two extrusion widths, so it cannot print. Minimum wall is 0.8 mm.`);
+
+  // --- placement
+  if(!isAssembly && !a.onPlate && a.size[2] > 0)
+    fails.push('The part does not rest on Z=0 — it is floating above the plate or sunk below it. Translate it so its lowest point sits exactly on Z=0 in print orientation.');
+  const bed = settings.bed;
+  if(!a.fitsBed)
+    fails.push(`At ${sx.toFixed(0)} × ${sy.toFixed(0)} × ${sz.toFixed(0)} mm it does not fit the ${bed[0]}×${bed[1]}×${bed[2]} mm bed. Scale the parameters down to fit.`);
+
+  // --- proportion checks: figures only. A bracket, plate or wall mount is
+  //     legitimately flat, so these would be false positives on mechanical parts.
+  if(kind === 'figure'){
+    if(mn < mx * 0.28)
+      fails.push(`The figure is a slab: ${sx.toFixed(0)} × ${sy.toFixed(0)} × ${sz.toFixed(0)} mm, so its thinnest axis is only ${Math.round(100*mn/mx)}% of its largest. A figure must be a solid body — build the torso and limbs as hull() of spheres and give the torso front-to-back depth of at least 60% of the shoulder width.`);
+    if(a.overhangPct > 25)
+      fails.push(`${a.overhangPct.toFixed(0)}% of the surface overhangs past 45° — that is the signature of limbs held straight out sideways. Bring the arms down or bend them toward the body so they are within 45° of vertical.`);
+  }
+  return { fails, kind, isAssembly };
+}
+function gateSummary(g){
+  if(!g) return '';
+  if(!g.fails.length) return 'passed';
+  return g.fails.length + ' issue' + (g.fails.length>1?'s':'');
+}
+
 /* orientation advisor */
 const ORIENTATIONS = [
   { name:'current', fn:(x,y,z)=>[x,y,z] },
@@ -1813,6 +1889,10 @@ function renderReport(a, code){
   const pinfo = printerById(settings.printer);
   const compat = materialCompat();
   rep.innerHTML = `
+    ${lastGate ? `<div class="line"><span>Geometry gate</span><span>${
+      lastGate.fails.length === 0 ? '<span class="tag good">PASSED</span>'
+      : `<span class="tag bad">${lastGate.fails.length} FAILED</span>`}</span></div>`
+      + (lastGate.fails.length ? `<div class="w" style="color:var(--warn);font-size:12px">${lastGate.fails.map(f=>'⚠ '+escapeHtml(f)).join('<br>')}</div>` : '') : ''}
     <div class="line"><span>Size (X·Y·Z)</span><b>${f(a.size[0])} × ${f(a.size[1])} × ${f(a.size[2])} mm</b></div>
     <div class="line"><span>Fits ${pinfo ? escapeHtml(pinfo.m) : 'bed'}</span><span>${tag(a.fitsBed,false)}</span></div>
     ${compat ? `<div class="line"><span>Material vs printer</span><span class="tag bad">CHECK</span></div><div class="w" style="color:var(--warn);font-size:12px">⚠ ${escapeHtml(compat)}</div>` : ''}
@@ -2058,6 +2138,7 @@ async function runCode(code, statusPrefix=''){
     const mesh = parseAsciiSTL(stl);
     if(mesh.tris === 0) throw new Error('No triangles in output.');
     currentCode = code; currentMesh = mesh;
+    lastGate = null;
     meshModified = false; $('modFlag').style.display = 'none';
     assemblyCache = null;
     currentManifest = parseManifest(code);
@@ -2070,10 +2151,11 @@ async function runCode(code, statusPrefix=''){
     lastManifoldInfo = undefined; lastConnInfo = undefined; lastOrientAdvice = null;
     showMesh(mesh, a.overMask, a.bottomMask);
     renderReport(a, code);
+    a.conn = connectivity(mesh);   // the gate needs this synchronously
+    lastConnInfo = a.conn;
     setTimeout(() => {
       if(currentMesh !== mesh) return; // superseded by a newer render
       lastManifoldInfo = checkManifold(mesh);
-      lastConnInfo = connectivity(mesh);
       lastOrientAdvice = mesh.tris <= 60000 ? adviseOrientation(mesh, settings.bed) : null;
       renderReport(a, code);
     }, 30);
@@ -2092,6 +2174,7 @@ async function runCode(code, statusPrefix=''){
 }
 
 function pushHistory(role, text){
+  if(typeof benchRunning !== 'undefined' && benchRunning) return; // the bench has its own table
   const h = $('history');
   const d = document.createElement('div');
   d.className = 'h' + (role==='user'?' user':'');
@@ -2210,8 +2293,150 @@ function collectAnswers(){
 }
 function hideQuestions(){ $('qaCard').style.display = 'none'; pendingQuestions = null; }
 
+
+/* ---------------- the bench ----------------
+   Twenty prompts spanning the failure classes we actually hit, each with what
+   the result should look like. Scored by the same deterministic gate the app
+   uses, so the score and the product cannot drift apart.
+   kind   — what // KIND: should say
+   parts  — expected bodies (assembly = number of MODULE lines)
+   maxDim — expected largest dimension in mm when the prompt states a size
+   tol    — fraction of maxDim allowed either way                             */
+const BENCH = [
+  // --- functional parts: the core use case
+  { id:'bracket',  p:'A wall bracket that holds a 32 mm broom handle, screwed to a stud', kind:'mechanical', parts:1 },
+  { id:'organizer',p:'A three-compartment desk organizer 150 mm wide', kind:'mechanical', parts:1, maxDim:150, tol:0.2 },
+  { id:'stand',    p:'A phone stand for a 78 mm wide phone, screen at 60 degrees', kind:'mechanical', parts:1 },
+  { id:'adapter',  p:'An adapter from a 34 mm vacuum hose to a 25 mm port', kind:'mechanical', parts:1 },
+  { id:'clip',     p:'A cable clip that screws to a desk and holds three 6 mm cables', kind:'mechanical', parts:1 },
+  { id:'spacer',   p:'A spacer, 20 mm outside diameter, 8.2 mm bore, 12 mm tall', kind:'mechanical', parts:1, maxDim:20, tol:0.15 },
+  { id:'knob',     p:'A knurled knob for a 6 mm D-shaft, 30 mm diameter', kind:'mechanical', parts:1, maxDim:30, tol:0.25 },
+  { id:'divider',  p:'A drawer divider that friction-fits a 90 mm gap', kind:'mechanical', parts:1, maxDim:90, tol:0.2 },
+  { id:'hook',     p:'A hook for hanging a 12 mm broom rail on a 18 mm thick shelf', kind:'mechanical', parts:1 },
+  { id:'gear',     p:'A spur gear, 20 teeth, module 1.5, 5 mm bore', kind:'mechanical', parts:1 },
+
+  // --- assemblies and moving parts
+  { id:'hingebox', p:'A hinged box 60 x 40 x 30 mm whose lid snaps shut', kind:'mechanical', parts:2 },
+  { id:'hinge',    p:'A two-leaf hinge that pivots on a 3 mm filament pin', kind:'mechanical', parts:2 },
+  { id:'dovetail', p:'A sliding dovetail joint, two pieces that slide together', kind:'mechanical', parts:2 },
+  { id:'lidbox',   p:'A storage box with a separate friction-fit lid, 80 mm square', kind:'mechanical', parts:2 },
+
+  // --- figures: the class that motivated the gate
+  { id:'hulk',     p:'a mini hulk', kind:'figure', parts:1 },
+  { id:'cat',      p:'A small sitting cat figurine, 50 mm tall', kind:'figure', parts:1, maxDim:50, tol:0.3 },
+  { id:'pawn',     p:'A chess pawn 45 mm tall', kind:'figure', parts:1, maxDim:45, tol:0.25 },
+  { id:'robot',    p:'A robot figurine with its arms at its sides, 70 mm tall', kind:'figure', parts:1, maxDim:70, tol:0.3 },
+
+  // --- stress cases
+  { id:'honeycomb',p:'A honeycomb wall panel 100 x 100 mm', kind:'mechanical', parts:1, maxDim:100, tol:0.2 },
+  { id:'vague',    p:'A replacement knob for my stove', kind:'mechanical', parts:1 },
+];
+
+/* Score one case against what actually rendered. `pass` is deliberately strict:
+   compiled AND geometrically clean AND the right shape of thing. A benchmark
+   that scores compilation flatters the model. */
+function benchScore(c, a, code, gate){
+  const r = { id:c.id, compiled:true, fails:(gate?gate.fails:[]).slice(), notes:[] };
+  const manifest = parseManifest(code);
+  const declared = partKind(code);
+  const bodies = manifest ? manifest.mods.length : (a.conn ? a.conn.count : 1);
+
+  r.kindOK = declared === c.kind;
+  if(!r.kindOK) r.notes.push(`declared KIND: ${declared}, expected ${c.kind}`);
+
+  r.partsOK = bodies === c.parts;
+  if(!r.partsOK) r.notes.push(`${bodies} ${bodies===1?'body':'bodies'}, expected ${c.parts}`);
+
+  if(c.maxDim){
+    const got = Math.max(...a.size);
+    const tol = c.maxDim * (c.tol || 0.25);
+    r.sizeOK = Math.abs(got - c.maxDim) <= tol;
+    r.got = got;
+    if(!r.sizeOK) r.notes.push(`largest dimension ${got.toFixed(0)} mm, expected ${c.maxDim} ±${tol.toFixed(0)}`);
+  } else r.sizeOK = true;
+
+  r.size = a.size.map(v=>Math.round(v));
+  r.pass = r.fails.length === 0 && r.kindOK && r.partsOK && r.sizeOK;
+  return r;
+}
+
+let benchAbort = false, benchRunning = false;
+async function runBench(count, useGate){
+  if(aiBusy || benchRunning) return;
+  if(!settings.key){ msg($('genMsg'),'err','Add an API key in ⚙ Settings first.'); return; }
+  benchRunning = true; benchAbort = false; aiBusy = true;
+  const savedGate = settings.gate, savedClarify = settings.clarify;
+  settings.gate = !!useGate; settings.clarify = 'never';
+  const cases = BENCH.slice(0, count || BENCH.length);
+  const results = [];
+  const t0 = Date.now();
+  $('benchRun').disabled = true; $('benchRunGated').disabled = true; $('benchStop').disabled = false;
+  try {
+    for(let i=0;i<cases.length;i++){
+      if(benchAbort) break;
+      const c = cases[i];
+      renderBench(results, `${i+1}/${cases.length} — ${c.id}`);
+      chat = []; qaAsked = false;
+      let r;
+      try {
+        await aiTurn(c.p, `<span class="big">Bench ${i+1}/${cases.length}</span>${escapeHtml(c.p).slice(0,70)}`);
+        r = benchScore(c, lastAnalysis, currentCode, lastGate);
+      } catch(err){
+        r = { id:c.id, compiled:false, pass:false, fails:[], notes:[String(err.message||err).slice(0,120)], size:[0,0,0] };
+      }
+      results.push(r);
+      renderBench(results);
+    }
+  } finally {
+    settings.gate = savedGate; settings.clarify = savedClarify;
+    benchRunning = false; aiBusy = false;
+    $('benchRun').disabled = false; $('benchRunGated').disabled = false; $('benchStop').disabled = true;
+    setOverlay(currentMesh ? false : true, currentMesh ? null : 'Bench finished', {spin:false});
+    if(results.length) saveBenchRun(results, !!useGate, Date.now()-t0);
+    renderBench(results);
+  }
+  return results;
+}
+function benchSummary(results){
+  const n = results.length;
+  const passed = results.filter(r=>r.pass).length;
+  const compiled = results.filter(r=>r.compiled).length;
+  const clean = results.filter(r=>r.compiled && r.fails.length===0).length;
+  return { n, passed, compiled, clean,
+    rate: n ? Math.round(100*passed/n) : 0,
+    compileRate: n ? Math.round(100*compiled/n) : 0,
+    cleanRate: n ? Math.round(100*clean/n) : 0 };
+}
+function getBenchRuns(){ try { return JSON.parse(store.get('pf_bench'))||[]; } catch(e){ return []; } }
+function saveBenchRun(results, gated, ms){
+  const runs = getBenchRuns();
+  const s = benchSummary(results);
+  runs.unshift({ at:new Date().toISOString().slice(0,16).replace('T',' '), gated, ms, ...s,
+                 fails: results.filter(r=>!r.pass).map(r=>r.id) });
+  store.set('pf_bench', JSON.stringify(runs.slice(0,20)));
+}
+function renderBench(results, status){
+  const el = $('benchOut'); if(!el) return;
+  const s = benchSummary(results);
+  const rows = results.map(r => `<div class="line"><span>${r.pass?'<span class="tag good">PASS</span>':'<span class="tag bad">FAIL</span>'} ${escapeHtml(r.id)}</span><span style="font-size:11px;color:var(--dim);text-align:right">${
+    !r.compiled ? 'did not render'
+    : (r.notes.length ? escapeHtml(r.notes.join('; ')).slice(0,90)
+       : (r.fails.length ? escapeHtml(r.fails[0]).slice(0,70)+'…' : r.size.join('×')+' mm'))}</span></div>`).join('');
+  const hist = getBenchRuns().slice(0,6).map(h =>
+    `<div class="line"><span style="font-size:11px">${h.at.slice(5)} · ${h.gated?'gated':'raw'}</span><b style="font-size:11px;white-space:nowrap">${h.rate}% · ${h.cleanRate}% clean · n=${h.n}</b></div>`).join('');
+  el.innerHTML =
+    (status ? `<div class="hint">Running ${escapeHtml(status)} — each case is a real API call.</div>` : '')
+    + (results.length ? `<div class="line"><span><b>Score</b></span><b>${s.passed}/${s.n} pass · ${s.rate}%</b></div>`
+       + `<div class="line"><span>Rendered without error</span><b>${s.compileRate}%</b></div>`
+       + `<div class="line"><span>Passed the geometry gate</span><b>${s.cleanRate}%</b></div>` : '')
+    + rows
+    + (hist ? `<h3 style="margin-top:14px">Previous runs</h3>${hist}` : '');
+}
+
 /* ---- AI driver ---- */
 const MAX_REPAIRS = 2;
+const GATE_MAX_RETRIES = 2;   // capped: a failing part is shown with warnings, never withheld
+let lastGate = null;
 let aiBusy = false; // an API request is in flight — blocks a second billable call
 async function aiTurn(userContent, label){
   setOverlay(true, label, {cancel:false});
@@ -2236,20 +2461,49 @@ async function aiTurn(userContent, label){
     }
     let code = parseCode(text);
     if(!code) throw new Error('The model replied without code. Try rephrasing, or hit Generate again.');
-    for(let attempt = 0; ; attempt++){
-      try {
-        await runCode(code);
-        pushHistory('ai', firstPartName(code));
-        return;
-      } catch(err){
-        if(String(err.message) === 'cancelled'){ setOverlay(false); return; }
-        if(attempt >= MAX_REPAIRS) throw err;
-        setOverlay(true, `<span class="big">Fixing a compile error</span>auto-repair attempt ${attempt+1} of ${MAX_REPAIRS}`, {cancel:false});
-        const fixText = await callClaude(`That code failed to render. Error output:\n${String(err.message).slice(0,1500)}\nReturn the FULL corrected file.`);
-        const fixed = parseCode(fixText);
-        if(!fixed) throw err;
-        code = fixed;
+    let best = null;              // best-of-N by failed-check count
+    for(let round = 0; ; round++){
+      let a = null;
+      for(let attempt = 0; ; attempt++){
+        try { a = await runCode(code); break; }
+        catch(err){
+          if(String(err.message) === 'cancelled'){ setOverlay(false); return; }
+          if(attempt >= MAX_REPAIRS) throw err;
+          setOverlay(true, `<span class="big">Fixing a compile error</span>auto-repair attempt ${attempt+1} of ${MAX_REPAIRS}`, {cancel:false});
+          const fixText = await callClaude(`That code failed to render. Error output:\n${String(err.message).slice(0,1500)}\nReturn the FULL corrected file.`);
+          const fixed = parseCode(fixText);
+          if(!fixed) throw err;
+          code = fixed;
+        }
       }
+      const g = settings.gate ? gateCheck(currentMesh, a, code, a.conn) : null;
+      lastGate = g;
+      renderReport(a, code);
+      if(!best || (g ? g.fails.length : 0) < best.n) best = { code, n: g ? g.fails.length : 0 };
+      if(!g || !g.fails.length || round >= GATE_MAX_RETRIES){
+        // Always show the best candidate — never withhold a result.
+        if(best.code !== code){
+          pushHistory('ai', 'kept the best of ' + (round+1) + ' attempts');
+          await runCode(best.code);
+          lastGate = gateCheck(currentMesh, lastAnalysis, best.code, lastAnalysis.conn);
+          renderReport(lastAnalysis, best.code);
+        } else {
+          pushHistory('ai', firstPartName(code) + (g && g.fails.length ? ` — ${g.fails.length} check${g.fails.length>1?'s':''} still failing` : ''));
+        }
+        return;
+      }
+      pushHistory('ai', `rejected: ${g.fails.length} geometry check${g.fails.length>1?'s':''} failed`);
+      setOverlay(true, `<span class="big">Geometry check failed</span>${escapeHtml(g.fails[0].slice(0,90))}… — regenerating ${round+1}/${GATE_MAX_RETRIES}`, {cancel:false});
+      const retryText = await callClaude(
+        `The code rendered, but automatic geometry checks on the resulting mesh REJECTED it:\n\n`
+        + g.fails.map((f,i)=>`${i+1}. ${f}`).join('\n')
+        + `\n\nMeasured from your own output: ${a.size.map(v=>v.toFixed(1)).join(' × ')} mm, `
+        + `${a.volume.toFixed(1)} cm³, ${a.overhangPct.toFixed(0)}% overhang past 45°`
+        + (a.conn ? `, ${a.conn.count} separate solid${a.conn.count>1?'s':''}` : '')
+        + `.\n\nThese are measurements of the actual geometry, not opinions — fix the root cause and return the FULL corrected file.`);
+      const retryCode = parseCode(retryText);
+      if(!retryCode) return;   // model gave up; the current candidate stays on screen
+      code = retryCode;
     }
   }
 }
@@ -2309,6 +2563,15 @@ $('qaSkip').onclick = async () => {
   catch(err){ if(currentMesh) setOverlay(false); else showRenderError(err); msg($('genMsg'),'err', String(err.message||err).slice(0,300)); }
   finally { aiBusy = false; }
 };
+
+if(new URLSearchParams(location.search).has('bench')){
+  $('benchCard').style.display = 'block';
+  renderBench([]);
+  $('benchRun').onclick      = () => runBench(0, false);
+  $('benchRunGated').onclick = () => runBench(0, true);
+  $('benchRun5').onclick     = () => runBench(5, false);
+  $('benchStop').onclick     = () => { benchAbort = true; cancelRender(); };
+}
 
 $('btnGenerate').onclick = () => generate(false);
 $('btnRefine').onclick = () => generate(true);
@@ -2621,6 +2884,7 @@ $('btnSettings').onclick = () => {
   $('setKey').value = settings.key; $('setModel').value = settings.model;
   $('setBase').value = settings.base;
   $('setClarify').value = settings.clarify; $('setSearch').checked = settings.search;
+  $('setGate').checked = settings.gate;
   $('setMaterial').value = settings.material; $('setNozzle').value = settings.nozzle;
   $('setCost').value = settings.cost; $('setFitOffset').value = settings.fitOffset;
   $('setColor').value = settings.color;
@@ -2686,6 +2950,7 @@ $('setSave').onclick = () => {
   settings.model = $('setModel').value.trim() || P().defaultModel;
   settings.clarify = $('setClarify').value;
   settings.search = $('setSearch').checked;
+  settings.gate = $('setGate').checked;
   settings.material = $('setMaterial').value;
   settings.nozzle = +$('setNozzle').value || 0.4;
   settings.cost = +$('setCost').value || 20;
@@ -2753,7 +3018,10 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   meshTransform, meshMirrorX, meshDropToPlate, checkManifold, connectivity, adviseOrientation, to3MF, toBinarySTL, lint,
   PRINTERS, printerById, materialCompat, printerDescriptor, settings, PROVIDERS, P,
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
-  captureViews, improveByLooking,
+  captureViews, improveByLooking, gateCheck, partKind,
+  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench,
+  get benchRunning(){ return benchRunning; },
+  get aiBusy(){ return aiBusy; }, get lastGate(){ return lastGate; }, get lastAnalysis(){ return lastAnalysis; },
   get mesh(){ return currentMesh; }, get code(){ return currentCode; }, get manifest(){ return currentManifest; },
   get viewMode(){ return viewMode; }, get joints(){ return currentManifest ? currentManifest.joints : []; },
   get partEntries(){ return partEntries; }, get sessionHistory(){ return sessionHistory; } };
