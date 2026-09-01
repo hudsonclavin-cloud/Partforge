@@ -238,6 +238,7 @@
           <button class="btn small" id="benchRun5">First 5 only</button>
           <button class="btn small danger" id="benchStop" disabled>Stop</button>
         </div>
+        <div class="check" style="margin-bottom:8px"><input type="checkbox" id="benchJudge" checked><span>Judge intent — show the model its own render and score whether it reads as requested. One extra vision call per case. Separate column; never part of pass.</span></div>
         <div id="benchOut"></div>
       </div>
 
@@ -305,7 +306,7 @@
     <input id="setBase" type="text" placeholder="https://openrouter.ai/api/v1">
   </div>
   <label>Model</label>
-  <input id="setModel" type="text" list="modelList" value="claude-sonnet-4-6">
+  <input id="setModel" type="text" list="modelList" value="claude-sonnet-5">
   <datalist id="modelList"></datalist>
   <label>Before designing</label>
   <select id="setClarify">
@@ -313,7 +314,7 @@
     <option value="never">Just build — never ask</option>
   </select>
   <div class="check"><input type="checkbox" id="setSearch" checked><span>Let the designer search the web for real dimensions &amp; standards (≈1¢/search)</span></div>
-  <div class="check"><input type="checkbox" id="setGate" checked><span>Check the finished geometry and retry if it fails (catches floating pieces and slabs; costs up to 2 extra generations)</span></div>
+  <div class="check"><input type="checkbox" id="setGate" checked><span>Check the finished geometry and retry if it fails (catches floating pieces and slabs; up to 2 extra generations, each carrying the previous attempt — budget roughly 4–5× a clean run in tokens; web search is off during retries)</span></div>
   <h3>Printer</h3>
   <label>Your printer <span style="color:var(--dim)">(sets bed + tells the designer what your machine can do)</span></label>
   <select id="setPrinter"><option value="">Custom / other</option></select>
@@ -469,21 +470,34 @@ function materialCompat(){
    static page cannot reach them directly — they are available through any
    OpenAI-compatible gateway: OpenRouter, a local model server, or the
    Cloudflare Worker in worker.js. */
+/* Web search tool variant by model. The 20260209 variant (dynamic filtering) is
+   for Opus 5 / 4.8 / 4.7 / 4.6 and Sonnet 5 / 4.6; older models keep the basic one. */
+function searchToolFor(model){
+  return /^claude-(opus-(5|4-[678])|sonnet-(5|4-6))(?:$|-)/.test(model || '') ? 'web_search_20260209' : 'web_search_20250305';
+}
 const PROVIDERS = {
   anthropic: {
     label: 'Anthropic (Claude)', base: 'https://api.anthropic.com', fixedBase: true,
-    keyHint: 'sk-ant-...', defaultModel: 'claude-sonnet-4-6', search: true,
-    models: ['claude-sonnet-4-6','claude-opus-4-8','claude-haiku-4-5'],
+    keyHint: 'sk-ant-...', defaultModel: 'claude-sonnet-5', search: true,
+    // Sonnet 5 is newer AND cheaper than Sonnet 4.6; Opus 5 is the quality step up.
+    // The 5-family runs adaptive thinking by default and rejects temperature/top_p
+    // and assistant prefill — this app sends none of those. Thinking blocks come
+    // back before the text block; parse() below filters by type so they are ignored.
+    models: ['claude-sonnet-5','claude-opus-5','claude-opus-4-8','claude-sonnet-4-6','claude-haiku-4-5'],
     url: b => b.replace(/\/+$/,'') + '/v1/messages',
     headers: k => ({ 'content-type':'application/json', 'x-api-key': k,
       'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' }),
     body: (system, msgs, maxTok, search) => {
       const b = { model: settings.model, max_tokens: maxTok, system, messages: msgs };
-      if(search) b.tools = [{ type:'web_search_20250305', name:'web_search', max_uses:3 }];
+      if(search) b.tools = [{ type: searchToolFor(settings.model), name:'web_search', max_uses:3 }];
       return b;
     },
     image: img => ({ type:'image', source:{ type:'base64', media_type: img.mime, data: img.data } }),
-    parse: d => (d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n'),
+    parse: d => {
+      if(d.stop_reason === 'refusal')
+        throw new Error('The model declined this request' + (d.stop_details?.explanation ? ': ' + d.stop_details.explanation : '') + '. Rephrase and try again.');
+      return (d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    },
     usage: d => [d.usage?.input_tokens||0, d.usage?.output_tokens||0],
   },
   openai: {
@@ -2013,7 +2027,7 @@ function contextLine(){
   const compat = materialCompat();
   return `Printer: ${printerDescriptor()}. Bed: ${bed[0]}×${bed[1]}×${bed[2]} mm. Nozzle width: ${settings.nozzle} mm. Material: ${settings.material}.${compat ? ' MATERIAL WARNING: ' + compat + ' — design accordingly and repeat this warning in a NOTE line.' : ''} Calibrated extra fit clearance: +${settings.fitOffset} mm (add to all clearances). Clarify policy: ${settings.clarify === 'ask' ? 'you may ask ONE round of questions first' : 'never ask; state assumptions in NOTE lines'}.`;
 }
-async function callClaude(userContent){
+async function callClaude(userContent, opts = {}){
   if(chat.length === 0){ // first message always carries printer/material context — including photo-first requests
     if(typeof userContent === 'string') userContent = contextLine() + '\n\nRequest: ' + userContent;
     else if(Array.isArray(userContent))
@@ -2026,7 +2040,9 @@ async function callClaude(userContent){
     chat = [chat[0], chat[1], ...tail];
   }
   const prov = P();
-  const body = prov.body(SYSTEM_PROMPT, chat, 9000, settings.search && prov.search);
+  // opts.search === false suppresses web search for this one call (gate retries: the
+  // model already has the measurements — a second search would re-spend for nothing)
+  const body = prov.body(SYSTEM_PROMPT, chat, 9000, settings.search && prov.search && opts.search !== false);
   let res;
   try {
     res = await fetch(prov.url(settings.base), {
@@ -2360,6 +2376,28 @@ function benchScore(c, a, code, gate){
   return r;
 }
 
+/* Intent judge — the third tier the deterministic gate cannot measure (MUSE's
+   cascade: execution → geometric validity → design-intent alignment; the gate scores
+   the first two). Renders the part from three angles and asks the model whether it
+   reads as what was asked. Non-deterministic by construction, so it is a SEPARATE
+   column — never part of `pass`, which stays strictly deterministic. */
+const JUDGE_SYSTEM = 'You judge whether a 3D-printed part matches a request. You will see three rendered views (front, three-quarter, side) and the one-line request it was made for. Judge ONLY whether the silhouette and proportions read as the thing requested — not print quality, not colour, not the code. Reply with exactly one line: SCORE: <0-10> — <under 15 words naming the single biggest gap, or "matches">';
+async function judgeIntent(prompt){
+  const shots = captureViews();
+  if(!shots.length) return null;
+  const datas = [];
+  for(const sh of shots){ const d = await shrink(sh.url, 512); if(d) datas.push(d); }
+  if(!datas.length) return null;
+  const content = [
+    ...datas.map(d => P().image({ mime:'image/jpeg', data:d })),
+    { type:'text', text:`Request: "${prompt}"\nDo these views read as that? Reply with one line: SCORE: <0-10> — <reason>` },
+  ];
+  const text = await callClaudeOneShot(JUDGE_SYSTEM, content);
+  const m = text.match(/SCORE:\s*(\d+(?:\.\d+)?)\s*(?:\/\s*10)?\s*[—–-]?\s*(.*)/i);
+  if(!m) return { score:null, why:text.trim().slice(0,80) };
+  return { score: Math.max(0, Math.min(10, parseFloat(m[1]))), why:(m[2]||'').trim().slice(0,80) };
+}
+
 let benchAbort = false, benchRunning = false;
 async function runBench(count, useGate){
   if(aiBusy || benchRunning) return;
@@ -2367,6 +2405,7 @@ async function runBench(count, useGate){
   benchRunning = true; benchAbort = false; aiBusy = true;
   const savedGate = settings.gate, savedClarify = settings.clarify;
   settings.gate = !!useGate; settings.clarify = 'never';
+  const judge = !!($('benchJudge') && $('benchJudge').checked);
   const cases = BENCH.slice(0, count || BENCH.length);
   const results = [];
   const t0 = Date.now();
@@ -2381,6 +2420,11 @@ async function runBench(count, useGate){
       try {
         await aiTurn(c.p, `<span class="big">Bench ${i+1}/${cases.length}</span>${escapeHtml(c.p).slice(0,70)}`);
         r = benchScore(c, lastAnalysis, currentCode, lastGate);
+        if(judge){
+          renderBench(results, `${i+1}/${cases.length} — ${c.id} · judging`);
+          try { r.intent = await judgeIntent(c.p); }
+          catch(err){ r.intent = { score:null, why:'judge failed: ' + String(err.message||err).slice(0,50) }; }
+        }
       } catch(err){
         r = { id:c.id, compiled:false, pass:false, fails:[], notes:[String(err.message||err).slice(0,120)], size:[0,0,0] };
       }
@@ -2402,7 +2446,9 @@ function benchSummary(results){
   const passed = results.filter(r=>r.pass).length;
   const compiled = results.filter(r=>r.compiled).length;
   const clean = results.filter(r=>r.compiled && r.fails.length===0).length;
-  return { n, passed, compiled, clean,
+  const judged = results.filter(r => r.intent && typeof r.intent.score === 'number');
+  const intent = judged.length ? Math.round(10 * judged.reduce((s,r)=>s+r.intent.score,0) / judged.length) / 10 : null;
+  return { n, passed, compiled, clean, intent, judged: judged.length,
     rate: n ? Math.round(100*passed/n) : 0,
     compileRate: n ? Math.round(100*compiled/n) : 0,
     cleanRate: n ? Math.round(100*clean/n) : 0 };
@@ -2418,17 +2464,18 @@ function saveBenchRun(results, gated, ms){
 function renderBench(results, status){
   const el = $('benchOut'); if(!el) return;
   const s = benchSummary(results);
-  const rows = results.map(r => `<div class="line"><span>${r.pass?'<span class="tag good">PASS</span>':'<span class="tag bad">FAIL</span>'} ${escapeHtml(r.id)}</span><span style="font-size:11px;color:var(--dim);text-align:right">${
+  const rows = results.map(r => `<div class="line"><span>${r.pass?'<span class="tag good">PASS</span>':'<span class="tag bad">FAIL</span>'} ${escapeHtml(r.id)}</span><span style="font-size:11px;color:var(--dim);text-align:right">${r.intent && r.intent.score != null ? `<b title="${escapeHtml(r.intent.why||'')}">${r.intent.score}/10</b> · ` : ''}${
     !r.compiled ? 'did not render'
     : (r.notes.length ? escapeHtml(r.notes.join('; ')).slice(0,90)
        : (r.fails.length ? escapeHtml(r.fails[0]).slice(0,70)+'…' : r.size.join('×')+' mm'))}</span></div>`).join('');
   const hist = getBenchRuns().slice(0,6).map(h =>
-    `<div class="line"><span style="font-size:11px">${h.at.slice(5)} · ${h.gated?'gated':'raw'}</span><b style="font-size:11px;white-space:nowrap">${h.rate}% · ${h.cleanRate}% clean · n=${h.n}</b></div>`).join('');
+    `<div class="line"><span style="font-size:11px">${h.at.slice(5)} · ${h.gated?'gated':'raw'}</span><b style="font-size:11px;white-space:nowrap">${h.rate}% · ${h.cleanRate}% clean${h.intent != null ? ' · ' + h.intent + '/10' : ''} · n=${h.n}</b></div>`).join('');
   el.innerHTML =
     (status ? `<div class="hint">Running ${escapeHtml(status)} — each case is a real API call.</div>` : '')
     + (results.length ? `<div class="line"><span><b>Score</b></span><b>${s.passed}/${s.n} pass · ${s.rate}%</b></div>`
        + `<div class="line"><span>Rendered without error</span><b>${s.compileRate}%</b></div>`
-       + `<div class="line"><span>Passed the geometry gate</span><b>${s.cleanRate}%</b></div>` : '')
+       + `<div class="line"><span>Passed the geometry gate</span><b>${s.cleanRate}%</b></div>`
+       + (s.intent != null ? `<div class="line"><span>Reads as requested (judge avg)</span><b>${s.intent}/10 · n=${s.judged}</b></div>` : '') : '')
     + rows
     + (hist ? `<h3 style="margin-top:14px">Previous runs</h3>${hist}` : '');
 }
@@ -2500,7 +2547,7 @@ async function aiTurn(userContent, label){
         + `\n\nMeasured from your own output: ${a.size.map(v=>v.toFixed(1)).join(' × ')} mm, `
         + `${a.volume.toFixed(1)} cm³, ${a.overhangPct.toFixed(0)}% overhang past 45°`
         + (a.conn ? `, ${a.conn.count} separate solid${a.conn.count>1?'s':''}` : '')
-        + `.\n\nThese are measurements of the actual geometry, not opinions — fix the root cause and return the FULL corrected file.`);
+        + `.\n\nThese are measurements of the actual geometry, not opinions — fix the root cause and return the FULL corrected file.`, { search:false });
       const retryCode = parseCode(retryText);
       if(!retryCode) return;   // model gave up; the current candidate stays on screen
       code = retryCode;
@@ -2670,8 +2717,13 @@ async function improveByLooking(){
     const note = (code.match(/^\/\/\s*NOTE:\s*(.*)$/m) || [])[1] || 'revised';
     out.textContent = '↻ ' + note;
     aiBusy = false;                          // runCode has its own busy guard
-    await runCode(code);
-    pushHistory('ai', 'looked at it and revised');
+    const a2 = await runCode(code);
+    // Look & fix is AI output too: score it with the same gate as Generate, so the
+    // report shows a verdict instead of silently dropping the row. No retry loop here —
+    // the user asked for one revision and gets exactly one.
+    lastGate = settings.gate ? gateCheck(currentMesh, a2, code, a2.conn) : null;
+    renderReport(a2, code);
+    pushHistory('ai', 'looked at it and revised' + (lastGate && lastGate.fails.length ? ` — ${lastGate.fails.length} check${lastGate.fails.length>1?'s':''} failing` : ''));
   } catch(err){
     out.textContent = 'Improve failed: ' + String(err.message || err);
     if(currentMesh) setOverlay(false); else showRenderError(err);
@@ -2926,7 +2978,7 @@ function syncProviderUI(){
   $('setKey').placeholder = prov.keyHint;
   $('baseRow').style.display = prov.fixedBase ? 'none' : 'block';
   $('modelList').innerHTML = prov.models.map(m=>`<option value="${m}"></option>`).join('');
-  $('setModel').placeholder = prov.fixedBase ? '' : 'model id from your gateway, e.g. anthropic/claude-sonnet-4-6';
+  $('setModel').placeholder = prov.fixedBase ? '' : 'model id from your gateway, e.g. anthropic/claude-sonnet-5';
   $('setSearch').disabled = !prov.search;
   $('provNote').textContent = prov.search
     ? 'Anthropic is the only provider that allows direct browser calls, and the only one with server-side web search.'
@@ -3019,7 +3071,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   PRINTERS, printerById, materialCompat, printerDescriptor, settings, PROVIDERS, P,
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
   captureViews, improveByLooking, gateCheck, partKind,
-  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench,
+  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor,
   get benchRunning(){ return benchRunning; },
   get aiBusy(){ return aiBusy; }, get lastGate(){ return lastGate; }, get lastAnalysis(){ return lastAnalysis; },
   get mesh(){ return currentMesh; }, get code(){ return currentCode; }, get manifest(){ return currentManifest; },

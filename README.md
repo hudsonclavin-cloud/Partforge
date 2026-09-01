@@ -58,6 +58,26 @@ server) or through `worker.js`, a Cloudflare Worker that relays requests and kee
 your key as a Worker secret instead of in the page. Setup instructions are in the
 comments at the top of that file. Web search is Anthropic-only.
 
+## Geometry gate and bench
+
+The report's deterministic checks — connectivity, on-plate, bed fit, volume, and
+figure proportions — decide whether a generated part is **accepted**. A rejected
+candidate is sent back to the model with the failed check named in text plus the
+measured numbers, and regenerated, up to twice. The best-scoring candidate is always
+rendered, so a part is never withheld. **Look & fix** results are scored by the same
+gate. Off switch in ⚙ Settings.
+
+Each retry carries the previous attempt, so budget roughly 4–5× a clean run in tokens
+for a part that needs both retries. Web search is off during retries — the model
+already has the measurements.
+
+Add `?bench=1` to the URL for the bench: 20 fixed prompts with expected kind, body
+count and size, scored by the same gate. **Run raw** measures the generator alone;
+**Run gated** measures it with retries — the difference is what the gate is worth.
+**Judge intent** adds one vision call per case: the model sees its own render and
+scores whether it reads as requested. That column is non-deterministic, so it is
+reported separately and is never part of pass. Run history stays in localStorage.
+
 ## Keyboard
 
 G generate · R refine · A assembly · I inspect · M measure · X section ·
@@ -71,7 +91,8 @@ case-sensitive: /Partforge/.
 ## Stack
 
 openscad-wasm 0.0.4 · three.js 0.160 · Anthropic Messages API (browser-direct,
-bring-your-own-key) · GitHub Pages.
+bring-your-own-key; default model Claude Sonnet 5, Opus 5 selectable in Settings) ·
+GitHub Pages.
 
 The 3D library loads asynchronously so the UI is interactive in well under a second; the
 ~14 MB geometry engine downloads once and is then cached by the browser.
