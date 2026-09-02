@@ -2884,6 +2884,22 @@ function gateRetryBudget(g){
 let lastGate = null;
 let lastIntent = null;   // the judge's read on the settled result — informs, never gates
 let aiBusy = false; // an API request is in flight — blocks a second billable call
+/* The advisory intent judge on a SETTLED result — one call, after the final
+   candidate is chosen, never on a rejected candidate mid-loop. ~65% reliable, so it
+   informs and never gates: the deterministic checks alone decide acceptance. One
+   function for every path that produces geometry (Generate, refine, Look & fix);
+   the bench is excluded because it judges on its own terms. */
+async function judgeSettled(){
+  if(!(settings.judgeOn && !benchRunning && currentMesh)) return;
+  try {
+    setOverlay(true, '<span class="big">Asking whether it reads as what you wanted</span>advisory — it cannot reject the part', {cancel:false});
+    lastIntent = await judgeIntent(lastRequest, parseSpec(currentCode));
+    renderReport(lastAnalysis, currentCode);
+  } catch(err){
+    lastIntent = { score:null, why:'judge unavailable: ' + String(err.message||err).slice(0,60) };
+    renderReport(lastAnalysis, currentCode);
+  } finally { if(currentMesh) setOverlay(false); }
+}
 async function aiTurn(userContent, label){
   setOverlay(true, label, {cancel:false});
   let text = await callClaude(userContent);
@@ -2951,16 +2967,7 @@ async function aiTurn(userContent, label){
         // the deterministic checks alone decide acceptance. The axe head passed every
         // geometry check and was still not an axe head; this is the only mechanism
         // that can say so, and it was previously wired only into the bench.
-        if(settings.judgeOn && !benchRunning && currentMesh){
-          try {
-            setOverlay(true, '<span class="big">Asking whether it reads as what you wanted</span>advisory — it cannot reject the part', {cancel:false});
-            lastIntent = await judgeIntent(lastRequest, parseSpec(currentCode));
-            renderReport(lastAnalysis, currentCode);
-          } catch(err){
-            lastIntent = { score:null, why:'judge unavailable: ' + String(err.message||err).slice(0,60) };
-            renderReport(lastAnalysis, currentCode);
-          } finally { if(currentMesh) setOverlay(false); }
-        }
+        await judgeSettled();
         return;
       }
       pushHistory('ai', `rejected: ${g.fails.length} geometry check${g.fails.length>1?'s':''} failed`);
@@ -3156,6 +3163,9 @@ async function improveByLooking(){
       if(currentMesh) setOverlay(false);
     }
     renderReport(a2, code);
+    // Look & fix exists to fix what looks wrong — it is the one path that most needs
+    // the "does it read as what you asked for" signal, and it had none.
+    await judgeSettled();
     pushHistory('ai', 'looked at it and revised' + (lastGate && lastGate.fails.length ? ` — ${lastGate.fails.length} check${lastGate.fails.length>1?'s':''} failing` : ''));
   } catch(err){
     out.textContent = 'Improve failed: ' + String(err.message || err);
