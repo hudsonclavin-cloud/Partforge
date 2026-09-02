@@ -318,6 +318,7 @@
     <option value="never">Just build — never ask</option>
   </select>
   <div class="check"><input type="checkbox" id="setSearch" checked><span>Let the designer search the web for real dimensions &amp; standards (≈1¢/search)</span></div>
+  <div class="check"><input type="checkbox" id="setJudge"><span>After each generation, show the model its own render and ask whether it reads as what you asked for (one extra vision call per generation). Advisory only — it never rejects or retries a part.</span></div>
   <div class="check"><input type="checkbox" id="setGate" checked><span>Check the finished geometry and retry if it fails (catches floating pieces and slabs; up to 2 extra generations, each carrying the previous attempt — budget roughly 4–5× a clean run in tokens; web search is off during retries)</span></div>
   <h3>Printer</h3>
   <label>Your printer <span style="color:var(--dim)">(sets bed + tells the designer what your machine can do)</span></label>
@@ -541,6 +542,8 @@ const settings = {
   get clarify(){ return store.get('pf_clarify')||'ask'; }, set clarify(v){ store.set('pf_clarify',v); },
   get search(){ return store.get('pf_search')!=='off'; }, set search(v){ store.set('pf_search', v?'on':'off'); },
   get gate(){ return store.get('pf_gate')!=='off'; }, set gate(v){ store.set('pf_gate', v?'on':'off'); },
+  // Off by default: it spends a vision call per generation, so it is opted into knowingly.
+  get judgeOn(){ return store.get('pf_judge_on')==='on'; }, set judgeOn(v){ store.set('pf_judge_on', v?'on':'off'); },
   get bed(){ try{ return JSON.parse(store.get('pf_bed'))||[220,220,250]; }catch(e){ return [220,220,250]; } },
   set bed(v){ store.set('pf_bed', JSON.stringify(v)); },
   get material(){ return store.get('pf_mat')||'PLA'; }, set material(v){ store.set('pf_mat',v); },
@@ -2159,6 +2162,18 @@ function renderReport(a, code){
           ? `<div class="line"><span>Spec check</span><span>${lastGate.parts.filter(p=>p.ok).length}/${lastGate.parts.length} parts · ${lastGate.joints.filter(j=>j.ok).length}/${lastGate.joints.length} joints${lastGate.rules && lastGate.rules.length ? ` · ${lastGate.rules.filter(r=>r.ok).length}/${lastGate.rules.length} rules` : ''}${lastGate.layout && lastGate.layout.length ? ` · ${lastGate.layout.filter(l=>l.ok).length}/${lastGate.layout.length} layout` : ''}${lastGate.parts.length + lastGate.joints.length > 0 && lastGate.parts.every(p=>p.ok) && lastGate.joints.every(j=>j.ok) && (lastGate.rules||[]).every(r=>r.ok) && (lastGate.layout||[]).every(l=>l.ok) ? ' <span class="tag good">OK</span>' : ''}</span></div>`
             + `<div class="w" style="font-size:11px;color:var(--dim)">${lastGate.parts.map((p, i) => `<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${partColorHex(i)};vertical-align:middle;margin-right:3px"></span>${escapeHtml(p.name)}${p.size ? p.size.map(v=>Math.round(v)).join('×') : ''}${p.ok ? '' : ' <span class="tag bad">' + escapeHtml(p.note || 'fail') + '</span>'}`).join(' · ')}${lastGate.joints.length ? '<br>' + lastGate.joints.map(j => `${escapeHtml(j.a)}∩${escapeHtml(j.b)}${j.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(j.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.rules && lastGate.rules.length ? '<br>' + lastGate.rules.map(r => `${escapeHtml(r.why || r.a + '/' + r.b)}${r.got != null ? ' = ' + r.got : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.layout && lastGate.layout.length ? '<br>' + lastGate.layout.map(l => `${escapeHtml(l.a)} ${escapeHtml(l.rel)} ${escapeHtml(l.b)}${l.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(l.note || 'fail') + '</span>'}`).join(' · ') : ''}</div>`
           : (lastGate.specNote ? `<div class="line"><span>Spec check</span><span class="tag warn">${escapeHtml(lastGate.specNote)}</span></div>` : '')) : ''}
+    ${lastIntent ? (() => {
+      const s = lastIntent.score, low = typeof s === 'number' && s < 6;
+      // Geometry clean AND the judge unconvinced is the axe-head case: every check
+      // passed and it still is not the thing that was asked for. Call that out.
+      const clean = lastGate && !lastGate.fails.length;
+      const tag = s == null ? '<span class="tag warn">no score</span>'
+        : low ? `<span class="tag bad">${s}/10</span>` : `<span class="tag good">${s}/10</span>`;
+      return `<div class="line"><span>Reads as requested${lastIntent.model ? ` <span style="color:var(--dim);font-size:11px">${escapeHtml(lastIntent.model)}</span>` : ''}</span><span>${tag}</span></div>`
+        + (lastIntent.why ? `<div class="w" style="font-size:11px;color:var(--dim)">${escapeHtml(lastIntent.why)}</div>` : '')
+        + (low && clean ? `<div class="w" style="color:var(--warn);font-size:12px">⚠ Every geometry check passed, but the judge does not think this reads as what you asked for. The checks cannot catch that — look at it before printing.</div>` : '')
+        + `<div class="w" style="font-size:11px;color:var(--dim)">Advisory only — this never rejects or retries a part.</div>`;
+    })() : ''}
     <div class="line"><span>Size (X·Y·Z)</span><b>${f(a.size[0])} × ${f(a.size[1])} × ${f(a.size[2])} mm</b></div>
     <div class="line"><span>Fits ${pinfo ? escapeHtml(pinfo.m) : 'bed'}</span><span>${tag(a.fitsBed,false)}</span></div>
     ${compat ? `<div class="line"><span>Material vs printer</span><span class="tag bad">CHECK</span></div><div class="w" style="color:var(--warn);font-size:12px">⚠ ${escapeHtml(compat)}</div>` : ''}
@@ -2406,7 +2421,7 @@ async function runCode(code, statusPrefix=''){
     const mesh = parseAsciiSTL(stl);
     if(mesh.tris === 0) throw new Error('No triangles in output.');
     currentCode = code; currentMesh = mesh;
-    lastGate = null;
+    lastGate = null; lastIntent = null;
     meshModified = false; $('modFlag').style.display = 'none';
     assemblyCache = null;
     currentManifest = parseManifest(code);
@@ -2768,6 +2783,7 @@ function gateRetryBudget(g){
   return n ? Math.min(GATE_MAX_RETRIES_CAP, GATE_MAX_RETRIES + n) : GATE_MAX_RETRIES;
 }
 let lastGate = null;
+let lastIntent = null;   // the judge's read on the settled result — informs, never gates
 let aiBusy = false; // an API request is in flight — blocks a second billable call
 async function aiTurn(userContent, label){
   setOverlay(true, label, {cancel:false});
@@ -2830,6 +2846,21 @@ async function aiTurn(userContent, label){
           renderReport(lastAnalysis, best.code);
         } else {
           pushHistory('ai', firstPartName(code) + (g && g.fails.length ? ` — ${trend(g.fails.length)}` : ''));
+        }
+        // The judge runs ONCE, here, on the settled result — never on a rejected
+        // candidate mid-loop. It is ~65% reliable, so it informs and never gates:
+        // the deterministic checks alone decide acceptance. The axe head passed every
+        // geometry check and was still not an axe head; this is the only mechanism
+        // that can say so, and it was previously wired only into the bench.
+        if(settings.judgeOn && !benchRunning && currentMesh){
+          try {
+            setOverlay(true, '<span class="big">Asking whether it reads as what you wanted</span>advisory — it cannot reject the part', {cancel:false});
+            lastIntent = await judgeIntent(lastRequest, parseSpec(currentCode));
+            renderReport(lastAnalysis, currentCode);
+          } catch(err){
+            lastIntent = { score:null, why:'judge unavailable: ' + String(err.message||err).slice(0,60) };
+            renderReport(lastAnalysis, currentCode);
+          } finally { if(currentMesh) setOverlay(false); }
         }
         return;
       }
@@ -3242,6 +3273,7 @@ $('btnSettings').onclick = () => {
   $('setBase').value = settings.base;
   $('setClarify').value = settings.clarify; $('setSearch').checked = settings.search;
   $('setGate').checked = settings.gate;
+  $('setJudge').checked = settings.judgeOn;
   $('setJudgeModel').value = settings.judgeModel;
   $('setMaterial').value = settings.material; $('setNozzle').value = settings.nozzle;
   $('setCost').value = settings.cost; $('setFitOffset').value = settings.fitOffset;
@@ -3310,6 +3342,7 @@ $('setSave').onclick = () => {
   settings.clarify = $('setClarify').value;
   settings.search = $('setSearch').checked;
   settings.gate = $('setGate').checked;
+  settings.judgeOn = $('setJudge').checked;
   settings.judgeModel = $('setJudgeModel').value.trim();
   settings.material = $('setMaterial').value;
   settings.nozzle = +$('setNozzle').value || 0.4;
@@ -3380,6 +3413,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
   captureViews, improveByLooking, gateCheck, partKind,
   BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort, showSpecParts, partColorHex, meshBounds, gateRetryBudget,
+  get lastIntent(){ return lastIntent; },
   get specRoot(){ return specRoot; }, get partMesh(){ return partMesh; },
   get benchRunning(){ return benchRunning; },
   get aiBusy(){ return aiBusy; }, get lastGate(){ return lastGate; }, get lastAnalysis(){ return lastAnalysis; },
