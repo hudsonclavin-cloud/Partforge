@@ -67,8 +67,10 @@ module, placed in its final position, and `main()` unions them.
 
 The program then checks the geometry against that declaration. It compiles every part
 alone (size against the spec), every joint as an `intersection()` (empty means not
-joined), every proportion rule from the measured parts, and every layout relation
-from their bounding boxes. A failure goes back quoting the model's own promise —
+joined), every proportion rule from the measured parts, every layout relation from
+their bounding boxes, and every declared shape profile by slicing the part — a wedge
+declared and a plate built is rejected with both measured ends quoted. A failure goes
+back quoting the model's own promise —
 *"left_arm() does not intersect torso(); your SPEC promised 2 mm of overlap"* — and
 the part is regenerated — up to 2 retries plus one per declared part, capped at 6 —
 keeping the best candidate. The budget scales because the number of ways to violate a
@@ -92,10 +94,15 @@ call after the first reads it at a tenth of the price.
 The geometry checks cannot tell you whether the result is the *thing you asked for* —
 the one part that passed every check in hand testing was a flat plate rather than an
 axe head. Turn on **"does it read as what you asked for"** in ⚙ Settings and, after
-each generation, the model is shown its own render and scores it. It is advisory: it
+each generation or Look & fix, the model is shown its own render and scores it. It is advisory: it
 never rejects or retries a part, and a passing geometry check paired with a low score
 is called out explicitly, because that pairing is the failure the checks cannot see.
 One extra vision call per generation, off by default.
+
+A cheaper tell runs always: if a part's dimension lands exactly on a bed limit and you
+never asked for that size, the report says so. That axe head was 220.0 mm on a 220 mm
+bed — the signature of a part sized to satisfy the constraint rather than to be the
+object. A warning, never a rejection.
 
 Add `?bench=1` for the bench: 20 fixed prompts with expected kind, body count and
 size, scored by the same gate. **Run raw** measures the generator alone; **Run

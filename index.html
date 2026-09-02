@@ -1307,7 +1307,28 @@ function gateCheck(mesh, a, code, conn){
     if(a.overhangPct > 25)
       fails.push(`${a.overhangPct.toFixed(0)}% of the surface overhangs past 45° — that is the signature of limbs held straight out sideways. Bring the arms down or bend them toward the body so they are within 45° of vertical.`);
   }
-  return { fails, kind, isAssembly };
+  // Advisory, never a failure: a part pinned to a bed dimension the user did not ask for.
+  const bedPin = bedPinning(a, lastRequest);
+  return { fails, kind, isAssembly, bedPin };
+}
+/* The constraint-pinning tell. The axe head measured 220.0 mm on a 220 mm bed with
+   no size in the request: the signature of a part sized to satisfy a limit rather
+   than to be the object. A tell, not a defect — a part legitimately maximising the
+   bed exists — so this warns in the report and never rejects. */
+function bedPinning(a, request){
+  if(!a || !Array.isArray(a.size)) return null;
+  const bed = settings.bed || [];
+  const asked = (String(request || '').match(/\d+(?:\.\d+)?/g) || []).map(Number);
+  const axes = ['X','Y','Z'];
+  for(let i=0;i<3;i++){
+    const d = a.size[i];
+    for(const b of bed){
+      if(!(b > 0) || Math.abs(d - b) > Math.max(0.5, b * 0.005)) continue;
+      if(asked.some(n => Math.abs(n - d) <= d * 0.05)) return null;   // they asked for that size
+      return { axis: axes[i], dim: Math.round(d*10)/10, bed: b };
+    }
+  }
+  return null;
 }
 function gateSummary(g){
   if(!g) return '';
@@ -2239,6 +2260,8 @@ function renderReport(a, code){
           ? `<div class="line"><span>Spec check</span><span>${lastGate.parts.filter(p=>p.ok).length}/${lastGate.parts.length} parts · ${lastGate.joints.filter(j=>j.ok).length}/${lastGate.joints.length} joints${lastGate.rules && lastGate.rules.length ? ` · ${lastGate.rules.filter(r=>r.ok).length}/${lastGate.rules.length} rules` : ''}${lastGate.layout && lastGate.layout.length ? ` · ${lastGate.layout.filter(l=>l.ok).length}/${lastGate.layout.length} layout` : ''}${lastGate.profile && lastGate.profile.length ? ` · ${lastGate.profile.filter(r=>r.ok).length}/${lastGate.profile.length} shape` : ''}${lastGate.parts.length + lastGate.joints.length > 0 && lastGate.parts.every(p=>p.ok) && lastGate.joints.every(j=>j.ok) && (lastGate.rules||[]).every(r=>r.ok) && (lastGate.layout||[]).every(l=>l.ok) && (lastGate.profile||[]).every(r=>r.ok) ? ' <span class="tag good">OK</span>' : ''}</span></div>`
             + `<div class="w" style="font-size:11px;color:var(--dim)">${lastGate.parts.map((p, i) => `<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${partColorHex(i)};vertical-align:middle;margin-right:3px"></span>${escapeHtml(p.name)}${p.size ? p.size.map(v=>Math.round(v)).join('×') : ''}${p.ok ? '' : ' <span class="tag bad">' + escapeHtml(p.note || 'fail') + '</span>'}`).join(' · ')}${lastGate.joints.length ? '<br>' + lastGate.joints.map(j => `${escapeHtml(j.a)}∩${escapeHtml(j.b)}${j.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(j.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.rules && lastGate.rules.length ? '<br>' + lastGate.rules.map(r => `${escapeHtml(r.why || r.a + '/' + r.b)}${r.got != null ? ' = ' + r.got : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.layout && lastGate.layout.length ? '<br>' + lastGate.layout.map(l => `${escapeHtml(l.a)} ${escapeHtml(l.rel)} ${escapeHtml(l.b)}${l.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(l.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.profile && lastGate.profile.length ? '<br>' + lastGate.profile.map(r => `${escapeHtml(r.part)} ${r.from}→${r.to} ${escapeHtml(r.measure)}${r.got ? ` (got ${r.got[0]}→${r.got[1]})` : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}</div>`
           : (lastGate.specNote ? `<div class="line"><span>Spec check</span><span class="tag warn">${escapeHtml(lastGate.specNote)}</span></div>` : '')) : ''}
+    ${lastGate && lastGate.bedPin ? `<div class="line"><span>Sized to the bed limit?</span><span class="tag warn">${lastGate.bedPin.axis} = ${lastGate.bedPin.dim} mm</span></div>`
+      + `<div class="w" style="color:var(--warn);font-size:12px">⚠ The part's ${lastGate.bedPin.axis} is ${lastGate.bedPin.dim} mm — exactly your bed's ${lastGate.bedPin.bed} mm limit — and you did not ask for that size. That is often a sign the model sized the part to fit the constraint rather than to be the object. Check the proportions against the real thing before printing.</div>` : ''}
     ${lastIntent ? (() => {
       const s = lastIntent.score, low = typeof s === 'number' && s < 6;
       // Geometry clean AND the judge unconvinced is the axe-head case: every check
@@ -3524,7 +3547,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   PRINTERS, printerById, materialCompat, printerDescriptor, settings, PROVIDERS, P,
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
   captureViews, improveByLooking, gateCheck, partKind,
-  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort, showSpecParts, partColorHex, meshBounds, gateRetryBudget, sliceExtents,
+  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort, showSpecParts, partColorHex, meshBounds, gateRetryBudget, sliceExtents, bedPinning,
   get lastIntent(){ return lastIntent; }, benchCostText, updateBenchCost,
   get specRoot(){ return specRoot; }, get partMesh(){ return partMesh; },
   get benchRunning(){ return benchRunning; },
