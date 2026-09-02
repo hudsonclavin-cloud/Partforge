@@ -70,7 +70,12 @@ alone (size against the spec), every joint as an `intersection()` (empty means n
 joined), every proportion rule from the measured parts, and every layout relation
 from their bounding boxes. A failure goes back quoting the model's own promise —
 *"left_arm() does not intersect torso(); your SPEC promised 2 mm of overlap"* — and
-the part is regenerated, up to twice, keeping the best candidate. Understanding,
+the part is regenerated — up to 2 retries plus one per declared part, capped at 6 —
+keeping the best candidate. The budget scales because the number of ways to violate a
+spec scales with the parts declared: a gear is a body and a bore, a sitting dog is nine
+parts and every joint between them. Retries stop the moment the checks pass, and a run
+that ends still failing states its trend ("1 check still failing (was 3)"), so a
+converging run is visibly different from a stuck one. Understanding,
 operationalised: stated intent that survives contact with measurement. The
 whole-mesh checks (floating pieces, on-plate, bed fit, volume, figure proportions)
 still run underneath. No SPEC, or an assembly, skips the part checks with a note.
@@ -79,10 +84,18 @@ still run underneath. No SPEC, or an assembly, skips the part checks with a note
 **🧩 Parts** colours each declared part exactly as the checker saw it; the chips in
 the report's Spec check row use the same colours.
 
-Each retry carries the previous attempt, so budget roughly 4–5× a clean run in tokens
-for a part that needs both. Web search is off during retries. On Anthropic the
-system prompt is cached, so every call after the first reads it at a tenth of the
-price.
+Each retry carries the previous attempt, so a part that spends its whole budget costs
+several times a clean run in tokens; a clean first try still costs exactly one call.
+Web search is off during retries. On Anthropic the system prompt is cached, so every
+call after the first reads it at a tenth of the price.
+
+The geometry checks cannot tell you whether the result is the *thing you asked for* —
+the one part that passed every check in hand testing was a flat plate rather than an
+axe head. Turn on **"does it read as what you asked for"** in ⚙ Settings and, after
+each generation, the model is shown its own render and scores it. It is advisory: it
+never rejects or retries a part, and a passing geometry check paired with a low score
+is called out explicitly, because that pairing is the failure the checks cannot see.
+One extra vision call per generation, off by default.
 
 Add `?bench=1` for the bench: 20 fixed prompts with expected kind, body count and
 size, scored by the same gate. **Run raw** measures the generator alone; **Run
@@ -91,6 +104,10 @@ intent** shows a model the render and the declared design and scores whether it
 reads as requested; raise the samples per case to get a spread, and set a separate
 judge model in ⚙ Settings so the designer does not grade its own work. That column
 is non-deterministic and never part of pass. Run history stays in localStorage.
+
+The panel states what a run costs at the current settings and updates as you change
+them — judging on at 3 samples turns a raw 20-case run into 20 generation calls plus
+60 vision calls, and a gated run can reach seven generation calls per case.
 
 ## Keyboard
 

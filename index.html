@@ -232,7 +232,8 @@
 
       <div class="card" id="benchCard" style="display:none">
         <h3>Bench <span class="right" style="font-size:11px;color:var(--dim)">20 prompts, scored</span></h3>
-        <p class="hint">Runs the fixed prompt set through the model and scores the geometry. Raw measures the generator alone; gated measures it with retries, so the difference is what the gate is worth. Costs one API call per case (gated: up to three).</p>
+        <p class="hint">Runs the fixed prompt set through the model and scores the geometry. Raw measures the generator alone; gated measures it with retries, so the difference is what the gate is worth.</p>
+        <p class="hint" id="benchCost"></p>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
           <button class="btn small" id="benchRun">Run raw</button>
           <button class="btn small" id="benchRunGated">Run gated</button>
@@ -319,7 +320,7 @@
   </select>
   <div class="check"><input type="checkbox" id="setSearch" checked><span>Let the designer search the web for real dimensions &amp; standards (≈1¢/search)</span></div>
   <div class="check"><input type="checkbox" id="setJudge"><span>After each generation, show the model its own render and ask whether it reads as what you asked for (one extra vision call per generation). Advisory only — it never rejects or retries a part.</span></div>
-  <div class="check"><input type="checkbox" id="setGate" checked><span>Check the finished geometry and retry if it fails (catches floating pieces and slabs; up to 2 extra generations, each carrying the previous attempt — budget roughly 4–5× a clean run in tokens; web search is off during retries)</span></div>
+  <div class="check"><input type="checkbox" id="setGate" checked><span>Check the finished geometry and retry if it fails (catches floating pieces and slabs; retries up to 2 + one per declared part, capped at 6, and stops as soon as the checks pass — a clean first try still costs one call, a many-part figure can cost seven. Each retry carries the previous attempt; web search is off during retries)</span></div>
   <h3>Printer</h3>
   <label>Your printer <span style="color:var(--dim)">(sets bed + tells the designer what your machine can do)</span></label>
   <select id="setPrinter"><option value="">Custom / other</option></select>
@@ -2747,6 +2748,28 @@ function saveBenchRun(results, gated, ms){
                  fails: results.filter(r=>!r.pass).map(r=>r.id) });
   store.set('pf_bench', JSON.stringify(runs.slice(0,20)));
 }
+/* What a run actually costs at the current settings. The old copy said "one call
+   per case (gated: up to three)" and had been wrong since the intent judge landed —
+   the judge box defaults on in the panel, so a raw 20-case run is 40 calls, not 20 —
+   and Generation 6 moved the gated ceiling from 3 to 7. Recomputed on every change
+   so the number on screen is the number that will be spent. */
+function benchCostText(){
+  const n = BENCH.length;
+  const judge = !!($('benchJudge') && $('benchJudge').checked);
+  const k = Math.max(1, Math.min(5, parseInt(($('benchJudgeK') || {}).value, 10) || 1));
+  const j = judge ? k : 0;
+  const gen = 1, genMax = 1 + GATE_MAX_RETRIES_CAP;   // gated ceiling: one generation + the retry budget
+  const per = (lo, hi) => lo === hi ? `${lo}` : `${lo}–${hi}`;
+  const tot = (lo, hi) => lo === hi ? `${lo * n}` : `${lo * n}–${hi * n}`;
+  const judgeBit = judge
+    ? ` Judging adds ${k} vision call${k>1?'s':''} per case (${k*n} for ${n} cases).`
+    : ' Judging is off, so no vision calls.';
+  return `At the current settings, ${n} cases cost: raw ${tot(gen + j, gen + j)} call${gen+j>1||n>1?'s':''} `
+    + `(${per(gen + j, gen + j)} per case), gated ${tot(gen + j, genMax + j)} `
+    + `(${per(gen + j, genMax + j)} per case — the gate retries up to ${GATE_MAX_RETRIES_CAP} times, scaled by how many parts each design declares, and stops early when the checks pass).`
+    + judgeBit + ' "First 5 only" costs a quarter of these.';
+}
+function updateBenchCost(){ const el = $('benchCost'); if(el) el.textContent = benchCostText(); }
 function renderBench(results, status){
   const el = $('benchOut'); if(!el) return;
   const s = benchSummary(results);
@@ -2939,6 +2962,9 @@ $('qaSkip').onclick = async () => {
 if(new URLSearchParams(location.search).has('bench')){
   $('benchCard').style.display = 'block';
   renderBench([]);
+  updateBenchCost();
+  $('benchJudge').onchange = updateBenchCost;
+  $('benchJudgeK').oninput = updateBenchCost;
   $('benchRun').onclick      = () => runBench(0, false);
   $('benchRunGated').onclick = () => runBench(0, true);
   $('benchRun5').onclick     = () => runBench(5, false);
@@ -3413,7 +3439,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
   captureViews, improveByLooking, gateCheck, partKind,
   BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort, showSpecParts, partColorHex, meshBounds, gateRetryBudget,
-  get lastIntent(){ return lastIntent; },
+  get lastIntent(){ return lastIntent; }, benchCostText, updateBenchCost,
   get specRoot(){ return specRoot; }, get partMesh(){ return partMesh; },
   get benchRunning(){ return benchRunning; },
   get aiBusy(){ return aiBusy; }, get lastGate(){ return lastGate; }, get lastAnalysis(){ return lastAnalysis; },
