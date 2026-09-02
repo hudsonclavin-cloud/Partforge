@@ -593,9 +593,10 @@ One fenced code block of complete, valid OpenSCAD. No prose outside it.
    //  "parts":[{"name":"torso","role":"main body","size_mm":[30,18,40]},{"name":"left_arm","role":"arm, hangs at the side","size_mm":[10,10,28]}],
    //  "joints":[{"a":"left_arm","b":"torso","overlap_mm":2}],
    //  "proportions":[{"a":"torso","b":"head","axis":"x","min":1.8,"max":2.5,"why":"shoulders about 2x head width"},{"a":"legs","b":"torso","axis":"z","min":0.8,"max":1.2,"why":"legs about as tall as the torso"}],
-   //  "layout":[{"a":"head","rel":"above","b":"torso"},{"a":"head","rel":"centered","b":"torso"},{"a":"left_arm","rel":"left","b":"torso"}]}
+   //  "layout":[{"a":"head","rel":"above","b":"torso"},{"a":"head","rel":"centered","b":"torso"},{"a":"left_arm","rel":"left","b":"torso"}],
+   //  "profile":[{"part":"blade","along":"x","measure":"y","from_mm":28,"to_mm":3,"why":"wedge taper to the cutting edge"}]}
    // SPEC-END
-   Valid JSON; every line prefixed with //. 2–10 parts, lowercase identifier names. A joint is a pair of parts that must share volume. A proportion is a rule you designed to: the ratio of part a's extent to part b's on an axis (x, y, z, or max), with the range you intend. The app measures every part and checks every rule against the actual geometry — state only rules you built to. A layout entry is a spatial relation between two parts — above, below, left (−x), right (+x), front (−y), back (+y), inside, or centered (same x and y centre) — checked from the parts' bounding boxes with 3 mm tolerance.
+   Valid JSON; every line prefixed with //. 2–10 parts, lowercase identifier names. A joint is a pair of parts that must share volume. A proportion is a rule you designed to: the ratio of part a's extent to part b's on an axis (x, y, z, or max), with the range you intend. The app measures every part and checks every rule against the actual geometry — state only rules you built to. A profile entry is how a part's thickness CHANGES along its length: walking along the "along" axis, the part's extent in the "measure" axis goes from from_mm to to_mm. Declare one for every part whose shape is the point of it — a wedge, a taper, a blade, a cone, a horn, a spike, a leg that narrows. The app slices the part and measures it, so a part declared as tapering and built as a constant slab is rejected. A layout entry is a spatial relation between two parts — above, below, left (−x), right (+x), front (−y), back (+y), inside, or centered (same x and y centre) — checked from the parts' bounding boxes with 3 mm tolerance.
 6. ONE MODULE PER PART, named EXACTLY as in the SPEC. Each module produces its part ALREADY IN ITS FINAL POSITION in the finished object — put the translate()/rotate() INSIDE the module, so left_arm() on its own appears where the arm goes. Then module main() unions all parts, and the ONLY top-level statement in the file is main();
    The app renders intersection(){ left_arm(); torso(); } for every declared joint. Parts that merely touch have an EMPTY intersection and are rejected — overlap them by the declared amount.
 
@@ -1345,6 +1346,12 @@ function parseSpec(code){
     const REL = /^(above|below|left|right|front|back|inside|centered)$/;
     s.layout = (Array.isArray(s.layout) ? s.layout : []).filter(l => l && l.a && l.b && REL.test(String(l.rel || '')))
       .map(l => ({ a:String(l.a).trim(), rel:String(l.rel), b:String(l.b).trim(), tol_mm: isFinite(l.tol_mm) && Number(l.tol_mm) > 0 ? Number(l.tol_mm) : 3 })).slice(0, 12);
+    // Profile: how a part's thickness changes along its length. A wedge tapers; a plate does not.
+    const AX = /^(x|y|z)$/;
+    s.profile = (Array.isArray(s.profile) ? s.profile : []).filter(r => r && r.part && AX.test(String(r.along||'')) && AX.test(String(r.measure||''))
+        && String(r.along) !== String(r.measure) && isFinite(r.from_mm) && isFinite(r.to_mm) && Number(r.from_mm) >= 0 && Number(r.to_mm) >= 0)
+      .map(r => ({ part:String(r.part).trim(), along:String(r.along), measure:String(r.measure),
+                   from_mm:Number(r.from_mm), to_mm:Number(r.to_mm), why:String(r.why||'').slice(0,80) })).slice(0, 10);
     return s.parts.length ? s : null;
   } catch(e){ return null; }
 }
@@ -1356,7 +1363,46 @@ function specSummary(spec){
   const joints = spec.joints.map(j => `${j.a}→${j.b}`).join(', ');
   const rules = (spec.rules || []).map(r => `${r.why || r.a + '/' + r.b} [${r.a}.${r.axis}/${r.b}.${r.axis} ${r.min}–${r.max}]`).concat(spec.proportions || []).join('; ');
   const layout = (spec.layout || []).map(l => `${l.a} ${l.rel} ${l.b}`).join(', ');
-  return `Declared design${spec.name ? ' "' + spec.name + '"' : ''}: parts ${parts}` + (joints ? `. Joints: ${joints}` : '') + (rules ? `. Proportion rules: ${rules}` : '') + (layout ? `. Layout: ${layout}` : '') + '.';
+  const profile = (spec.profile || []).map(r => `${r.part} ${r.from_mm}→${r.to_mm} mm in ${r.measure} along ${r.along}${r.why ? ' (' + r.why + ')' : ''}`).join('; ');
+  return `Declared design${spec.name ? ' "' + spec.name + '"' : ''}: parts ${parts}` + (joints ? `. Joints: ${joints}` : '') + (rules ? `. Proportion rules: ${rules}` : '') + (layout ? `. Layout: ${layout}` : '') + (profile ? `. Shape: ${profile}` : '') + '.';
+}
+/* Extent of a part across slabs along one axis. A wedge tapers, a plate does not —
+   and no whole-mesh check can tell those apart, because both are one solid, on the
+   plate, inside the bed. This is what separates "an axe head" from "a flat plate
+   with a cylinder through it", which is the failure that passed every other check. */
+const AXIS_I = { x:0, y:1, z:2 };
+function sliceExtents(mesh, alongAxis, measureAxis, nSlabs){
+  if(!mesh || !mesh.tris) return [];
+  const p = mesh.pos, A = AXIS_I[alongAxis], M = AXIS_I[measureAxis];
+  if(A === undefined || M === undefined) return [];
+  let lo = Infinity, hi = -Infinity;
+  for(let i=0;i<p.length;i+=3){ const v = p[i+A]; if(v < lo) lo = v; if(v > hi) hi = v; }
+  const span = hi - lo;
+  if(!(span > 1e-6)) return [];
+  // True plane slicing, not vertex binning: a cube has vertices only at its eight
+  // corners and a hull() only at its ends, so binning leaves the interior empty.
+  // Intersect every triangle edge with the plane at each slab centre instead.
+  const n = Math.max(2, nSlabs|0);
+  const out = [];
+  for(let s=0;s<n;s++){
+    const xc = lo + span * (s + 0.5) / n;
+    let mn = Infinity, mx = -Infinity;
+    for(let t=0;t<mesh.tris;t++){
+      const b = t*9;
+      for(let e=0;e<3;e++){
+        const i0 = b + e*3, i1 = b + ((e+1)%3)*3;
+        const a0 = p[i0+A], a1 = p[i1+A];
+        if((a0 - xc) * (a1 - xc) > 0) continue;          // edge entirely on one side
+        const da = a1 - a0;
+        const f = Math.abs(da) < 1e-9 ? 0 : (xc - a0) / da;
+        const m = p[i0+M] + f * (p[i1+M] - p[i0+M]);
+        if(m < mn) mn = m;
+        if(m > mx) mx = m;
+      }
+    }
+    out.push(mx >= mn ? mx - mn : null);
+  }
+  return out;
 }
 function meshBounds(mesh){
   if(!mesh || !mesh.tris) return { min:[0,0,0], max:[0,0,0] };
@@ -1387,7 +1433,7 @@ async function renderProbe(code, expr){
 }
 const SPEC_MAX_PROBES = 16;   // each probe is a WASM compile of one module — cap the bill
 async function specCheck(code, g, onStatus){
-  g.spec = null; g.parts = []; g.joints = []; g.rules = []; g.layout = []; g.specNote = '';
+  g.spec = null; g.parts = []; g.joints = []; g.rules = []; g.layout = []; g.profile = []; g.specNote = '';
   if(g.isAssembly){ g.specNote = 'assembly — manifest contract applies'; return g; }
   const spec = parseSpec(code);
   if(!spec){ g.specNote = 'no SPEC block — part checks skipped'; return g; }
@@ -1491,6 +1537,36 @@ async function specCheck(code, g, onStatus){
     if(!ok){
       row.note = 'violated';
       g.fails.push(`Your SPEC says ${l.a} is ${l.rel} ${l.b}, but measured: ${detail}. Move ${l.a} so it is ${l.rel} ${l.b}${l.rel === 'centered' ? ' (same x and y centre)' : ''}.`);
+      continue;
+    }
+    row.ok = true;
+  }
+  // --- profile: does the part's thickness actually change the way it was declared?
+  //     The axe head passed connectivity, on-plate, bed fit and volume, and was a flat
+  //     plate. Slicing the part and measuring its extent is the check that sees that.
+  for(const pr of (spec.profile || [])){
+    const row = { part:pr.part, along:pr.along, measure:pr.measure, from:pr.from_mm, to:pr.to_mm, why:pr.why, got:null, ok:false, note:'' };
+    g.profile.push(row);
+    const prow = g.parts.find(x => x.name === pr.part);
+    if(!prow){ row.note = 'unmeasured part'; continue; }
+    if(!prow.mesh){ row.note = 'mesh too large to slice'; continue; }
+    const ext = sliceExtents(prow.mesh, pr.along, pr.measure, 8).filter(v => v != null);
+    if(ext.length < 3){ row.note = 'too thin to slice'; continue; }
+    const a = ext[0], b = ext[ext.length - 1];
+    row.got = [Math.round(a*10)/10, Math.round(b*10)/10];
+    // Generous: this catches "declared a taper, built a slab", not millimetre precision.
+    const tol = v => Math.max(2, v * 0.35);
+    const endsOK = Math.abs(a - pr.from_mm) <= tol(pr.from_mm) && Math.abs(b - pr.to_mm) <= tol(pr.to_mm);
+    const wantsNarrow = pr.from_mm > pr.to_mm * 1.3, wantsWiden = pr.to_mm > pr.from_mm * 1.3;
+    const narrows = b < a * 0.8, widens = a < b * 0.8;
+    const dirOK = wantsNarrow ? narrows : wantsWiden ? widens : true;
+    if(!endsOK || !dirOK){
+      row.note = `got ${row.got[0]}→${row.got[1]}`;
+      const flat = (wantsNarrow || wantsWiden) && !narrows && !widens;
+      g.fails.push(`Your SPEC says ${pr.part} runs from ${pr.from_mm} mm to ${pr.to_mm} mm in ${pr.measure}, measured along ${pr.along}`
+        + (pr.why ? ` (${pr.why})` : '') + `. The geometry measures ${a.toFixed(1)} mm at one end and ${b.toFixed(1)} mm at the other`
+        + (flat ? ' — it is a constant slab, not a taper. Build the shape: hull() two profiles of different size, or linear_extrude with scale=, or a polygon whose width varies.'
+                : '. Make the geometry match the profile you declared, or correct the SPEC.'));
       continue;
     }
     row.ok = true;
@@ -2160,8 +2236,8 @@ function renderReport(a, code){
       : `<span class="tag bad">${lastGate.fails.length} FAILED</span>`}</span></div>`
       + (lastGate.fails.length ? `<div class="w" style="color:var(--warn);font-size:12px">${lastGate.fails.map(f=>'⚠ '+escapeHtml(f)).join('<br>')}</div>` : '')
       + (lastGate.spec
-          ? `<div class="line"><span>Spec check</span><span>${lastGate.parts.filter(p=>p.ok).length}/${lastGate.parts.length} parts · ${lastGate.joints.filter(j=>j.ok).length}/${lastGate.joints.length} joints${lastGate.rules && lastGate.rules.length ? ` · ${lastGate.rules.filter(r=>r.ok).length}/${lastGate.rules.length} rules` : ''}${lastGate.layout && lastGate.layout.length ? ` · ${lastGate.layout.filter(l=>l.ok).length}/${lastGate.layout.length} layout` : ''}${lastGate.parts.length + lastGate.joints.length > 0 && lastGate.parts.every(p=>p.ok) && lastGate.joints.every(j=>j.ok) && (lastGate.rules||[]).every(r=>r.ok) && (lastGate.layout||[]).every(l=>l.ok) ? ' <span class="tag good">OK</span>' : ''}</span></div>`
-            + `<div class="w" style="font-size:11px;color:var(--dim)">${lastGate.parts.map((p, i) => `<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${partColorHex(i)};vertical-align:middle;margin-right:3px"></span>${escapeHtml(p.name)}${p.size ? p.size.map(v=>Math.round(v)).join('×') : ''}${p.ok ? '' : ' <span class="tag bad">' + escapeHtml(p.note || 'fail') + '</span>'}`).join(' · ')}${lastGate.joints.length ? '<br>' + lastGate.joints.map(j => `${escapeHtml(j.a)}∩${escapeHtml(j.b)}${j.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(j.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.rules && lastGate.rules.length ? '<br>' + lastGate.rules.map(r => `${escapeHtml(r.why || r.a + '/' + r.b)}${r.got != null ? ' = ' + r.got : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.layout && lastGate.layout.length ? '<br>' + lastGate.layout.map(l => `${escapeHtml(l.a)} ${escapeHtml(l.rel)} ${escapeHtml(l.b)}${l.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(l.note || 'fail') + '</span>'}`).join(' · ') : ''}</div>`
+          ? `<div class="line"><span>Spec check</span><span>${lastGate.parts.filter(p=>p.ok).length}/${lastGate.parts.length} parts · ${lastGate.joints.filter(j=>j.ok).length}/${lastGate.joints.length} joints${lastGate.rules && lastGate.rules.length ? ` · ${lastGate.rules.filter(r=>r.ok).length}/${lastGate.rules.length} rules` : ''}${lastGate.layout && lastGate.layout.length ? ` · ${lastGate.layout.filter(l=>l.ok).length}/${lastGate.layout.length} layout` : ''}${lastGate.profile && lastGate.profile.length ? ` · ${lastGate.profile.filter(r=>r.ok).length}/${lastGate.profile.length} shape` : ''}${lastGate.parts.length + lastGate.joints.length > 0 && lastGate.parts.every(p=>p.ok) && lastGate.joints.every(j=>j.ok) && (lastGate.rules||[]).every(r=>r.ok) && (lastGate.layout||[]).every(l=>l.ok) && (lastGate.profile||[]).every(r=>r.ok) ? ' <span class="tag good">OK</span>' : ''}</span></div>`
+            + `<div class="w" style="font-size:11px;color:var(--dim)">${lastGate.parts.map((p, i) => `<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${partColorHex(i)};vertical-align:middle;margin-right:3px"></span>${escapeHtml(p.name)}${p.size ? p.size.map(v=>Math.round(v)).join('×') : ''}${p.ok ? '' : ' <span class="tag bad">' + escapeHtml(p.note || 'fail') + '</span>'}`).join(' · ')}${lastGate.joints.length ? '<br>' + lastGate.joints.map(j => `${escapeHtml(j.a)}∩${escapeHtml(j.b)}${j.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(j.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.rules && lastGate.rules.length ? '<br>' + lastGate.rules.map(r => `${escapeHtml(r.why || r.a + '/' + r.b)}${r.got != null ? ' = ' + r.got : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.layout && lastGate.layout.length ? '<br>' + lastGate.layout.map(l => `${escapeHtml(l.a)} ${escapeHtml(l.rel)} ${escapeHtml(l.b)}${l.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(l.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.profile && lastGate.profile.length ? '<br>' + lastGate.profile.map(r => `${escapeHtml(r.part)} ${r.from}→${r.to} ${escapeHtml(r.measure)}${r.got ? ` (got ${r.got[0]}→${r.got[1]})` : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}</div>`
           : (lastGate.specNote ? `<div class="line"><span>Spec check</span><span class="tag warn">${escapeHtml(lastGate.specNote)}</span></div>` : '')) : ''}
     ${lastIntent ? (() => {
       const s = lastIntent.score, low = typeof s === 'number' && s < 6;
@@ -3438,7 +3514,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   PRINTERS, printerById, materialCompat, printerDescriptor, settings, PROVIDERS, P,
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
   captureViews, improveByLooking, gateCheck, partKind,
-  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort, showSpecParts, partColorHex, meshBounds, gateRetryBudget,
+  BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort, showSpecParts, partColorHex, meshBounds, gateRetryBudget, sliceExtents,
   get lastIntent(){ return lastIntent; }, benchCostText, updateBenchCost,
   get specRoot(){ return specRoot; }, get partMesh(){ return partMesh; },
   get benchRunning(){ return benchRunning; },
