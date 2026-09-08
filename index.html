@@ -3207,7 +3207,13 @@ async function improveByLooking(){
       + `- Is anything misplaced, missing, lumpy, or accidentally flat? Compare the side view to the front: a figure should have real depth, not be a slab.\n`
       + `- Do the measured numbers reveal a print problem (overhangs, tippy footprint, oversized bounding box)?\n\n`
       + `Then return the FULL corrected OpenSCAD file in the usual contract. Keep what works; change what doesn't. `
-      + `Begin the file with a // NOTE: line naming the top 2–3 things you changed and why.`;
+      + `Begin the file with a // NOTE: line naming the top 2–3 things you changed and why.\n\n`
+      // The file itself. Without it "keep what works" is impossible: chat is cleared just
+      // below, so the assistant turn holding the source is gone and the model would be
+      // regenerating from three 640 px JPEGs — a different part, not a revision.
+      + `This is the file that produced those views. Revise THIS code — keep its parameter\n`
+      + `names, its structure, its SPEC entries and everything the images show to be right:\n`
+      + '```openscad\n' + currentCode.slice(0, 12000) + '\n```';
     const content = [
       ...datas.map(d => P().image({ mime:'image/jpeg', data:d.data })),
       { type:'text', text: ask },
