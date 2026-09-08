@@ -67,13 +67,20 @@ module, placed in its final position, and `main()` unions them.
 
 The program then checks the geometry against that declaration. It compiles every part
 alone (size against the spec), every joint as an `intersection()` (empty means not
-joined), every proportion rule from the measured parts, every layout relation from
-their bounding boxes, and every declared shape profile by slicing the part — a wedge
-declared and a plate built is rejected with both measured ends quoted. A failure goes
+joined — and measures how thick that shared volume is, because two parts whose faces
+merely touch intersect in a zero-thickness sheet, not a join), every proportion rule
+from the measured parts, every layout relation from their bounding boxes, and every
+declared shape profile by slicing the part — a wedge declared and a plate built is
+rejected with both measured ends quoted, and so is a plate with a boss on one end,
+which measures wide-then-narrow at the ends but steps in the middle. A failure goes
 back quoting the model's own promise —
 *"left_arm() does not intersect torso(); your SPEC promised 2 mm of overlap"* — and
 the part is regenerated — up to 2 retries plus one per declared part, capped at 6 —
-keeping the best candidate. The budget scales because the number of ways to violate a
+keeping the best candidate. A retry may add to what it declared but never fall below
+it: dropping the SPEC block, corrupting its JSON, losing entries, or deleting the
+`// KIND:` line is itself a failure, and best-of-N breaks ties on how much was
+declared. Otherwise the cheapest way to satisfy a check is to delete it, and the
+candidate that was checked least would win. The budget scales because the number of ways to violate a
 spec scales with the parts declared: a gear is a body and a bore, a sitting dog is nine
 parts and every joint between them. Retries stop the moment the checks pass, and a run
 that ends still failing states its trend ("1 check still failing (was 3)"), so a

@@ -1533,9 +1533,20 @@ async function specCheck(code, g, onStatus){
     onStatus && onStatus(`joint ${j.a} ∩ ${j.b}`);
     probes++;
     let m; try { m = await renderProbe(code, `intersection(){ ${j.a}(); ${j.b}(); }`); } catch(e){ row.note = 'probe error'; continue; }
-    if(!m.tris){
-      row.note = 'no overlap';
-      g.fails.push(`${j.a}() does not intersect ${j.b}() — their intersection is empty, so they are not joined. Your SPEC promised ${j.overlap_mm || 1.5} mm of overlap. Move ${j.a} into ${j.b} so the two solids share volume.`);
+    // A non-empty intersection is NOT proof of a joint. Two solids whose faces are
+    // coincident — the most common LLM placement, since it computes
+    // translate = torso_w/2 + arm_r — intersect in a zero-thickness sheet, and the
+    // engine returns that as real triangles. Measuring the shared volume's thinnest
+    // extent is what separates "joined" from "touching", which is the check this whole
+    // architecture was built around and the one the prompt promises is enforced.
+    const shared = m.tris ? meshBBox(m) : [0,0,0];
+    const thinnest = Math.min(...shared);
+    row.overlap = Math.round(thinnest * 100) / 100;
+    if(!m.tris || thinnest < 0.3){
+      row.note = m.tris ? `touching only (${row.overlap} mm)` : 'no overlap';
+      g.fails.push(m.tris
+        ? `${j.a}() and ${j.b}() only touch — their shared volume is ${thinnest.toFixed(2)} mm thick, which is a surface, not a join. Your SPEC promised ${j.overlap_mm || 1.5} mm of overlap. Push ${j.a} INTO ${j.b} so the solids genuinely interpenetrate; a limb placed exactly at the torso surface prints as a separate island.`
+        : `${j.a}() does not intersect ${j.b}() — their intersection is empty, so they are not joined. Your SPEC promised ${j.overlap_mm || 1.5} mm of overlap. Move ${j.a} into ${j.b} so the two solids share volume.`);
       continue;
     }
     row.ok = true;
@@ -1612,9 +1623,19 @@ async function specCheck(code, g, onStatus){
     const wantsNarrow = pr.from_mm > pr.to_mm * 1.3, wantsWiden = pr.to_mm > pr.from_mm * 1.3;
     const narrows = b < a * 0.8, widens = a < b * 0.8;
     const dirOK = wantsNarrow ? narrows : wantsWiden ? widens : true;
-    if(!endsOK || !dirOK){
-      row.note = `got ${row.got[0]}→${row.got[1]}`;
+    // The ends alone cannot tell a taper from a step. A flat plate with a boss on one
+    // end measures wide-then-narrow and passed as a wedge — which is the literal axe
+    // head this check was written to catch. Require the middle to be near the mean too.
+    const mid = ext[Math.floor(ext.length / 2)], want = (a + b) / 2;
+    const midOK = Math.abs(mid - want) <= Math.max(2, 0.35 * Math.max(a, b));
+    row.mid = Math.round(mid * 10) / 10;
+    if(!endsOK || !dirOK || !midOK){
+      row.note = `got ${row.got[0]}→${row.got[1]}` + (endsOK && dirOK ? ` (steps at ${row.mid})` : '');
       const flat = (wantsNarrow || wantsWiden) && !narrows && !widens;
+      if(endsOK && dirOK && !midOK){
+        g.fails.push(`${pr.part} is not a smooth ${wantsNarrow || wantsWiden ? 'taper' : 'profile'}: it measures ${a.toFixed(1)} mm at one end and ${b.toFixed(1)} mm at the other, but ${mid.toFixed(1)} mm across the middle, where a straight run from one to the other would be about ${want.toFixed(1)} mm. That is a step — a slab with something stuck on the end — not the shape you declared. Make the section change gradually along ${pr.along}: hull() the two end profiles, or linear_extrude with scale=.`);
+        continue;
+      }
       g.fails.push(`Your SPEC says ${pr.part} runs from ${pr.from_mm} mm to ${pr.to_mm} mm in ${pr.measure}, measured along ${pr.along}`
         + (pr.why ? ` (${pr.why})` : '') + `. The geometry measures ${a.toFixed(1)} mm at one end and ${b.toFixed(1)} mm at the other`
         + (flat ? ' — it is a constant slab, not a taper. Build the shape: hull() two profiles of different size, or linear_extrude with scale=, or a polygon whose width varies.'
