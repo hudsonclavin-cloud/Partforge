@@ -1018,9 +1018,19 @@ self.onmessage = async (e) => {
   try {
     self.postMessage({ id, status: 'loading-engine' });
     const m = await getModule();
+    const t0 = performance.now();
+    // NOTE: the instance canNOT be reused between jobs. Instantiating costs ~200 ms
+    // against ~95 ms for the geometry, so caching it looked like the obvious win — but
+    // openscad-wasm exits its Emscripten runtime after a run, and a second renderToStl
+    // on the same instance aborts with a bare exit status. Measured, not assumed.
+    // Concurrency was the next guess and also lost: see the pool below. What actually
+    // removed the cost was compiling many probes at once instead of many times.
     const inst = await m.createOpenSCAD({ printErr: t => logs.push(t), print: t => logs.push(t) });
+    const t1 = performance.now();
     self.postMessage({ id, status: 'rendering' });
     const stl = await inst.renderToStl(code);
+    const t2 = performance.now();
+    self.postMessage({ id, timing: { instMs: Math.round(t1-t0), renderMs: Math.round(t2-t1) } });
     if(!stl || stl.length < 100 || stl.indexOf('facet') === -1){
       const errLines = logs.filter(l=>/ERROR|WARNING/i.test(l));
       self.postMessage({ id, error: 'Render produced no geometry.\\n' + (errLines.length?errLines:logs).slice(-15).join('\\n') });
@@ -1038,6 +1048,15 @@ self.onmessage = async (e) => {
 };
 `;
 let worker = null, jobId = 0, activeReject = null, workerBroken = false, lastLog = '';
+/* Per-compile cost, split into engine start-up and actual geometry. This is the number
+   that showed instantiation was ~200 ms against ~95 ms of real work and sent this whole
+   change down the right path; window.__pfTimings keeps it available from the console.
+   Bounded, because a long session compiles a lot. */
+function noteTiming(t){
+  const a = window.__pfTimings = window.__pfTimings || [];
+  a.push(t);
+  if(a.length > 200) a.shift();
+}
 function getWorker(){
   if(!worker){
     const blob = new Blob([workerSrc], {type:'text/javascript'});
@@ -1072,6 +1091,7 @@ function renderSCAD(code, onStatus){
     const handler = (e) => {
       if(e.data.progress != null){ onStatus && onStatus('engine-progress', e.data.progress); return; }
       if(e.data.id !== id) return;
+      if(e.data.timing){ noteTiming(e.data.timing); return; }
       if(e.data.status){ onStatus && onStatus(e.data.status); return; }
       activeReject = null;
       w.removeEventListener('message', handler);
@@ -1471,9 +1491,106 @@ function meshBBox(mesh){
 }
 /* Render one subtree of the design. `!` is OpenSCAD's root modifier: render ONLY
    this, ignore everything else in the file — so main() need not be stripped. */
+/* ---------------- probe pool ----------------
+   Probes run here rather than on the single render worker, so a spec check and the
+   render feeding the viewer can proceed at the same time and neither owns the other's
+   cancel plumbing.
+
+   Two workers, never more, and the reason is measured rather than assumed: on a
+   four-core machine six probes run concurrently across three workers took LONGER than
+   the same six run one after another (1381 ms vs 1155 ms). Instantiation is CPU-bound,
+   so the workers fight each other and the main thread. Two was the only width that beat
+   serial (229 ms vs 333 ms) — which is exactly the width this needs, one batch beside
+   one render. Every worker also holds a whole engine in memory, so a phone gets one. */
+const POOL_MAX = (() => {
+  const cores = navigator.hardwareConcurrency || 2;
+  const mem = navigator.deviceMemory || 4;                 // GiB, Chromium only
+  const small = mem < 4 || matchMedia('(pointer: coarse)').matches;
+  return Math.max(1, Math.min(small ? 1 : 2, cores - 1));
+})();
+const pool = [];            // { w, busy }
+const poolQueue = [];       // pending { code, resolve, reject }
+function poolPump(){
+  while(poolQueue.length){
+    let rec = pool.find(r => !r.busy);
+    if(!rec && pool.length < POOL_MAX){
+      rec = { w: new Worker(URL.createObjectURL(new Blob([workerSrc], {type:'text/javascript'})), {type:'module'}), busy:false };
+      pool.push(rec);
+    }
+    if(!rec) return;                                        // every worker busy; a completion will pump again
+    const job = poolQueue.shift();
+    rec.busy = true;
+    const id = ++jobId;
+    const handler = (e) => {
+      if(e.data.id !== id) return;
+      if(e.data.status || e.data.progress != null) return;   // chatter, not a result
+      if(e.data.timing){ noteTiming(e.data.timing); return; }
+      rec.w.removeEventListener('message', handler);
+      rec.busy = false;
+      if(e.data.error) job.reject(new Error(e.data.error)); else job.resolve(e.data.stl);
+      poolPump();
+    };
+    rec.w.addEventListener('message', handler);
+    rec.w.onerror = () => { rec.busy = false; job.reject(new Error('probe worker failed')); poolPump(); };
+    rec.w.postMessage({ id, code: job.code });
+  }
+}
+function poolRender(code){
+  return new Promise((resolve, reject) => { poolQueue.push({ code, resolve, reject }); poolPump(); });
+}
+/* Warming, in two stages, while the page is idle.
+
+   Stage 1 warms the MAIN render worker, because that is the one the first Generate uses.
+   A first compile costs ~3.1 s against ~0.3 s warm and nearly all of the gap is fetching
+   and compiling the ~14 MB engine; paid at idle it is invisible, paid on Generate it is
+   the wait the user actually feels. It posts to the worker directly rather than through
+   renderSCAD: that function owns activeReject and cancelRender terminates the worker
+   outright, and a warm job must not become a second writer of that state. The engine
+   module promise inside the worker is memoised, so a real render arriving mid-warm does
+   not race the download — it awaits the very same load.
+
+   Stage 2 warms one probe worker, and must NOT run first or alongside stage 1. Each
+   worker has its own module registry, so against a cold cache two of them would fetch
+   the engine twice over. Only once stage 1 resolves are the bytes cached and a second
+   worker cheap. One is enough: the spec check now runs two compiles, not thirteen. */
+let warmed = false;
+function warmEngines(){
+  if(warmed) return;
+  warmed = true;
+  // Prefetching spends ~14 MB before the user has asked for anything. That is the right
+  // trade on a normal connection — every path here, templates included, needs the engine
+  // — but not on a metered one, so honour Save-Data and a connection that reports itself
+  // as slow. Those users still get the engine, just at the moment they ask for a part.
+  const net = navigator.connection || {};
+  if(net.saveData || /(^|-)2g$/.test(net.effectiveType || '')) return;
+  // Short deadline on purpose. The download and compile happen inside the worker, so
+  // starting them costs the main thread only the worker construction — the reason to
+  // wait at all is to yield to a pending first paint or tap, not to defer the work.
+  // A lazier deadline measurably lost the race: a 2.5 s wait plus a 1.2 s transfer did
+  // not finish before a user who took four seconds to type a prompt.
+  const idle = window.requestIdleCallback
+    ? (fn) => window.requestIdleCallback(fn, { timeout: 300 })
+    : (fn) => setTimeout(fn, 300);
+  idle(() => {
+    new Promise(res => {
+      let w;
+      try { w = getWorker(); } catch(e){ return res(); }
+      const id = ++jobId;
+      const done = (e) => {
+        if(e.data.id !== id || e.data.status || e.data.progress != null || e.data.timing) return;
+        w.removeEventListener('message', done); res();
+      };
+      w.addEventListener('message', done);
+      w.postMessage({ id, code: 'cube(1);' });
+    }).then(() => poolRender('cube(1);').catch(() => {}));
+  });
+}
+
 async function renderProbe(code, expr){
   try {
-    const stl = await renderSCAD(code + '\n!' + expr + ';\n', () => {});
+    // via the pool, not the single render worker, so this can run beside the render
+    // that feeds the viewer instead of queueing behind it.
+    const stl = await poolRender(code + '\n!' + expr + ';\n');
     return parseAsciiSTL(stl || '');
   } catch(err){
     // OpenSCAD reports an empty result as an error ("Current top level object is empty",
@@ -1484,7 +1601,95 @@ async function renderProbe(code, expr){
     throw err;
   }
 }
-const SPEC_MAX_PROBES = 16;   // each probe is a WASM compile of one module — cap the bill
+/* Every probe was its own compile, and a compile is ~200 ms of Emscripten instantiation
+   before any geometry happens. A six-part figure ran thirteen of them. But the probes are
+   independent solids, so they do not need separate compiles — only separate ANSWERS.
+   Lay them out on a grid far enough apart that nothing can overlap, render the lot in one
+   go, and split the triangles back out by which cell their centroid falls in. Thirteen
+   compiles become three, and the per-probe cost drops to the geometry alone.
+
+   Spacing is a compromise: wide enough that no bed-scale part reaches its neighbour,
+   narrow enough that the coordinates stay small in the ASCII STL, because joint overlap
+   is judged at 0.3 mm and precision lost to a huge translate would corrupt exactly that
+   measurement. A part that lands outside its own cell anyway (geometry placed thousands
+   of mm from the origin) is caught by the bounds guard below and the batch is redone one
+   probe at a time — a wrong answer here would be a silent false pass. */
+const BATCH_SPACING = 2000;
+function splitBatch(m, n){
+  const half = BATCH_SPACING / 2;
+  const cellOf = (i) => {
+    const cx = (m.pos[i*9] + m.pos[i*9+3] + m.pos[i*9+6]) / 3;
+    return Math.round(cx / BATCH_SPACING);
+  };
+  const counts = new Array(n).fill(0);
+  for(let i = 0; i < m.tris; i++){
+    const c = cellOf(i);
+    if(c < 0 || c >= n) return null;                       // spilled off the grid
+    // every vertex must sit in the same cell as the centroid, or the solid straddles
+    // a boundary and the split would silently cut it in half
+    for(let k = 0; k < 3; k++)
+      if(Math.abs(m.pos[i*9 + k*3] - c*BATCH_SPACING) > half) return null;
+    counts[c]++;
+  }
+  const out = counts.map(t => ({ pos:new Float32Array(t*9), nrm:new Float32Array(t*3), tris:t }));
+  const at = new Array(n).fill(0);
+  for(let i = 0; i < m.tris; i++){
+    const c = cellOf(i), o = out[c], j = at[c]++;
+    for(let k = 0; k < 9; k++) o.pos[j*9+k] = m.pos[i*9+k] - (k % 3 === 0 ? c*BATCH_SPACING : 0);
+    for(let k = 0; k < 3; k++) o.nrm[j*3+k] = m.nrm[i*3+k];
+  }
+  return out;
+}
+async function runBatch(code, exprs){
+  const one = () => Promise.all(exprs.map(e => renderProbe(code, e).catch(() => null)));
+  if(exprs.length < 2) return one();
+  let m;
+  try {
+    m = await renderProbe(code, 'union(){ ' +
+      exprs.map((e, i) => `translate([${i * BATCH_SPACING},0,0]) ${e};`).join(' ') + ' }');
+  } catch(err){
+    return one();          // a module asserts, or the batch is too big for the engine
+  }
+  return splitBatch(m, exprs.length) || one();
+}
+/* One-entry memo, so the batch can be STARTED before it is needed. The part and joint
+   probes depend on nothing but the source text, while rendering the object for the
+   viewer depends on nothing but the same text — they are independent, and running them
+   back to back left one engine idle throughout the other. aiTurn now kicks the batch off
+   as it starts the render; specCheck asks for the same batch a moment later and gets the
+   compile already in flight. The key is the exact expression list, so if the plan and the
+   prefetch ever disagree the memo simply misses and the batch is computed honestly. */
+let probeMemo = null;
+function batchProbe(code, exprs){
+  const key = exprs.join('|');
+  if(probeMemo && probeMemo.code === code && probeMemo.key === key) return probeMemo.promise;
+  const promise = runBatch(code, exprs);   // never rejects: every path catches
+  probeMemo = { code, key, promise };
+  return promise;
+}
+const SPEC_MAX_PROBES = 16;   // items checked per run — the grid batch has to stay small enough to split
+/* The expression list specCheck will batch, derived from the source alone. specCheck
+   builds the same list as it builds its report rows; both go through here so the two
+   cannot drift apart. */
+function specProbeExprs(code){
+  const spec = parseSpec(code);
+  if(!spec) return null;
+  const defined = new Set([...code.matchAll(/^\s*module\s+([A-Za-z_]\w*)\s*\(/gm)].map(m => m[1]));
+  const out = [];
+  for(const p of spec.parts)
+    if(defined.has(p.name) && out.length < SPEC_MAX_PROBES) out.push(p.name + '()');
+  for(const j of spec.joints)
+    if(defined.has(j.a) && defined.has(j.b) && out.length < SPEC_MAX_PROBES)
+      out.push(`intersection(){ ${j.a}(); ${j.b}(); }`);
+  return out;
+}
+function prefetchSpecProbes(code){
+  if(!settings.gate) return;
+  try {
+    const exprs = specProbeExprs(code);
+    if(exprs && exprs.length) batchProbe(code, exprs);
+  } catch(e){ /* a prefetch is an optimisation; never let it break a generation */ }
+}
 async function specCheck(code, g, onStatus){
   g.spec = null; g.parts = []; g.joints = []; g.rules = []; g.layout = []; g.profile = []; g.placement = null; g.specNote = '';
   if(g.isAssembly){ g.specNote = 'assembly — manifest contract applies'; return g; }
@@ -1506,6 +1711,10 @@ async function specCheck(code, g, onStatus){
   g.spec = spec;
   const defined = new Set([...code.matchAll(/^\s*module\s+([A-Za-z_]\w*)\s*\(/gm)].map(m => m[1]));
   let probes = 0;
+  // Parts and joints are collected first and probed together in ONE compile (see
+  // batchProbe). They are independent solids, so nothing is lost by rendering them
+  // side by side, and the engine is instantiated once instead of once per part.
+  const jobs = [];
   for(const p of spec.parts){
     const row = { name:p.name, spec:p.size_mm, size:null, ok:false, note:'' };
     g.parts.push(row);
@@ -1515,9 +1724,25 @@ async function specCheck(code, g, onStatus){
       continue;
     }
     if(probes >= SPEC_MAX_PROBES){ row.note = 'not probed (cap)'; continue; }
-    onStatus && onStatus(`part ${p.name}`);
     probes++;
-    let m; try { m = await renderProbe(code, p.name + '()'); } catch(e){ row.note = 'probe error'; continue; }
+    jobs.push({ kind:'part', row, p, expr: p.name + '()' });
+  }
+  for(const j of spec.joints){
+    const row = { a:j.a, b:j.b, ok:false, note:'' };
+    g.joints.push(row);
+    if(!defined.has(j.a) || !defined.has(j.b)){ row.note = 'missing module'; continue; }   // reported above
+    if(probes >= SPEC_MAX_PROBES){ row.note = 'not probed (cap)'; continue; }
+    probes++;
+    jobs.push({ kind:'joint', row, j, expr: `intersection(){ ${j.a}(); ${j.b}(); }` });
+  }
+  if(jobs.length) onStatus && onStatus(`${jobs.length} part and joint probe${jobs.length>1?'s':''}`);
+  const probed = jobs.length ? await batchProbe(code, jobs.map(x => x.expr)) : [];
+
+  for(let i = 0; i < jobs.length; i++){
+    const job = jobs[i], row = job.row, m = probed[i];
+    if(!m){ row.note = 'probe error'; continue; }
+    if(job.kind !== 'part'){ applyJoint(job.j, row, m); continue; }
+    const p = job.p;
     if(!m.tris){
       row.note = 'renders nothing';
       g.fails.push(`module ${p.name}() renders nothing, but the SPEC says it is the ${p.role || 'part'}. Give it real geometry.`);
@@ -1539,14 +1764,7 @@ async function specCheck(code, g, onStatus){
     }
     row.ok = true;
   }
-  for(const j of spec.joints){
-    const row = { a:j.a, b:j.b, ok:false, note:'' };
-    g.joints.push(row);
-    if(!defined.has(j.a) || !defined.has(j.b)){ row.note = 'missing module'; continue; }   // reported above
-    if(probes >= SPEC_MAX_PROBES){ row.note = 'not probed (cap)'; continue; }
-    onStatus && onStatus(`joint ${j.a} ∩ ${j.b}`);
-    probes++;
-    let m; try { m = await renderProbe(code, `intersection(){ ${j.a}(); ${j.b}(); }`); } catch(e){ row.note = 'probe error'; continue; }
+  function applyJoint(j, row, m){
     // A non-empty intersection is NOT proof of a joint. Two solids whose faces are
     // coincident — the most common LLM placement, since it computes
     // translate = torso_w/2 + arm_r — intersect in a zero-thickness sheet, and the
@@ -1561,7 +1779,7 @@ async function specCheck(code, g, onStatus){
       g.fails.push(m.tris
         ? `${j.a}() and ${j.b}() only touch — their shared volume is ${thinnest.toFixed(2)} mm thick, which is a surface, not a join. Your SPEC promised ${j.overlap_mm || 1.5} mm of overlap. Push ${j.a} INTO ${j.b} so the solids genuinely interpenetrate; a limb placed exactly at the torso surface prints as a separate island.`
         : `${j.a}() does not intersect ${j.b}() — their intersection is empty, so they are not joined. Your SPEC promised ${j.overlap_mm || 1.5} mm of overlap. Move ${j.a} into ${j.b} so the two solids share volume.`);
-      continue;
+      return;
     }
     row.ok = true;
   }
@@ -1843,6 +2061,7 @@ async function initViewer(){
   const dimsEl = document.getElementById('dims');
   if(dimsEl.textContent.includes('viewer')) dimsEl.textContent = '';
   viewerReadyResolve();
+  warmEngines();
 }
 initViewer().catch(e => {
   document.getElementById('dims').textContent = '3D viewer failed to load — check connection and reload';
@@ -3064,6 +3283,9 @@ async function aiTurn(userContent, label){
     contractFloor = null;         // a fresh run sets its own floor from its first candidate
     for(let round = 0; ; round++){
       let a = null;
+      // Start the part/joint batch now, alongside the render: neither needs the other's
+      // result, and specCheck will pick up this same compile instead of starting its own.
+      prefetchSpecProbes(code);
       for(let attempt = 0; ; attempt++){
         try { a = await runCode(code); break; }
         catch(err){
@@ -3299,6 +3521,7 @@ async function improveByLooking(){
     if(!code) throw new Error('The model replied without code.');
     const note = (code.match(/^\/\/\s*NOTE:\s*(.*)$/m) || [])[1] || 'revised';
     out.textContent = '↻ ' + note;
+    prefetchSpecProbes(code);          // overlaps the spec batch with the render, as in aiTurn
     // aiBusy stays held through the render AND the spec probes (released in finally):
     // releasing it early let Generate start while probes still owned the render worker.
     const a2 = await runCode(code);

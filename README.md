@@ -65,7 +65,7 @@ parts join which, the proportion rules it designed to, and how the parts sit rel
 to each other — travelling inside the code as comments. Each declared part is its own
 module, placed in its final position, and `main()` unions them.
 
-The program then checks the geometry against that declaration. It compiles every part
+The program then checks the geometry against that declaration. It renders every part
 alone (size against the spec), every joint as an `intersection()` (empty means not
 joined — and measures how thick that shared volume is, because two parts whose faces
 merely touch intersect in a zero-thickness sheet, not a join), every proportion rule
@@ -90,6 +90,18 @@ operationalised: stated intent that survives contact with measurement. The
 whole-mesh checks (floating pieces, on-plate, bed fit, volume, figure proportions)
 still run underneath. No SPEC, or an assembly, skips the part checks with a note.
 **Look & fix** is scored the same way. Off switch in ⚙ Settings.
+
+Those renders used to be one compile each, and a compile is mostly engine start-up —
+about 200 ms of it against 95 ms of actual geometry — so a six-part figure spent
+thirteen of them and the checking cost several times the part itself. They are
+independent solids, though, so they do not need separate compiles, only separate
+answers: they are laid out on a grid far enough apart that nothing can overlap, rendered
+together, and split back apart by which cell each triangle falls in. Thirteen compiles
+became three. The batch starts at the same moment as the render for the viewer, since
+neither needs the other's result, and the engine is loaded while the page sits idle
+rather than when you press Generate. Median of five, on a fresh page against a mirror
+that serves the engine with a CDN's latency and caching: a six-part generation went from
+6.1 s to 2.5 s, three parts from 4.0 s to 1.5 s, one part from 2.9 s to 0.9 s.
 
 **🧩 Parts** colours each declared part exactly as the checker saw it; the chips in
 the report's Spec check row use the same colours.
@@ -141,5 +153,8 @@ openscad-wasm 0.0.4 · three.js 0.160 · Anthropic Messages API (browser-direct,
 bring-your-own-key; default model Claude Sonnet 5, Opus 5 selectable in Settings) ·
 GitHub Pages.
 
-The 3D library loads asynchronously so the UI is interactive in well under a second; the
-~14 MB geometry engine downloads once and is then cached by the browser.
+The 3D library loads asynchronously so the UI is interactive in well under a second. The
+~14 MB geometry engine downloads once and is then cached by the browser; it is fetched
+as soon as the viewer is up rather than on your first Generate, so the wait usually
+happens while you are still typing — unless the browser reports Save-Data or a 2G
+connection, where it waits until you actually ask for a part.
