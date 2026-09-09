@@ -44,6 +44,18 @@
     #left{width:100%;min-width:0;order:2;flex:1;border-right:none;border-top:1px solid var(--border)}
     #right{order:1;flex:0 0 46vh}
   }
+  /* Touch fitness. Keyed on pointer:coarse, not width — a narrow desktop window still
+     has a mouse and does not need 44 px targets, while a tablet at 1024 px does.
+     Measured on emulated phones, every control was 24–31 px tall against the 44 px
+     Apple HIG / 48 dp Material floor, and Generate itself was 31 px. */
+  @media(pointer:coarse){
+    .btn{min-height:44px;padding:10px 16px}
+    .btn.small{min-height:44px;min-width:44px;padding:10px 14px;font-size:12.5px}
+    .chip{min-height:44px;padding:12px 14px;display:inline-flex;align-items:center}
+    .check input[type=checkbox]{width:22px;height:22px}
+    select,input[type=text],input[type=number]{min-height:42px}
+    #codeBar .t{padding:13px 10px;display:inline-block;min-width:44px;text-align:center}
+  }
 
   #left .scroll{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:14px;-webkit-overflow-scrolling:touch}
   .card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px}
@@ -91,7 +103,9 @@
   #library .sec{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin:8px 0 4px}
 
   #viewport{flex:1;position:relative;min-height:0}
-  #viewport canvas{display:block}
+  /* belt and braces: even if a future setSize call forgets updateStyle, the canvas
+     can never lay out wider than its container on a high-DPR screen */
+  #viewport canvas{display:block;width:100%;height:100%;max-width:100%}
   #vpOverlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(13,17,23,.85);z-index:5;text-align:center;padding:20px}
   #vpOverlay.hidden{display:none}
   .spinner{width:34px;height:34px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
@@ -1818,7 +1832,13 @@ initViewer().catch(e => {
 function sizeViewport(){
   const w = vp.clientWidth, h = vp.clientHeight;
   if(w===0||h===0) return;
-  renderer.setSize(w,h,false);
+  // updateStyle must stay TRUE. With it false three.js sets the backing store to
+  // w*pixelRatio and leaves the CSS size unset, so the canvas lays out at its intrinsic
+  // pixel size — on desktop DPR 1 that happens to equal w, but on a phone at DPR 2–4.5
+  // the 3D view is that many times too wide. Measured on an emulated iPhone SE: a 640 px
+  // canvas inside a 320 px viewport. It also broke every getBoundingClientRect() the
+  // measure and section pickers do against the canvas.
+  renderer.setSize(w,h);
   perspCam.aspect = w/h; perspCam.updateProjectionMatrix();
   syncOrtho();
 }
