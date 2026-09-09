@@ -113,8 +113,9 @@ bed — the signature of a part sized to satisfy the constraint rather than to b
 object. A warning, never a rejection.
 
 Add `?bench=1` for the bench: 20 fixed prompts with expected kind, body count and
-size, scored by the same gate. **Run raw** measures the generator alone; **Run
-gated** measures it with retries — the difference is what the gate is worth. **Judge
+size. Both modes are SCORED by the same gate; only the retries differ, so the
+difference between them is what the gate is worth. **Run raw** measures the
+generator alone (one call per case, no retries); **Run gated** lets the gate retry. **Judge
 intent** shows a model the render and the declared design and scores whether it
 reads as requested; raise the samples per case to get a spread, and set a separate
 judge model in ⚙ Settings so the designer does not grade its own work. That column

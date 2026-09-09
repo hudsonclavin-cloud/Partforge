@@ -2903,7 +2903,20 @@ async function runBench(count, useGate){
       let r;
       try {
         await aiTurn(c.p, `<span class="big">Bench ${i+1}/${cases.length}</span>${escapeHtml(c.p).slice(0,70)}`);
-        r = benchScore(c, lastAnalysis, currentCode, lastGate);
+        // A raw run turns the gate OFF so the generator gets no retries — which also
+        // meant gateCheck never ran, so "passed the geometry gate" was 100% and
+        // "declared a checkable spec" 0% BY CONSTRUCTION. The panel's whole purpose is
+        // the raw-versus-gated difference, and it was comparing a real measurement with
+        // a placeholder. Score every run the same way; only the RETRIES differ.
+        let scoreGate = lastGate;
+        if(!useGate && currentMesh && lastAnalysis){
+          renderBench(results, `${i+1}/${cases.length} — ${c.id} · scoring`);
+          scoreGate = gateCheck(currentMesh, lastAnalysis, currentCode, lastAnalysis.conn);
+          await specCheck(currentCode, scoreGate, () => {});
+          lastGate = scoreGate;                       // so the report shows what was scored
+          renderReport(lastAnalysis, currentCode);
+        }
+        r = benchScore(c, lastAnalysis, currentCode, scoreGate);
         if(judge){
           renderBench(results, `${i+1}/${cases.length} — ${c.id} · judging`);
           try { r.intent = await judgeIntent(c.p, parseSpec(currentCode), judgeK); }
