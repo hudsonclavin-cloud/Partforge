@@ -69,8 +69,9 @@ The program then checks the geometry against that declaration. It compiles every
 alone (size against the spec), every joint as an `intersection()` (empty means not
 joined — and measures how thick that shared volume is, because two parts whose faces
 merely touch intersect in a zero-thickness sheet, not a join), every proportion rule
-from the measured parts, every layout relation from their bounding boxes, and every
-declared shape profile by slicing the part — a wedge declared and a plate built is
+from the measured parts, every layout relation from their bounding boxes, whether the printed object actually contains the parts it
+declared (main() can otherwise omit or relocate one and every isolated check still
+passes), and every declared shape profile by slicing the part — a wedge declared and a plate built is
 rejected with both measured ends quoted, and so is a plate with a boss on one end,
 which measures wide-then-narrow at the ends but steps in the middle. A failure goes
 back quoting the model's own promise —
