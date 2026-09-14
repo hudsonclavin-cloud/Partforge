@@ -1,0 +1,168 @@
+{
+  "warm": {
+    "ms": 2307
+  },
+  "consoleErrors": [],
+  "results": [
+    {
+      "name": "ring-bore-8holes",
+      "ok": true,
+      "renderMs": 9298,
+      "size": [
+        149.49,
+        149.495,
+        12
+      ],
+      "volume": 179.5953,
+      "tris": 2756,
+      "overhangPct": 0,
+      "onPlate": true,
+      "timings": {
+        "instMs": 300,
+        "renderMs": 8931
+      },
+      "gateMs": 10,
+      "fails": [],
+      "spec": null,
+      "specNote": "no SPEC block — part checks skipped",
+      "gateKeys": [
+        "fails",
+        "kind",
+        "isAssembly",
+        "bedPin",
+        "wholeBounds",
+        "spec",
+        "parts",
+        "joints",
+        "rules",
+        "layout",
+        "profile",
+        "placement",
+        "specNote"
+      ],
+      "report": "Size (X·Y·Z)\n149.5 × 149.5 × 12.0 mm\nFits bed\nOK\nSits on plate (Z=0)\nOK\nSingle connected object\nchecking…\nWatertight\nchecking…\nSolid volume\n179.6 cm³\nMaterial ≈ (PLA)\n78–223 g · ~$1.56\nFilament / layers\n~26.1 m · 60 layers @0.2\nPrint time (very rough)\n~6h 42m\nOverhangs >45°\nOK 0.0% (0.0 cm²)\nFirst layer / footprint\n149.8 cm²\nTriangles\n2,756",
+      "lint": [],
+      "reportText": "PartForge print checklist — part\nSize: 149.5 × 149.5 × 12.0 mm  ·  179.6 cm³  ·  ~78–223 g PLA\nOverhangs >45°: 0.0%  ·  Footprint: 149.8 cm²  ·  Layers @0.2: 60"
+    },
+    {
+      "name": "ring-offset-hole",
+      "ok": true,
+      "renderMs": 4303,
+      "size": [
+        149.49,
+        149.495,
+        12
+      ],
+      "volume": 180.1425,
+      "tris": 2384,
+      "overhangPct": 0,
+      "onPlate": true,
+      "timings": {
+        "instMs": 194,
+        "renderMs": 4080
+      },
+      "gateMs": 7,
+      "fails": [],
+      "spec": null,
+      "specNote": "no SPEC block — part checks skipped",
+      "gateKeys": [
+        "fails",
+        "kind",
+        "isAssembly",
+        "bedPin",
+        "wholeBounds",
+        "spec",
+        "parts",
+        "joints",
+        "rules",
+        "layout",
+        "profile",
+        "placement",
+        "specNote"
+      ],
+      "report": "Size (X·Y·Z)\n149.5 × 149.5 × 12.0 mm\nFits bed\nOK\nSits on plate (Z=0)\nOK\nSingle connected object\nchecking…\nWatertight\nchecking…\nSolid volume\n180.1 cm³\nMaterial ≈ (PLA)\n78–223 g · ~$1.56\nFilament / layers\n~26.2 m · 60 layers @0.2\nPrint time (very rough)\n~6h 44m\nOverhangs >45°\nOK 0.0% (0.0 cm²)\nFirst layer / footprint\n150.1 cm²\nTriangles\n2,384",
+      "lint": [],
+      "reportText": "PartForge print checklist — part\nSize: 149.5 × 149.5 × 12.0 mm  ·  180.1 cm³  ·  ~78–223 g PLA\nOverhangs >45°: 0.0%  ·  Footprint: 150.1 cm²  ·  Layers @0.2: 60"
+    },
+    {
+      "name": "nosecone-vk-profile",
+      "ok": true,
+      "renderMs": 1120,
+      "size": [
+        152.4,
+        152.38,
+        460
+      ],
+      "volume": 2760.1538,
+      "tris": 48888,
+      "overhangPct": 7.43,
+      "onPlate": true,
+      "timings": {
+        "instMs": 182,
+        "renderMs": 579
+      },
+      "gateMs": 128,
+      "fails": [],
+      "spec": null,
+      "specNote": "no SPEC block — part checks skipped",
+      "gateKeys": [
+        "fails",
+        "kind",
+        "isAssembly",
+        "bedPin",
+        "wholeBounds",
+        "spec",
+        "parts",
+        "joints",
+        "rules",
+        "layout",
+        "profile",
+        "placement",
+        "specNote"
+      ],
+      "report": "Size (X·Y·Z)\n152.4 × 152.4 × 460.0 mm\nFits bed\nOK\nSits on plate (Z=0)\nOK\nSingle connected object\nchecking…\nWatertight\nchecking…\nSolid volume\n2760.2 cm³\nMaterial ≈ (PLA)\n1198–3423 g · ~$23.96\nFilament / layers\n~401.7 m · 2300 layers @0.2\nPrint time (very rough)\n~105h 48m\nOverhangs >45°\nCHECK 7.4% (168.6 cm²)\nFirst layer / footprint\n13.8 cm²\nTriangles\n48,888",
+      "lint": [],
+      "reportText": "PartForge print checklist — part\nSize: 152.4 × 152.4 × 460.0 mm  ·  2760.2 cm³  ·  ~1198–3423 g PLA\nOverhangs >45°: 7.4%  ·  Footprint: 13.8 cm²  ·  Layers @0.2: 2300"
+    },
+    {
+      "name": "tube-radial-holes",
+      "ok": true,
+      "renderMs": 5930,
+      "size": [
+        149.3,
+        149.3,
+        120
+      ],
+      "volume": 173.4754,
+      "tris": 2072,
+      "overhangPct": 0.02,
+      "onPlate": true,
+      "timings": {
+        "instMs": 327,
+        "renderMs": 5571
+      },
+      "gateMs": 4,
+      "fails": [],
+      "spec": null,
+      "specNote": "no SPEC block — part checks skipped",
+      "gateKeys": [
+        "fails",
+        "kind",
+        "isAssembly",
+        "bedPin",
+        "wholeBounds",
+        "spec",
+        "parts",
+        "joints",
+        "rules",
+        "layout",
+        "profile",
+        "placement",
+        "specNote"
+      ],
+      "report": "Size (X·Y·Z)\n149.3 × 149.3 × 120.0 mm\nFits bed\nOK\nSits on plate (Z=0)\nOK\nSingle connected object\nchecking…\nWatertight\nchecking…\nSolid volume\n173.5 cm³\nMaterial ≈ (PLA)\n75–215 g · ~$1.51\nFilament / layers\n~25.2 m · 600 layers @0.2\nPrint time (very rough)\n~7h 34m\nOverhangs >45°\nOK 0.0% (0.2 cm²)\nFirst layer / footprint\n14.5 cm²\nTriangles\n2,072",
+      "lint": [],
+      "reportText": "PartForge print checklist — part\nSize: 149.3 × 149.3 × 120.0 mm  ·  173.5 cm³  ·  ~75–215 g PLA\nOverhangs >45°: 0.0%  ·  Footprint: 14.5 cm²  ·  Layers @0.2: 600"
+    }
+  ]
+}

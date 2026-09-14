@@ -5,7 +5,9 @@
 Describe a part — or show it a photo — and get a printable 3D model. PartForge asks a
 couple of clarifying questions, designs a parametric OpenSCAD model tuned for FDM
 printing, compiles it to a mesh **in your browser**, and hands you STL/3MF plus a
-moving-assembly preview for mechanisms.
+moving-assembly preview for mechanisms. **Flight grade** (below) turns the same tool on
+machined and engineering parts for a rocket club: declared tolerances, a mesh CMM,
+engineering checks and a manufacturing sheet.
 
 No backend. No build step. One HTML file.
 
@@ -137,6 +139,79 @@ The panel states what a run costs at the current settings and updates as you cha
 them — judging on at 3 samples turns a raw 20-case run into 20 generation calls plus
 60 vision calls, and a gated run can reach seven generation calls per case.
 
+## Flight grade
+
+**⚙ Settings → Design grade → Flight.** For the parts a rocket club actually has made:
+couplers, bulkheads, centering rings, motor retainers, thrust plates, fins, nose cones,
+avionics sleds. Hobby grade is untouched — same prompt, same checks, same templates.
+
+What changes:
+
+- **The doctrine.** The designer gets a different system prompt: aerospace materials with
+  their properties, machining and industrial-printing processes with what each can hold,
+  ISO 273 clearance holes and tap drills, ISO 286 fits, Parker face-seal grooves, and the
+  rocketry practice a team learns the hard way — thrust paths, fin flutter, shear pins,
+  shoulder fits, pressure-vessel factors. Three rules are enforced, not suggested: every
+  round feature is tessellated from a chordal tolerance (`$fn=fn_tol(d)`), revolved parts
+  are one profile and one `rotate_extrude()`, and trigonometry is in degrees. That last one
+  exists because a von Kármán cone written with radian assumptions came out 1153 mm wide,
+  and nothing in the hobby gate could tell.
+- **The declaration.** Besides the SPEC, the file carries a `FLIGHT` block: material,
+  process, general tolerance class, curve tolerance, and every dimension a shop will put an
+  instrument on — extents (`critical`), turned outside diameters (`od`), bores, hole
+  patterns, revolved profiles by equation, custom go/no-go gauges — each with its tolerance;
+  plus the engineering checks that apply (`loads`) and the manufacturing notes (`mfg`).
+- **The CMM.** The program measures the finished mesh against the declaration by casting rays
+  at it: a bore is probed at five stations by 72 rays each and reported as Ø, min/max,
+  centre offset from where it was declared, roundness and depth; a hole pattern is measured
+  hole by hole, so a missing, misplaced, undersize or oversize hole names itself; an outside
+  diameter is probed inward; a nose-cone profile is recomputed from its equation and compared
+  at 24 stations. Extents use the part probes the SPEC check already runs. None of it is
+  compiled — a first design used compiled gauge pins and each cost a CGAL intersection with the
+  whole part (4–5 s); the ray version measures a 50k-triangle cone in 150 ms. A failure
+  quotes the declaration back: *"Bore 'motor bore': you declared Ø98.600 ±0.05 at (0, 0);
+  measured Ø98.412 (min 98.380 / max 98.440), centre off 0.150 mm"* — and the retry loop
+  and contract floor apply exactly as in hobby grade (a retry may not declare less).
+- **The engineering checks.** The model declares intent and inputs; the program does the
+  arithmetic from the material table and reports a safety factor against the one declared:
+  Lamé thick-wall hoop stress with von Mises against yield (and the burst pressure), NACA
+  TN 4197 fin flutter with the ISA atmosphere at the declared altitude — in the corrected
+  form from Peak of Flight 615, which is 1/√2 of the number the popular Apogee 291
+  spreadsheet gives, so a fin that "passed" elsewhere may fail here and that is the point —
+  thread engagement (tensile stress area, internal-thread stripping, and the engagement
+  rule of thumb by tapped material), and bolt shear plus hole bearing. A check with missing
+  or impossible inputs fails rather than passing quietly.
+- **Mass properties.** Mass, centre of gravity and the inertia tensor about it, from the
+  mesh at the material's density (tetrahedral decomposition, validated against a box and a
+  cylinder to 0.1%), in the units OpenRocket and RASAero want.
+- **The manufacturing sheet** (⋯ → Manufacturing sheet). The drawing substitute: material
+  and its properties, process and tolerance class, every declared dimension with nominal in
+  mm and inches, its tolerance, what the model measured and the verdict; the engineering
+  checks with their inputs and results; inspection plan; notes; every parameter; and the
+  STEP path. ⋯ → Measurement report is the same as JSON.
+- **The display** goes to three decimals, the print-bed checks give way to an optional
+  stock/machine envelope, and the report is titled *Shop readiness*.
+
+What it cannot do, stated plainly: a mesh is not a STEP file. openscad-wasm has no B-rep
+kernel, so STL/3MF are tessellations — within the curve tolerance you set (0.01 mm by
+default; measured, that costs the same compile time as the hobby `$fn=64`) — fine for SLS,
+DMLS and CAM roughing, not for inspection. For STEP, export the `.scad` and open it in FreeCAD's
+OpenSCAD workbench: cylinders, cubes and their booleans come across exact, revolved polygons
+faceted. Machine to the sheet, not to the mesh. And the model is not "trained": it is
+instructed by the doctrine, shown the flight templates as exemplars, measured by the CMM,
+rejected when it does not conform, and scored by the flight bench.
+
+Every material property is a typical published value marked for verification against the
+mill certificate; the process capabilities are vendor design-guide numbers. The tests in
+`tests/` extract the engineering and measurement modules straight out of `index.html` and
+check them against analytic solids, the 1976 Standard Atmosphere, a published flutter worked
+example, and meshes the real engine produced (`node tests/run.mjs`).
+
+Flight templates work with no API key. `?bench=1` in flight grade runs the flight bench:
+twelve things a space-shot club types, scored by the same gate plus the measurements —
+the nose cone is the 1153-mm class of error, the inch tube catches unit slips, the thrust
+plate and tank cap catch a declared load check with the wrong inputs.
+
 ## Keyboard
 
 G generate · R refine · A assembly · I inspect · M measure · X section ·
@@ -144,14 +219,15 @@ D dimensions · W wireframe · T turntable · F fit · 1-4 views · S save STL
 
 ## Deploying an update
 
-Edit index.html and push to main. GitHub Pages republishes in about a minute. The URL is
+Edit index.html, run `node tests/run.mjs`, and push to main. GitHub Pages republishes in about a minute. The URL is
 case-sensitive: /Partforge/.
 
 ## Stack
 
 openscad-wasm 0.0.4 · three.js 0.160 · Anthropic Messages API (browser-direct,
 bring-your-own-key; default model Claude Sonnet 5, Opus 5 selectable in Settings) ·
-GitHub Pages.
+GitHub Pages. Tests: `node tests/run.mjs` (no dependencies); headless harness in
+`tests/harness/` (Playwright + the vendored engine).
 
 The 3D library loads asynchronously so the UI is interactive in well under a second. The
 ~14 MB geometry engine downloads once and is then cached by the browser; it is fetched

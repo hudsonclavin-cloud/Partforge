@@ -1,0 +1,4 @@
+.build/
+harness/node_modules/
+harness/vendor/
+harness/package*.json

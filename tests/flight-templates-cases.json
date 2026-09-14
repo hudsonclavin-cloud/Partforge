@@ -1,0 +1,30 @@
+[
+ {
+  "name": "nosecone",
+  "file": "templates/nosecone.scad"
+ },
+ {
+  "name": "centering-ring",
+  "file": "templates/centering-ring.scad"
+ },
+ {
+  "name": "bulkhead",
+  "file": "templates/bulkhead.scad"
+ },
+ {
+  "name": "fin",
+  "file": "templates/fin.scad"
+ },
+ {
+  "name": "motor-retainer",
+  "file": "templates/motor-retainer.scad"
+ },
+ {
+  "name": "coupler",
+  "file": "templates/coupler.scad"
+ },
+ {
+  "name": "av-sled",
+  "file": "templates/av-sled.scad"
+ }
+]
