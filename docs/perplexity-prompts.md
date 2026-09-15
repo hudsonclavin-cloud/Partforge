@@ -121,3 +121,16 @@ END with a section titled LOAD-BEARING NUMBERS: a flat list of every number
 in this entire response that a design decision might rest on — one line per
 number, with its source. This list feeds an independent verification pass.
 ```
+
+---
+
+## Verdicts received 2026-09-15 and what changed
+
+- #38 (flutter √2): the √2 statement is Bennett's (Peak of Flight 615), not NACA TN 4197's — contested. The flutter row now reports both forms and gates on the lower; labelled screening only.
+- #35 (Parker face seal): depths confirmed; widths differ for liquids vs vacuum/gas — doctrine now gives both columns.
+- #42 (NASA-STD-5001B): not a standalone 1.25/1.4 rule — doctrine wording softened to "take the factors from the standard".
+- #28 (ISO 273 fine series): refuted by the pass, disputed here; the values stand, marked "verify against the standard".
+- #30 (ASME B18.2.8): no corrected values supplied — marked "confirm before release".
+- #12–14, 20 (laminates, phenolic, graphite): no universal values — the tables keep them `verify:true` and no strength check may rely on them (checks refuse materials without a yield strength).
+- #21–26 (process capability), #36 (tube sizes), #37 (shear pins), #40 (thread stripping model): unverifiable by construction — retained as labelled defaults.
+- Product rule adopted from the club-practice answer: the report and manufacturing sheet state "not a flight qualification"; pressure checks carry a proof-test advisory. Next slice: three-state tolerance provenance (source / user / tool default) and interface-control drawings for Tier B parts.
