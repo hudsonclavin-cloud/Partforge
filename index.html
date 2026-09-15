@@ -1106,6 +1106,10 @@ const PROVIDERS = {
     parse: d => {
       if(d.stop_reason === 'refusal')
         throw new Error('The model declined this request' + (d.stop_details?.explanation ? ': ' + d.stop_details.explanation : '') + '. Rephrase and try again.');
+      // Truncation otherwise reads as "replied without code", which sends you looking for the
+      // wrong problem: the code was there, it stopped mid-file.
+      if(d.stop_reason === 'max_tokens')
+        throw new Error('The reply hit the output limit and was cut off mid-file. Ask for a simpler part, or fewer parts at once.');
       return (d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
     },
     usage: d => [d.usage?.input_tokens||0, d.usage?.output_tokens||0],
@@ -1118,7 +1122,12 @@ const PROVIDERS = {
     body: (system, msgs, maxTok, search, extra = {}) => ({ model: extra.model || settings.model, max_tokens: maxTok,
       messages: [{ role:'system', content: system }, ...msgs] }),
     image: img => ({ type:'image_url', image_url:{ url:`data:${img.mime};base64,${img.data}` } }),
-    parse: d => (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || '',
+    parse: d => {
+      const c = d.choices && d.choices[0];
+      if(c && c.finish_reason === 'length')
+        throw new Error('The reply hit the output limit and was cut off mid-file. Ask for a simpler part, or fewer parts at once.');
+      return (c && c.message && c.message.content) || '';
+    },
     usage: d => [d.usage?.prompt_tokens||0, d.usage?.completion_tokens||0],
   },
 };
@@ -5370,7 +5379,10 @@ async function callClaude(userContent, opts = {}){
   const prov = P();
   // opts.search === false suppresses web search for this one call (gate retries: the
   // model already has the measurements — a second search would re-spend for nothing)
-  const body = prov.body(activeSystemPrompt(), chat, 9000, settings.search && prov.search && opts.search !== false);
+  // A flight file carries its declaration before any geometry — header, SPEC, FLIGHT block,
+  // NOTE lines — so it needs more room than a hobby part. Kept under the SDK's non-streaming
+  // timeout guidance rather than the 128k ceiling.
+  const body = prov.body(activeSystemPrompt(), chat, isFlight() ? 16000 : 9000, settings.search && prov.search && opts.search !== false);
   let res;
   try {
     res = await fetch(prov.url(settings.base), {
