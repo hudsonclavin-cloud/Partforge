@@ -3091,7 +3091,9 @@ async function specCheckInner(code, g, onStatus){
   // them again would be more full compiles for the same numbers — and a revolved flight
   // part carries ~200 facets per circle, so the CGAL containment probe below took 445 s on
   // a nose cone. Both shortcuts apply only to what the doctrine demands anyway.
-  const plain = isFlight() && mainPlainUnion(code, spec.parts.map(p => p.name));
+  // Both gates must hold: mainPlainUnion says main() itself does nothing but call the
+  // declared parts; topLevelIsOnlyMain says nothing ELSE at top level renders alongside it.
+  const plain = isFlight() && mainPlainUnion(code, spec.parts.map(p => p.name)) && topLevelIsOnlyMain(code);
   // Parts and joints are collected first and probed together in ONE compile (see
   // batchProbe). They are independent solids, so nothing is lost by rendering them
   // side by side, and the engine is instantiated once instead of once per part.
@@ -3870,6 +3872,38 @@ function mainPlainUnion(code, names){
   const set = new Set(names);
   return calls.every(c => { const mm = c.match(/^([A-Za-z_]\w*)\s*\(\s*\)$/); return !!(mm && set.has(mm[1])); });
 }
+/* mainPlainUnion checks only what main() DOES; it says nothing about what else the file
+   renders. A second top-level body on the plate — a jig, a stray transform, a scale()
+   wrapping main() — is real geometry the CGAL render includes, and the whole-mesh shortcut
+   would silently attribute all of it to the one declared part: a genuinely 30×30×40 part
+   sharing a render with a 60×30×20 jig measured as 90×30×40 and failed for being the wrong
+   size. Strip every module BODY (by brace-balanced removal, not by name — modules always
+   render nothing at top level whether or not they're called), then require every remaining
+   top-level statement to be a parameter/variable assignment, a function definition, or
+   exactly the bare call `main();`. Anything else — a second call, a transform, a scale —
+   fails this closed, and the shortcut in specCheckInner requires BOTH checks to pass. */
+function topLevelIsOnlyMain(code){
+  let src = code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  // Remove every `module name(...) { ... }` block, balancing braces, so only what sits
+  // OUTSIDE any module remains — repeatedly, since removal can expose the next one.
+  for(;;){
+    const m = src.match(/module\s+[A-Za-z_]\w*\s*\([^)]*\)\s*\{/);
+    if(!m) break;
+    let depth = 1, i = m.index + m[0].length;
+    while(i < src.length && depth > 0){ const ch = src[i++]; if(ch === '{') depth++; else if(ch === '}') depth--; }
+    if(depth !== 0) return false;   // unbalanced braces: fail closed rather than guess
+    src = src.slice(0, m.index) + src.slice(i);
+  }
+  const stmts = src.split(';').map(s => s.trim()).filter(Boolean);
+  let mains = 0;
+  for(const s of stmts){
+    if(s === 'main()'){ mains++; continue; }
+    if(/^[A-Za-z_]\w*\s*=/.test(s)) continue;              // a parameter or variable
+    if(/^function\s+[A-Za-z_]\w*\s*\(/.test(s)) continue; // a function definition
+    return false;                                            // anything else renders geometry
+  }
+  return mains === 1;
+}
 /* Every declared part must be inside the finished object. Sample ~600 face centroids of each
    part, nudged 0.02 mm inward along the face normal, and ask the object whether each point is
    inside it. A part main() omitted, moved or rotated fails at once; a part it drew in place
@@ -3920,6 +3954,16 @@ const FLIGHT_CAP = 24;   // entries per category — bounds the measurement time
    Absent means default, because that is the safe reading of silence. */
 const TOL_SRC = /^(source|user|default)$/;
 const FLIGHT_HAZARD = /^(none|pressure|hot_gas|energetic|bonded|welded)$/;
+/* Every free-text field in a FLIGHT declaration ends up as a cell in a markdown table or a
+   line in a bulleted list on the manufacturing sheet / ICD, which the app writes as plain
+   string concatenation with no per-site escaping. A literal newline in a declared name or a
+   mfg note turns "- line one" into two markdown lines, and the second can open with "## " and
+   read as a heading in the document a shop is meant to trust; a literal "|" shifts every
+   later column in that table row out from under its header. Collapse newlines to spaces and
+   escape pipes ONCE, here, so every downstream consumer inherits a plain, single-line,
+   table-safe string — the fix belongs at the one place all of this text is parsed, not at
+   each of the dozen places it is later printed. */
+function mdSafe(s){ return String(s).replace(/\r\n?/g, '\n').replace(/\n+/g, ' ').replace(/\|/g, '\\|').replace(/[ \t]+/g, ' ').trim(); }
 function parseFlight(code){
   const m = code.match(/\/\/\s*FLIGHT-BEGIN\s*\n([\s\S]*?)\/\/\s*FLIGHT-END/);
   if(!m) return null;
@@ -3928,7 +3972,7 @@ function parseFlight(code){
   try { f = JSON.parse(json); } catch(e){ return { malformed:true }; }
   if(!f || typeof f !== 'object' || Array.isArray(f)) return { malformed:true };
   const num = (v, d) => (typeof v === 'number' && isFinite(v)) ? v : (typeof v === 'string' && v.trim() !== '' && isFinite(+v) ? +v : d);
-  const str = (v, d = '') => typeof v === 'string' ? v.trim() : d;
+  const str = (v, d = '') => typeof v === 'string' ? mdSafe(v) : d;
   const pair = v => Array.isArray(v) && v.length === 2 && v.every(x => typeof x === 'number' && isFinite(x)) ? v.map(Number) : null;
   const arr = k => (Array.isArray(f[k]) ? f[k] : []).filter(e => e && typeof e === 'object').slice(0, FLIGHT_CAP);
   const out = { material: str(f.material), process: str(f.process), tolerance_class: str(f.tolerance_class, 'ISO 2768-m') || 'ISO 2768-m',
@@ -3992,7 +4036,7 @@ function parseFlight(code){
     out.loads.push(o);
   }
   if(f.mfg && typeof f.mfg === 'object'){
-    const mf = f.mfg, list = v => (Array.isArray(v) ? v : []).map(x => String(x).slice(0, 160)).slice(0, 12);
+    const mf = f.mfg, list = v => (Array.isArray(v) ? v : []).map(x => mdSafe(String(x)).slice(0, 160)).slice(0, 12);
     out.mfg = { stock: str(mf.stock), finish: str(mf.finish), heat_treat: str(mf.heat_treat), deburr: str(mf.deburr), inspect: list(mf.inspect), notes: list(mf.notes) };
   }
   out.declared = out.critical.length + out.od.length + out.bores.length + out.holes.length + out.revolve.length + out.gauges.length;
@@ -4136,7 +4180,13 @@ async function flightCheck(code, g, mesh, onStatus){
   const extentOf = new Map(g.parts.filter(p => p.extent).map(p => [p.name, p.extent]));
   const whole = mesh && mesh.tris ? meshBBox(mesh) : null;
   const definedMods = new Set([...code.matchAll(/^\s*module\s+([A-Za-z_]\w*)\s*\(/gm)].map(m => m[1]));
-  const extra = [...new Set(f.critical.map(c => c.module).filter(m => m !== 'main' && !extentOf.has(m) && definedMods.has(m)))].slice(0, 8);
+  // FLIGHT_CAP bounds how many critical entries can exist at all (24); the helper-module
+  // probe must cover at least that many distinct modules, or a part with 9+ distinct
+  // helpers gets hard, unfixable failures on the rest — no edit satisfies "renders nothing"
+  // when the module is real and was simply never probed.
+  const allExtra = [...new Set(f.critical.map(c => c.module).filter(m => m !== 'main' && !extentOf.has(m) && definedMods.has(m)))];
+  const extra = allExtra.slice(0, FLIGHT_CAP);
+  const uncapped = new Set(allExtra.slice(FLIGHT_CAP));
   if(extra.length){
     onStatus && onStatus(`${extra.length} helper module${extra.length > 1 ? 's' : ''} for critical dimensions`);
     const probed = await batchProbe(code, extra.map(m => m + '()'));
@@ -4146,7 +4196,12 @@ async function flightCheck(code, g, mesh, onStatus){
     const row = { ...c, measured: null, ok: false, note: '' };
     rows.critical.push(row);
     const ext = c.module === 'main' ? whole : extentOf.get(c.module);
-    if(!ext){ row.note = c.module === 'main' ? 'no mesh' : 'module renders nothing or does not exist'; g.fails.push(`Critical dimension "${c.name}" names module ${c.module}(), which ${definedMods.has(c.module) ? 'renders nothing' : 'does not exist'}, so it could not be measured. Name a SPEC part, a helper module that renders the feature, or "main".`); continue; }
+    if(!ext){
+      if(uncapped.has(c.module)){ row.note = 'not probed (cap)'; continue; }   // not a failure: just not checked this run
+      row.note = c.module === 'main' ? 'no mesh' : 'module renders nothing or does not exist';
+      g.fails.push(`Critical dimension "${c.name}" names module ${c.module}(), which ${definedMods.has(c.module) ? 'renders nothing' : 'does not exist'}, so it could not be measured. Name a SPEC part, a helper module that renders the feature, or "main".`);
+      continue;
+    }
     row.measured = ext[AXIS_IDX[c.axis]];
     const allow = c.tol_mm + (c.round ? 2 * tess : 0), dev = row.measured - c.nominal_mm;
     row.dev = dev; row.allow = allow; row.ok = Math.abs(dev) <= allow + 1e-6;
@@ -4237,6 +4292,7 @@ async function flightCheck(code, g, mesh, onStatus){
     // A check may name its own material (a G10 fin declared from an aluminium fin can).
     const M = FLIGHT_MATERIALS[l.material] || (mat || flightMat());
     if(l.material && !FLIGHT_MATERIALS[l.material]) rows.lint.push(`load check "${l.name}": material "${l.material}" is not in the table — ${M.name} was used`);
+    let hint = 'Thicken the section, add bolts, change material, or correct the inputs if they were wrong; keep the check.';
     try {
       const needsYield = () => { if(!(M.sy > 0)) throw new Error(`${M.name} has no yield strength in the table (laminate or brittle material) — this check needs a metal, or declare the part's material as one`); };
       if(l.check === 'hoop'){
@@ -4256,15 +4312,14 @@ async function flightCheck(code, g, mesh, onStatus){
         row.result = `Vf ${r.Vf_m_s.toFixed(0)} m/s (Mach ${r.mach_f.toFixed(2)}; the Apogee 291 form gives ${r.Vf_apogee291_m_s.toFixed(0)} — the two differ by √2 and which is right is disputed, so the lower gates) at ${(+l.alt_m || 0)} m, AR ${r.AR.toFixed(2)}, λ ${r.lambda.toFixed(2)}, t/c ${r.t_over_c.toFixed(4)}, G ${M.G} GPa` + (vmax ? ` vs ${vmax} m/s: SF ${row.sf.toFixed(2)}` : ' — no v_max_m_s declared') + '. Screening only: composite and high-Mach fins need modal test or FEA.';
         if(!vmax) throw new Error('v_max_m_s missing');
       } else if(l.check === 'thread'){
+        if(!(+l.engagement_mm > 0)) throw new Error('engagement_mm must be a positive number');
         const im = FLIGHT_MATERIALS[l.internal_material] || M;
         const r = threadCheck({ size: String(l.size || ''), engagement_mm: +l.engagement_mm, bolt_sigma_u_MPa: +l.bolt_sigma_u_MPa > 0 ? +l.bolt_sigma_u_MPa : 800, internal_sigma_u_MPa: im.su, internal_material_class: matClass(im) });
         row.formula = 'tensile stress area and thread-strip engagement (Machinery’s Handbook form)';
         row.sf = r.F_strip_N / r.F_bolt_N; row.sf_min = 1.0;
         row.ok = !!(r.ok_strip && r.ok_rule);
         row.result = `${l.size}: At ${r.At_mm2.toFixed(1)} mm², bolt ${(r.F_bolt_N/1000).toFixed(1)} kN (UTS ${+l.bolt_sigma_u_MPa > 0 ? +l.bolt_sigma_u_MPa : 800} MPa), strip ${(r.F_strip_N/1000).toFixed(1)} kN at ${(+l.engagement_mm).toFixed(1)} mm in ${im.name}; needs ≥ ${r.Le_req_mm.toFixed(1)} mm to strip after the bolt, rule ≥ ${r.Le_min_rule_mm.toFixed(1)} mm (${r.Le_over_d.toFixed(2)} d engaged)`;
-        rows.loads[rows.loads.length - 1] = row;
-        if(!row.ok) g.fails.push(`Thread check "${l.name}": ${row.result}. Lengthen the engagement or use a larger thread — or correct the inputs if they were wrong.`);
-        continue;
+        hint = 'Lengthen the engagement or use a larger thread — or correct the inputs if they were wrong; keep the check.';
       } else if(l.check === 'bolt_shear'){
         needsYield();
         if(!(+l.force_N > 0)) throw new Error('force_N must be a positive number');
@@ -4277,11 +4332,13 @@ async function flightCheck(code, g, mesh, onStatus){
         row.sf = r.sf_bearing != null ? Math.min(r.sf_shear, r.sf_bearing) : r.sf_shear; row.sf_min = +l.sf_min > 0 ? +l.sf_min : 2.0;
         row.result = `${l.n}× ${l.size} carrying ${(+l.force_N/1000).toFixed(1)} kN: ${(r.F_per_N/1000).toFixed(2)} kN per bolt, shear ${r.tau_MPa.toFixed(0)} MPa (SF ${r.sf_shear.toFixed(2)})` + (r.sf_bearing != null ? `, bearing ${r.sigma_bearing_MPa.toFixed(0)} MPa in ${M.name} (SF ${r.sf_bearing.toFixed(2)})` : '');
       }
-      row.ok = row.sf != null && isFinite(row.sf) && row.sf >= row.sf_min - 1e-9;
+      // `thread` sets row.ok itself (ok_strip && ok_rule is not a plain SF>=SF_min ratio);
+      // every other branch derives it here from the safety factor.
+      if(l.check !== 'thread') row.ok = row.sf != null && isFinite(row.sf) && row.sf >= row.sf_min - 1e-9;
       // Provenance never decides pass or fail — honesty about it must cost nothing — but a
       // margin computed from inputs the tool proposed is reported as computed, not passed.
       row.provisional = row.ok && row.inputs_src === 'default';
-      if(!row.ok) g.fails.push(`Engineering check "${l.name}" (${row.formula}): ${row.result} — below the safety factor of ${row.sf_min} ${+l.sf_min > 0 ? 'you declared' : 'the doctrine requires'}. Thicken the section, add bolts, change material, or correct the inputs if they were wrong; keep the check.`);
+      if(!row.ok) g.fails.push(`Engineering check "${l.name}" (${row.formula}): ${row.result} — below the safety factor of ${row.sf_min} ${+l.sf_min > 0 ? 'you declared' : 'the doctrine requires'}. ${hint}`);
     } catch(err){
       row.result = 'not evaluated: ' + String(err && err.message || err).slice(0, 80);
       g.fails.push(`Engineering check "${l.name}" could not be evaluated (${row.result.slice(15)}). Give every input the check needs (${l.check === 'hoop' ? 'P_MPa, ri_mm, t_mm' : l.check === 'flutter' ? 'root_mm, tip_mm, span_mm, thick_mm, v_max_m_s, alt_m' : l.check === 'thread' ? 'size, engagement_mm, internal_material' : 'size, n, force_N, plate_t_mm'}) with real numbers.`);
@@ -5133,7 +5190,7 @@ function mfgSheet(){
   L.push(`**Part class: tier A** — a passive single body whose critical features are all in this drawing. ${(g && g.tier && g.tier.why.length) ? g.tier.why.join('; ') + '. ' : ''}Nothing about it is declared as a pressure boundary, a hot-gas path, a laminate, a bonded or welded joint, or energetic hardware; if that is wrong, declare the hazard and the part gets an interface control drawing instead.`);
   L.push('');
   L.push('## Part');
-  L.push(`- Material: **${matId}** (${mat.name}) — density ${mat.den} g/cm³, yield ${mat.sy} MPa, UTS ${mat.su} MPa, E ${mat.E} GPa. Typical published values; verify against the material certificate.`);
+  L.push(`- Material: **${matId}** (${mat.name}) — density ${mat.den} g/cm³${typeof mat.sy === 'number' ? `, yield ${mat.sy} MPa` : ''}${typeof mat.su === 'number' ? `, UTS ${mat.su} MPa` : ''}, E ${mat.E} GPa. Typical published values; verify against the material certificate.`);
   L.push(`- Process: **${proc.name}**${f && f.mfg && f.mfg.stock ? ` · stock: ${f.mfg.stock}` : ''} · general tolerance **${f ? f.tolerance_class : 'ISO 2768-m'}** (process capability ±${proc.tol_general_mm} mm, ±${proc.tol_precision_mm} mm where called out)`);
   if(f && f.mfg){ if(f.mfg.finish) L.push(`- Finish: ${f.mfg.finish}`); if(f.mfg.heat_treat) L.push(`- Heat treatment: ${f.mfg.heat_treat}`); if(f.mfg.deburr) L.push(`- Deburr: ${f.mfg.deburr}`); }
   L.push(`- Envelope (as modelled): ${a.size.map(f3).join(' × ')} mm (${a.size.map(inch).join(' × ')} in) · volume ${a.volume.toFixed(3)} cm³`);
@@ -5202,7 +5259,7 @@ function icdSheet(){
   }
   L.push('');
   L.push('## Part and interface');
-  L.push(`- Material declared: **${d.matId}** (${d.mat.name})${d.mat.kind === 'composite' ? ' — a laminate: the table’s properties are nominal for a generic layup and do not describe your part' : ` — density ${d.mat.den} g/cm³, yield ${d.mat.sy} MPa, UTS ${d.mat.su} MPa`}. Typical published values; the article’s properties come from its own certificate, coupons or test.`);
+  L.push(`- Material declared: **${d.matId}** (${d.mat.name})${d.mat.kind === 'composite' ? ' — a laminate: the table’s properties are nominal for a generic layup and do not describe your part' : ` — density ${d.mat.den} g/cm³${typeof d.mat.sy === 'number' ? `, yield ${d.mat.sy} MPa` : ''}${typeof d.mat.su === 'number' ? `, UTS ${d.mat.su} MPa` : ''}`}. Typical published values; the article’s properties come from its own certificate, coupons or test.`);
   L.push(`- Process declared: **${d.proc.name}**${f && f.mfg && f.mfg.stock ? ` · stock: ${f.mfg.stock}` : ''} · general tolerance **${f ? f.tolerance_class : 'ISO 2768-m'}**`);
   if(f && f.hazard && f.hazard !== 'none') L.push(`- Hazard class: **${f.hazard.replace('_', ' ')}**`);
   L.push(`- Envelope as modelled: ${a.size.map(f3).join(' × ')} mm (${a.size.map(inch).join(' × ')} in) · volume ${a.volume.toFixed(3)} cm³`);
@@ -5354,7 +5411,7 @@ function activeReviewPrompt(){ return isFlight() ? FLIGHT_REVIEW_PROMPT : REVIEW
 function contextLine(){
   if(isFlight()){
     const m = flightMat(), p = flightProc(), env = settings.envelope;
-    return `FLIGHT GRADE. Material: ${settings.flightMaterial} (${m.name}; ${m.den} g/cm³, yield ${m.sy} MPa, UTS ${m.su} MPa). `
+    return `FLIGHT GRADE. Material: ${settings.flightMaterial} (${m.name}; ${m.den} g/cm³${typeof m.sy === 'number' ? `, yield ${m.sy} MPa` : ''}${typeof m.su === 'number' ? `, UTS ${m.su} MPa` : ''}). `
       + `Process: ${settings.flightProcess} (${p.name}; general ±${p.tol_general_mm} mm, precision ±${p.tol_precision_mm} mm with a callout, min wall ${p.min_wall_mm} mm${p.min_internal_corner_r_mm ? `, internal corner radius ≥ ${p.min_internal_corner_r_mm} mm` : ''}). `
       + `Curve tolerance tess_tol: ${settings.tessTol} mm — copy it into the first parameter and into the FLIGHT block. `
       + (env ? `Envelope (stock or machine): ${env.join('×')} mm — the part must fit inside it. ` : 'No size envelope given: state the stock you designed for in mfg.stock. ')
@@ -6496,7 +6553,7 @@ function syncGradeUI(){
   $('flightRows').style.display = flight ? 'block' : 'none';
   $('hobbyRows').style.display = flight ? 'none' : 'block';
   const m = FLIGHT_MATERIALS[$('setFMaterial').value];
-  $('fMatInfo').textContent = m ? `${m.den} g/cm³ · yield ${m.sy} MPa · UTS ${m.su} MPa · E ${m.E} GPa${m.note ? ' · ' + m.note : ''}${m.verify ? ' · (typical published values — verify against your material cert)' : ''}` : '';
+  $('fMatInfo').textContent = m ? `${m.den} g/cm³${typeof m.sy === 'number' ? ` · yield ${m.sy} MPa` : ''}${typeof m.su === 'number' ? ` · UTS ${m.su} MPa` : ''} · E ${m.E} GPa${m.note ? ' · ' + m.note : ''}${m.verify ? ' · (typical published values — verify against your material cert)' : ''}` : '';
 }
 (function populateFlight(){
   const ms = $('setFMaterial');
