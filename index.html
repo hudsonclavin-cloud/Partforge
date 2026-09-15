@@ -4148,22 +4148,47 @@ async function flightCheck(code, g, mesh, onStatus){
   const haveCMM = typeof buildMeshIndex === 'function' && mesh && mesh.tris > 0;
   let idx = null;   // built on first use — a part that declares only extents and loads pays nothing
   const measure = (fn, e) => { try { idx = idx || buildMeshIndex(mesh); return fn(idx, { ...e, tess_tol_mm: tess }); } catch(err){ return { ok:false, note:'measurement error: ' + String(err && err.message || err).slice(0, 80) }; } };
+  /* A declared range that runs past the end of the part is the commonest declaration slip, and
+     left to the ray caster it surfaces as "no surface found", which sends the model looking for
+     a missing hole instead of a wrong number. Say what is actually wrong. */
+  const bounds = haveCMM ? meshBounds(mesh) : null;
+  const AXN = { x:'x', y:'y', z:'z' };
+  function rangeFault(e){
+    if(!bounds) return null;
+    const k = AXIS_IDX[e.axis], lo = bounds.min[k], hi = bounds.max[k], eps = 0.001;
+    const out = [e.from_mm, e.to_mm].filter(v => v < lo - eps || v > hi + eps);
+    if(out.length) return `the declared range along ${AXN[e.axis]} runs ${e.from_mm} → ${e.to_mm}, but the part spans ${AXN[e.axis]} ${lo.toFixed(3)} → ${hi.toFixed(3)} — a gauge cannot reach past the part. Give from_mm and to_mm as the real face positions (from_mm is the open end a gauge enters).`;
+    const u = [0, 1, 2].filter(i => i !== k);
+    const far = e.at_mm.some((v, i) => v < bounds.min[u[i]] - eps || v > bounds.max[u[i]] + eps);
+    if(far) return `the declared centre (${e.at_mm.join(', ')}) is outside the part, which spans ${u.map(i => `${'xyz'[i]} ${bounds.min[i].toFixed(1)}…${bounds.max[i].toFixed(1)}`).join(', ')}. at_mm is the position in the two axes perpendicular to ${AXN[e.axis]}, in order (z → [x,y], y → [x,z], x → [y,z]).`;
+    return null;
+  }
   for(const e of f.od){
-    const row = { ...e, r: haveCMM ? measure(measureOD, e) : { ok:false, note:'no mesh' }, ok:false };
+    const fault = rangeFault(e);
+    const row = { ...e, r: fault ? { ok:false, note: fault } : (haveCMM ? measure(measureOD, e) : { ok:false, note:'no mesh' }), ok:false };
     row.ok = !!row.r.ok; rows.od.push(row);
-    if(!row.ok) g.fails.push(`Outside diameter "${e.name}": you declared Ø${f3(e.d_mm)} ±${e.tol_mm} at (${e.at_mm.join(', ')}) along ${e.axis} between ${e.from_mm} and ${e.to_mm}; measured ${row.r.note || 'not found'}. Make the turned surface the declared size where you declared it.`);
+    if(!row.ok) g.fails.push(fault
+      ? `Outside diameter "${e.name}": ${fault}`
+      : `Outside diameter "${e.name}": you declared Ø${f3(e.d_mm)} ±${e.tol_mm} at (${e.at_mm.join(', ')}) along ${e.axis} between ${e.from_mm} and ${e.to_mm}; measured ${row.r.note || 'not found'}. Make the turned surface the declared size where you declared it.`);
   }
   for(const e of f.bores){
-    const row = { ...e, r: haveCMM ? measure(measureBore, e) : { ok:false, note:'no mesh' }, ok:false };
+    const fault = rangeFault(e);
+    const row = { ...e, r: fault ? { ok:false, note: fault } : (haveCMM ? measure(measureBore, e) : { ok:false, note:'no mesh' }), ok:false };
     row.ok = !!row.r.ok; rows.bores.push(row);
-    if(!row.ok) g.fails.push(`Bore "${e.name}": you declared Ø${f3(e.d_mm)} ±${e.tol_mm} (position ±${e.pos_tol_mm}) at (${e.at_mm.join(', ')}) along ${e.axis}, open end at ${e.from_mm}, far end at ${e.to_mm}; measured ${row.r.note || 'not found'}. Cut the bore exactly where and at the size you declared.`);
+    if(!row.ok) g.fails.push(fault
+      ? `Bore "${e.name}": ${fault}`
+      : `Bore "${e.name}": you declared Ø${f3(e.d_mm)} ±${e.tol_mm} (position ±${e.pos_tol_mm}) at (${e.at_mm.join(', ')}) along ${e.axis}, open end at ${e.from_mm}, far end at ${e.to_mm}; measured ${row.r.note || 'not found'}. Cut the bore exactly where and at the size you declared.`);
   }
   for(const e of f.holes){
-    const row = { ...e, r: haveCMM ? measure(measureHoles, e) : { ok:false, note:'no mesh' }, ok:false };
+    // A pattern declares one axis range for every hole in it, so the range fault is shared.
+    const fault = rangeFault({ ...e, at_mm: e.pattern === 'circle' ? (e.centre_mm || [0, 0]) : e.at_mm[0] });
+    const row = { ...e, r: fault ? { ok:false, note: fault } : (haveCMM ? measure(measureHoles, e) : { ok:false, note:'no mesh' }), ok:false };
     row.ok = !!row.r.ok; rows.holes.push(row);
     if(!row.ok){
       const where = e.pattern === 'circle' ? `${e.n} holes on a Ø${e.bc_d_mm} bolt circle from ${e.start_deg}°` : `${e.at_mm.length} hole${e.at_mm.length > 1 ? 's' : ''} at ${e.at_mm.map(p => '(' + p.join(', ') + ')').join(' ')}`;
-      g.fails.push(`Hole pattern "${e.name}": you declared ${where}, Ø${f3(e.d_mm)} ±${e.tol_mm}, along ${e.axis} from ${e.from_mm} to ${e.to_mm}; measured ${row.r.note || 'not found'}. Every hole must exist at its declared position and size.`);
+      g.fails.push(fault
+        ? `Hole pattern "${e.name}": ${fault}`
+        : `Hole pattern "${e.name}": you declared ${where}, Ø${f3(e.d_mm)} ±${e.tol_mm}, along ${e.axis} from ${e.from_mm} to ${e.to_mm}; measured ${row.r.note || 'not found'}. Every hole must exist at its declared position and size.`);
     }
   }
   for(const e of f.revolve){
@@ -6545,12 +6570,12 @@ function updateLlmHint(){
   $('llmHint').textContent = settings.key
     ? `${P().label.split(' ')[0]} · ${settings.model || 'set a model'} · ${settings.clarify==='ask'?'asks first':'just builds'}${P().search ? ` · search ${settings.search?'on':'off'}` : ''} · ${where}`
     : (isFlight()
-      ? 'FLIGHT grade. AI generation needs an API key (⚙ Settings). The flight templates work without one — load one, then open the manufacturing sheet under ⋯.'
+      ? 'FLIGHT grade. AI generation needs an API key (⚙ Settings). The flight templates work without one — load one, then open its drawing under ⋯ (a manufacturing sheet, or an interface control drawing for a composite or pressure part).'
       : 'AI generation needs an Anthropic API key (⚙ Settings). Templates work without one — try “Hinged box ⚙” then its Assembly view, or print the “Fit coupon 🎯”.');
   $('btnRefine').disabled = !(settings.key && currentCode);
   const sub = document.querySelector('header .sub');
   if(sub) sub.textContent = isFlight()
-    ? 'flight grade · prompt → declared, measured, checked part → STL/3MF + manufacturing sheet'
+    ? 'flight grade · prompt → declared, measured, checked part → STL/3MF + the drawing its class earns'
     : 'prompt or photo → questions → parametric part with moving-assembly preview → STL/3MF';
 }
 updateLlmHint();
