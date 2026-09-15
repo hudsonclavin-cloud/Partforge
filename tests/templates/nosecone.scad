@@ -13,13 +13,13 @@
 //  "parts":[{"name":"body","role":"revolved hollow nose cone with shoulder, solid tip block and Ø20 tip pocket","size_mm":[152.4,152.4,436]}]}
 // SPEC-END
 // FLIGHT-BEGIN
-// {"material":"CF-laminate","process":"composite_layup","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,
-//  "critical":[{"name":"base D","module":"body","axis":"x","nominal_mm":152.40,"tol_mm":0.15,"round":true},
-//              {"name":"shoulder OD","module":"shoulder","axis":"x","nominal_mm":149.45,"tol_mm":0.10,"round":true},
-//              {"name":"overall length","module":"body","axis":"z","nominal_mm":436.00,"tol_mm":0.30},
-//              {"name":"shoulder length","module":"shoulder","axis":"z","nominal_mm":76.00,"tol_mm":0.25}],
-//  "bores":[{"name":"tip insert pocket","d_mm":20.00,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":396,"to_mm":436},
-//           {"name":"shoulder bore","d_mm":143.45,"tol_mm":0.30,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":76}],
+// {"material":"CF-laminate","process":"composite_layup","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,"hazard":"none",
+//  "critical":[{"name":"base D","module":"body","axis":"x","nominal_mm":152.40,"tol_mm":0.15,"round":true,"tol_src":"default"},
+//              {"name":"shoulder OD","module":"shoulder","axis":"x","nominal_mm":149.45,"tol_mm":0.10,"round":true,"tol_src":"default"},
+//              {"name":"overall length","module":"body","axis":"z","nominal_mm":436.00,"tol_mm":0.30,"tol_src":"default"},
+//              {"name":"shoulder length","module":"shoulder","axis":"z","nominal_mm":76.00,"tol_mm":0.25,"tol_src":"default"}],
+//  "bores":[{"name":"tip insert pocket","d_mm":20.00,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":436,"to_mm":396,"tol_src":"default"},
+//           {"name":"shoulder bore","d_mm":143.45,"tol_mm":0.30,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":76,"tol_src":"default"}],
 //  "holes":[],
 //  "loads":[],
 //  "mfg":{"stock":"2-piece female mould machined from this profile (tip_insert=0 plug); 3.0 mm CF laminate, tip section filled solid with chopped-fibre epoxy before cure",

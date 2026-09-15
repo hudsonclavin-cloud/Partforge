@@ -11,15 +11,15 @@
 //  "parts":[{"name":"tube","role":"coupler tube with chamfers and radial holes","size_mm":[149.3,149.3,300]}]}
 // SPEC-END
 // FLIGHT-BEGIN
-// {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,
-//  "critical":[{"name":"length","module":"main","axis":"z","nominal_mm":300.00,"tol_mm":0.10}],
-//  "od":[{"name":"coupler OD","d_mm":149.30,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":2,"to_mm":298}],
-//  "bores":[{"name":"bore","d_mm":142.90,"tol_mm":0.10,"at_mm":[0,0],"axis":"z","from_mm":300,"to_mm":0}],
-//  "holes":[{"name":"shear pin, aft, 0°","d_mm":2.20,"tol_mm":0.10,"pattern":"single","at_mm":[0,25],"axis":"x","from_mm":74.65,"to_mm":71.45},
-//           {"name":"shear pin, fwd, 0°","d_mm":2.20,"tol_mm":0.10,"pattern":"single","at_mm":[0,275],"axis":"x","from_mm":74.65,"to_mm":71.45},
-//           {"name":"rail button tap drill #8-32","d_mm":3.45,"tol_mm":0.10,"pattern":"single","at_mm":[0,150],"axis":"y","from_mm":-74.65,"to_mm":-71.45}],
+// {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,"hazard":"none",
+//  "critical":[{"name":"length","module":"main","axis":"z","nominal_mm":300.00,"tol_mm":0.10,"tol_src":"default"}],
+//  "od":[{"name":"coupler OD","d_mm":149.30,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":2,"to_mm":298,"tol_src":"default"}],
+//  "bores":[{"name":"bore","d_mm":142.90,"tol_mm":0.10,"at_mm":[0,0],"axis":"z","from_mm":300,"to_mm":0,"tol_src":"default"}],
+//  "holes":[{"name":"shear pin, aft, 0°","d_mm":2.20,"tol_mm":0.10,"pattern":"single","at_mm":[0,25],"axis":"x","from_mm":74.65,"to_mm":71.45,"tol_src":"default"},
+//           {"name":"shear pin, fwd, 0°","d_mm":2.20,"tol_mm":0.10,"pattern":"single","at_mm":[0,275],"axis":"x","from_mm":74.65,"to_mm":71.45,"tol_src":"default"},
+//           {"name":"rail button tap drill #8-32","d_mm":3.45,"tol_mm":0.10,"pattern":"single","at_mm":[0,150],"axis":"y","from_mm":-74.65,"to_mm":-71.45,"tol_src":"default"}],
 //  "gauges":[{"name":"shear pins at 120° and 240°, both ends","module":"gauge_pins_go","expect":"clear","why":"the four off-axis radial pin holes exist at 2.09 minimum"}],
-//  "loads":[{"check":"bolt_shear","name":"3 nylon shear pins at separation","size":"#2-56","n":3,"force_N":150,"bolt_sigma_y_MPa":60,"plate_t_mm":3.2,"sf_min":1.0}],
+//  "loads":[{"check":"bolt_shear","name":"3 nylon shear pins at separation","size":"#2-56","n":3,"force_N":150,"bolt_sigma_y_MPa":60,"plate_t_mm":3.2,"sf_min":1.0,"inputs_src":"default"}],
 //  "mfg":{"stock":"152.4 mm 6061-T6 round bar, 310 mm, or 6 in × 0.25 in wall 6061-T6 tube","finish":"bare or type II anodize; the OD is a sliding fit, no paint on it","heat_treat":"none",
 //         "deburr":"0.5 × 45° chamfer on OD and bore at both ends (in the profile); deburr the radial holes inside and out",
 //         "inspect":["OD with micrometer at both ends and mid-length","bore with a bore gauge","length with a height gauge","pin holes with 2.10 GO / 2.30 NO-GO pins","tap drill with a 3.40 pin before tapping"],

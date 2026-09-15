@@ -12,14 +12,14 @@
 //  "parts":[{"name":"ring","role":"thrust-transfer centering ring, chamfered OD, 8 holes","size_mm":[149.5,149.5,6.35]}]}
 // SPEC-END
 // FLIGHT-BEGIN
-// {"material":"6061-T6","process":"cnc_mill","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,
-//  "critical":[{"name":"ring OD","module":"ring","axis":"x","nominal_mm":149.50,"tol_mm":0.05,"round":true},
-//              {"name":"ring OD (y)","module":"ring","axis":"y","nominal_mm":149.50,"tol_mm":0.05,"round":true},
-//              {"name":"plate thickness","module":"ring","axis":"z","nominal_mm":6.35,"tol_mm":0.25}],
-//  "bores":[{"name":"MMT bore","d_mm":101.70,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":6.35}],
-//  "holes":[{"name":"lightening holes","d_mm":18.00,"tol_mm":0.10,"pattern":"circle","n":4,"bc_d_mm":126.00,"start_deg":0,"axis":"z","from_mm":0,"to_mm":6.35},
-//           {"name":"M4 retention bolts","d_mm":4.50,"tol_mm":0.10,"pattern":"circle","n":4,"bc_d_mm":126.00,"start_deg":45,"axis":"z","from_mm":0,"to_mm":6.35}],
-//  "loads":[{"check":"bolt_shear","name":"thrust bolts","size":"M4","grade":"12.9","shear_plane":"shank","n":4,"force_N":12000,"plate_t_mm":6.35,"sf_min":2.0}],
+// {"material":"6061-T6","process":"cnc_mill","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,"hazard":"none",
+//  "critical":[{"name":"ring OD","module":"ring","axis":"x","nominal_mm":149.50,"tol_mm":0.05,"round":true,"tol_src":"default"},
+//              {"name":"ring OD (y)","module":"ring","axis":"y","nominal_mm":149.50,"tol_mm":0.05,"round":true,"tol_src":"default"},
+//              {"name":"plate thickness","module":"ring","axis":"z","nominal_mm":6.35,"tol_mm":0.25,"tol_src":"default"}],
+//  "bores":[{"name":"MMT bore","d_mm":101.70,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":6.35,"tol_src":"default"}],
+//  "holes":[{"name":"lightening holes","d_mm":18.00,"tol_mm":0.10,"pattern":"circle","n":4,"bc_d_mm":126.00,"start_deg":0,"axis":"z","from_mm":0,"to_mm":6.35,"tol_src":"default"},
+//           {"name":"M4 retention bolts","d_mm":4.50,"tol_mm":0.10,"pattern":"circle","n":4,"bc_d_mm":126.00,"start_deg":45,"axis":"z","from_mm":0,"to_mm":6.35,"tol_src":"default"}],
+//  "loads":[{"check":"bolt_shear","name":"thrust bolts","size":"M4","grade":"12.9","shear_plane":"shank","n":4,"force_N":12000,"plate_t_mm":6.35,"sf_min":2.0,"inputs_src":"default"}],
 //  "mfg":{"stock":"6.35 mm (0.250 in) 6061-T6 plate, 160 x 160 mm blank per ring",
 //         "finish":"bare; abrade OD and bore with 80 grit before epoxy bonding",
 //         "heat_treat":"none",

@@ -184,11 +184,39 @@ What changes:
 - **Mass properties.** Mass, centre of gravity and the inertia tensor about it, from the
   mesh at the material's density (tetrahedral decomposition, validated against a box and a
   cylinder to 0.1%), in the units OpenRocket and RASAero want.
-- **The manufacturing sheet** (⋯ → Manufacturing sheet). The drawing substitute: material
-  and its properties, process and tolerance class, every declared dimension with nominal in
-  mm and inches, its tolerance, what the model measured and the verdict; the engineering
-  checks with their inputs and results; inspection plan; notes; every parameter; and the
-  STEP path. ⋯ → Measurement report is the same as JSON.
+- **Where every number came from.** A tolerance a team measured and a tolerance this tool
+  proposed are not the same kind of thing, and a drawing that prints them identically invites
+  the second to be built to as if it were the first. So every declared tolerance and every
+  load input carries its provenance: **cited** (from a document the designer names — a
+  standard, a datasheet, a team drawing), **user** (the request gave it), or **tool default**
+  (the tool proposed it from process capability). Absent means default, because that is the
+  safe reading of silence, and a "cited" claim with no reference is demoted to a default. The
+  report counts the three; the drawing prints the provenance beside every dimension and lists
+  the citations; a load check computed from tool-proposed inputs reports **COMPUTED**, not
+  PASS, because arithmetic on a number nobody has stood behind is not evidence. Provenance
+  never decides pass or fail — being honest about it has to cost nothing.
+- **What kind of part this is, and therefore what document.** The declaration carries a
+  `hazard`, and the program classifies from it, from the material and process, and from
+  whether a pressure check is declared:
+  - **Tier A** — a passive single body whose critical features are all in the drawing. It gets
+    the **manufacturing sheet**: material and properties, process and tolerance class, every
+    declared dimension with nominal in mm and inches, its tolerance, its provenance, what the
+    model measured and the verdict; engineering checks with inputs and results; inspection
+    plan; notes; parameters; the STEP path.
+  - **Tier B** — a laminate, a weld, a bond, a pressure boundary, a hot-gas path. The geometry
+    can be exactly right and say nothing about whether the part is safe, because what makes it
+    safe is a layup, a weld procedure or a proof test that no model contains. It gets an
+    **interface control drawing** instead: the interface the rest of the vehicle must meet,
+    what the model measures, a blank column for inspection of the real article, a checklist of
+    the evidence still missing (laminate schedule, cure cycle, coupons and NDE for a composite;
+    proof and burst for a pressure boundary; hot fire for a nozzle), and an explicit
+    unresolved list. No result column, no release status. The shipped nose cone is tier B and
+    demonstrates it.
+  - **Tier C** — energetic hardware. Geometry is never a sign-off; the drawing records the
+    interface for the people who will qualify it by test.
+  A declared tier may escalate, never de-escalate: a part claiming tier A while declaring a
+  pressure boundary is still tier B, and the drawing says the override was refused.
+  ⋯ → Measurement report gives the tier, the provenance and every measurement as JSON.
 - **The display** goes to three decimals, the print-bed checks give way to an optional
   stock/machine envelope, and the report is titled *Shop readiness*.
 
@@ -203,9 +231,10 @@ rejected when it does not conform, and scored by the flight bench.
 
 Every material property is a typical published value marked for verification against the
 mill certificate; the process capabilities are vendor design-guide numbers. The tests in
-`tests/` extract the engineering and measurement modules straight out of `index.html` and
-check them against analytic solids, the 1976 Standard Atmosphere, a published flutter worked
-example, and meshes the real engine produced (`node tests/run.mjs`).
+`tests/` extract the engineering, measurement and declaration modules straight out of
+`index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
+flutter worked example, meshes the real engine produced, and the tier and provenance rules
+(`node tests/run.mjs`, 360 assertions, no dependencies).
 
 Flight templates work with no API key. `?bench=1` in flight grade runs the flight bench:
 twelve things a space-shot club types, scored by the same gate plus the measurements —

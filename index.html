@@ -1297,16 +1297,16 @@ MODE 2 — SINGLE PART. One fenced code block of complete, valid OpenSCAD. No pr
    1–6 parts, lowercase identifier names; a joint for every pair of parts that must share volume. "proportions", "layout" and "profile" are optional here.
 3. The FLIGHT block — the declaration the program measures against (valid JSON, every line prefixed with //). Every field:
    // FLIGHT-BEGIN
-   // {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,
-   //  "critical":[{"name":"overall length","module":"main","axis":"z","nominal_mm":300.000,"tol_mm":0.10},
-   //              {"name":"plate thickness","module":"plate","axis":"z","nominal_mm":12.700,"tol_mm":0.05}],
-   //  "od":[{"name":"coupler OD","d_mm":149.300,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":5,"to_mm":295}],
+   // {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,"hazard":"none",
+   //  "critical":[{"name":"overall length","module":"main","axis":"z","nominal_mm":300.000,"tol_mm":0.10,"tol_src":"user"},
+   //              {"name":"plate thickness","module":"plate","axis":"z","nominal_mm":12.700,"tol_mm":0.05,"tol_src":"default"}],
+   //  "od":[{"name":"coupler OD","d_mm":149.300,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":5,"to_mm":295,"tol_src":"source","tol_ref":"ISO 286 H7/g6 at 120-180 mm"}],
    //  "bores":[{"name":"motor bore","d_mm":98.600,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":10,"to_mm":0}],
    //  "holes":[{"name":"retention bolts","d_mm":6.40,"tol_mm":0.10,"pos_tol_mm":0.10,"pattern":"circle","n":8,"bc_d_mm":132.0,"start_deg":0,"axis":"z","from_mm":10,"to_mm":0},
    //           {"name":"rail button tap drill","d_mm":3.45,"tol_mm":0.10,"pattern":"list","at_mm":[[0,150]],"axis":"y","from_mm":74.65,"to_mm":71.5}],
    //  "revolve":[{"name":"nose profile","type":"vonkarman","L_mm":400,"R_mm":76.200,"axis":"z","tip_at_mm":476,"direction":-1,"tol_mm":0.10}],
    //  "gauges":[{"name":"fin slot GO","module":"gauge_slot_go","expect":"clear","why":"4.76 mm slot must accept the fin"}],
-   //  "loads":[{"check":"hoop","name":"case at MEOP","P_MPa":6.90,"ri_mm":27.00,"t_mm":1.50,"sf_min":2.0},
+   //  "loads":[{"check":"hoop","name":"case at MEOP","P_MPa":6.90,"ri_mm":27.00,"t_mm":1.50,"sf_min":2.0,"inputs_src":"user"},
    //           {"check":"flutter","name":"fin","root_mm":300,"tip_mm":100,"span_mm":140,"thick_mm":4.76,"v_max_m_s":700,"alt_m":3000,"sf_min":1.5},
    //           {"check":"thread","name":"retainer screws","size":"M6","engagement_mm":9,"internal_material":"6061-T6"},
    //           {"check":"bolt_shear","name":"thrust bolts","size":"M6","n":8,"force_N":20000,"plate_t_mm":10,"sf_min":2.0}],
@@ -1323,6 +1323,19 @@ MODE 2 — SINGLE PART. One fenced code block of complete, valid OpenSCAD. No pr
    - loads: engineering checks the program recomputes with the material's properties (an entry may carry its own "material" id when the checked part is not the file's material — a G10 fin declared from an aluminium fin can). "hoop": Lamé thick-wall stress for internal pressure (P_MPa at MEOP, inner radius ri_mm, wall t_mm; safety factor on yield vs sf_min). "flutter": NACA TN 4197 fin flutter velocity from planform and thickness with the atmosphere at alt_m, compared with v_max_m_s (sf_min is Vf/v_max). "thread": tensile stress area and thread-strip engagement for size (M3..M16, #4-40..1/2-13) into internal_material. "bolt_shear": per-bolt shear and hole bearing for n bolts carrying force_N through a plate plate_t_mm thick; add "grade":"8.8"|"10.9"|"12.9" (default 8.8) and "shear_plane":"shank" when the plain shank, not the thread, sits in the joint. Give REAL inputs from the request or your stated assumptions — the program does the arithmetic, and a check you declare with wrong inputs fails. If a check is physically meaningful for the part (a pressure wall, a fin, a load-carrying bolt pattern), declare it; do not declare checks that do not apply.
    - mfg: the manufacturing sheet: stock, finish, heat treatment, deburr, an inspection list naming the instrument for each declared dimension, and notes (test requirements, assembly torque, thread locker).
    A FLIGHT block with no critical, od, bores, holes, revolve or gauges entries is rejected: every dimension a shop will measure must be declared, and every declared entry is checked.
+
+WHERE EACH NUMBER CAME FROM — say it, on every tolerance and every load. A number a team measured and a number you proposed are not the same kind of thing, and a drawing that prints them identically invites the second to be built to as if it were the first. Every critical, od, bores, holes and revolve entry carries "tol_src", and every loads entry carries "inputs_src":
+   - "source" — it comes from a document you can name, and you name it: "tol_ref":"ISO 286 H7 at 120-180 mm", "tol_ref":"Parker ORD 5700 chart 4-3, AS568-250", "tol_ref":"Cesaroni 98 mm case drawing". A "source" claim with no tol_ref is counted as a default, so do not claim it without the citation.
+   - "user" — the request gave the number, or gave the interface it follows from: an airframe ID the team measured, a thrust they stated, a fit they asked for.
+   - "default" — you proposed it from process capability or general practice. This is honest and expected; most tolerances on a first draft are defaults. Absent means default.
+   Provenance NEVER decides pass or fail — being honest about it costs you nothing. It changes only what the document says: a default tolerance prints as "tool default — accept or replace before release", and a load check computed from default inputs reports COMPUTED rather than PASS, because arithmetic on a number nobody has stood behind is not evidence. Marking a guess as "user" to get a green row is a lie that a reviewer will read in the sheet.
+
+WHAT KIND OF PART THIS IS — "hazard", and the tier that follows from it. Declare "hazard" as one of: "none", "pressure" (an internal-pressure boundary: motor case, tank, chamber, any part whose failure vents gas), "hot_gas" (a nozzle, throat, insulator, anything in the exhaust path), "bonded" (its load path runs through an adhesive joint), "welded" (through a weld), "energetic" (pyrotechnic, initiator, ejection charge, propellant, flight-termination hardware).
+   The program classifies the part from that, from the material and process, and from whether a hoop check is declared:
+   - Tier A — a passive single body whose critical features are all in the drawing. It gets a manufacturing sheet.
+   - Tier B — a laminate, a weld, a bond, a pressure boundary or a hot-gas path. The geometry can be exactly right and say nothing about whether the part is safe, because what makes it safe is a layup, a weld procedure or a proof test that no model contains. It gets an INTERFACE CONTROL DRAWING instead: the interface the rest of the vehicle must meet, plus the list of evidence still missing. Design it anyway, declare it fully, and say plainly in NOTE lines what must be tested.
+   - Tier C — energetic hardware. Geometry is never a sign-off. The drawing records the interface for the people who will qualify it by test.
+   You may declare a higher "tier" than the rules give, never a lower one: a part that claims tier A while declaring a pressure boundary is still B. When a request is for a tier-B or tier-C article (a composite case, a tank, a nozzle, a pyro valve), the useful thing you can produce is usually the METAL interface to it — the end ring, the closure, the retainer, the mount, the mandrel or the test fixture — so design that where the request allows, and say why in a NOTE.
 4. Parameters, one per line, exactly: name = value; // description — the FIRST parameter is tess_tol = <value from context>; // max chordal deviation of curved surfaces (mm). Millimetres only; no magic numbers in geometry. Then the line: // --- end parameters ---
 5. This helper, verbatim, right after the parameters:
    function fn_tol(d, tol=tess_tol) = max(24, ceil(180 / acos(1 - min(0.5, 2*tol/d))));
@@ -1715,7 +1728,7 @@ const IDEA_PROMPTS = [
    both the no-API-key path in flight grade and the exemplars the doctrine points at.
    Every one passes the flight measurements (tests/harness). */
 TEMPLATES_FLIGHT.push(
-{ name:"Nose cone \u2708", title:"Von K\u00e1rm\u00e1n / ogive / conical, one revolve, aluminium tip pocket", code:`// PART: 6-in nose cone, von Karman, hollow CF shell with shoulder and aluminium-tip pocket
+{ name:"Nose cone \u2708", title:"Von K\u00e1rm\u00e1n / ogive / conical, one revolve, aluminium tip pocket \u2014 tier B, gets an ICD", code:`// PART: 6-in nose cone, von Karman, hollow CF shell with shoulder and aluminium-tip pocket
 // KIND: mechanical
 // MAKE: CF layup in a 2-piece female mould cut from this profile (set tip_insert=0 for the plug); tip section filled solid before cure; one lathe setup on an expanding mandrel in the shoulder bore: face the tip station, drill 19.50 and ream the pocket Ø20.00 H7; profile template, micrometer, plug gauge
 // NOTE: Airframe assumed OD 152.40 mm = 6.000 in, ID 149.60 mm = 5.890 in (1.40 mm wall); set base_d and airframe_id to your tube. Shoulder OD = ID - 0.15 slip clearance = 149.45 mm = 5.884 in
@@ -1730,13 +1743,13 @@ TEMPLATES_FLIGHT.push(
 //  "parts":[{"name":"body","role":"revolved hollow nose cone with shoulder, solid tip block and Ø20 tip pocket","size_mm":[152.4,152.4,436]}]}
 // SPEC-END
 // FLIGHT-BEGIN
-// {"material":"CF-laminate","process":"composite_layup","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,
-//  "critical":[{"name":"base D","module":"body","axis":"x","nominal_mm":152.40,"tol_mm":0.15,"round":true},
-//              {"name":"shoulder OD","module":"shoulder","axis":"x","nominal_mm":149.45,"tol_mm":0.10,"round":true},
-//              {"name":"overall length","module":"body","axis":"z","nominal_mm":436.00,"tol_mm":0.30},
-//              {"name":"shoulder length","module":"shoulder","axis":"z","nominal_mm":76.00,"tol_mm":0.25}],
-//  "bores":[{"name":"tip insert pocket","d_mm":20.00,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":396,"to_mm":436},
-//           {"name":"shoulder bore","d_mm":143.45,"tol_mm":0.30,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":76}],
+// {"material":"CF-laminate","process":"composite_layup","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,"hazard":"none",
+//  "critical":[{"name":"base D","module":"body","axis":"x","nominal_mm":152.40,"tol_mm":0.15,"round":true,"tol_src":"default"},
+//              {"name":"shoulder OD","module":"shoulder","axis":"x","nominal_mm":149.45,"tol_mm":0.10,"round":true,"tol_src":"default"},
+//              {"name":"overall length","module":"body","axis":"z","nominal_mm":436.00,"tol_mm":0.30,"tol_src":"default"},
+//              {"name":"shoulder length","module":"shoulder","axis":"z","nominal_mm":76.00,"tol_mm":0.25,"tol_src":"default"}],
+//  "bores":[{"name":"tip insert pocket","d_mm":20.00,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":436,"to_mm":396,"tol_src":"default"},
+//           {"name":"shoulder bore","d_mm":143.45,"tol_mm":0.30,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":76,"tol_src":"default"}],
 //  "holes":[],
 //  "loads":[],
 //  "mfg":{"stock":"2-piece female mould machined from this profile (tip_insert=0 plug); 3.0 mm CF laminate, tip section filled solid with chopped-fibre epoxy before cure",
@@ -1839,14 +1852,14 @@ main();
 //  "parts":[{"name":"ring","role":"thrust-transfer centering ring, chamfered OD, 8 holes","size_mm":[149.5,149.5,6.35]}]}
 // SPEC-END
 // FLIGHT-BEGIN
-// {"material":"6061-T6","process":"cnc_mill","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,
-//  "critical":[{"name":"ring OD","module":"ring","axis":"x","nominal_mm":149.50,"tol_mm":0.05,"round":true},
-//              {"name":"ring OD (y)","module":"ring","axis":"y","nominal_mm":149.50,"tol_mm":0.05,"round":true},
-//              {"name":"plate thickness","module":"ring","axis":"z","nominal_mm":6.35,"tol_mm":0.25}],
-//  "bores":[{"name":"MMT bore","d_mm":101.70,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":6.35}],
-//  "holes":[{"name":"lightening holes","d_mm":18.00,"tol_mm":0.10,"pattern":"circle","n":4,"bc_d_mm":126.00,"start_deg":0,"axis":"z","from_mm":0,"to_mm":6.35},
-//           {"name":"M4 retention bolts","d_mm":4.50,"tol_mm":0.10,"pattern":"circle","n":4,"bc_d_mm":126.00,"start_deg":45,"axis":"z","from_mm":0,"to_mm":6.35}],
-//  "loads":[{"check":"bolt_shear","name":"thrust bolts","size":"M4","grade":"12.9","shear_plane":"shank","n":4,"force_N":12000,"plate_t_mm":6.35,"sf_min":2.0}],
+// {"material":"6061-T6","process":"cnc_mill","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,"hazard":"none",
+//  "critical":[{"name":"ring OD","module":"ring","axis":"x","nominal_mm":149.50,"tol_mm":0.05,"round":true,"tol_src":"default"},
+//              {"name":"ring OD (y)","module":"ring","axis":"y","nominal_mm":149.50,"tol_mm":0.05,"round":true,"tol_src":"default"},
+//              {"name":"plate thickness","module":"ring","axis":"z","nominal_mm":6.35,"tol_mm":0.25,"tol_src":"default"}],
+//  "bores":[{"name":"MMT bore","d_mm":101.70,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":6.35,"tol_src":"default"}],
+//  "holes":[{"name":"lightening holes","d_mm":18.00,"tol_mm":0.10,"pattern":"circle","n":4,"bc_d_mm":126.00,"start_deg":0,"axis":"z","from_mm":0,"to_mm":6.35,"tol_src":"default"},
+//           {"name":"M4 retention bolts","d_mm":4.50,"tol_mm":0.10,"pattern":"circle","n":4,"bc_d_mm":126.00,"start_deg":45,"axis":"z","from_mm":0,"to_mm":6.35,"tol_src":"default"}],
+//  "loads":[{"check":"bolt_shear","name":"thrust bolts","size":"M4","grade":"12.9","shear_plane":"shank","n":4,"force_N":12000,"plate_t_mm":6.35,"sf_min":2.0,"inputs_src":"default"}],
 //  "mfg":{"stock":"6.35 mm (0.250 in) 6061-T6 plate, 160 x 160 mm blank per ring",
 //         "finish":"bare; abrade OD and bore with 80 grit before epoxy bonding",
 //         "heat_treat":"none",
@@ -1916,24 +1929,24 @@ main();
 //  "proportions":[{"a":"charge_well_a","b":"plate","axis":"z","min":2.0,"max":2.3,"why":"boss stands about 2x the plate thickness so the pocket keeps a 5 mm floor above the plate"}]}
 // SPEC-END
 // FLIGHT-BEGIN
-// {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,
-//  "critical":[{"name":"bulkhead OD","module":"plate","axis":"x","nominal_mm":146.20,"tol_mm":0.05,"round":true},
-//              {"name":"bulkhead OD (y)","module":"plate","axis":"y","nominal_mm":146.20,"tol_mm":0.05,"round":true},
-//              {"name":"plate thickness","module":"plate","axis":"z","nominal_mm":12.70,"tol_mm":0.05},
-//              {"name":"overall height","module":"main","axis":"z","nominal_mm":37.70,"tol_mm":0.10},
-//              {"name":"boss OD","module":"charge_well_a","axis":"x","nominal_mm":22.00,"tol_mm":0.10,"round":true}],
-//  "bores":[{"name":"charge pocket A","d_mm":16.50,"tol_mm":0.10,"at_mm":[40,0],"axis":"z","from_mm":17.7,"to_mm":37.7},
-//           {"name":"charge pocket B","d_mm":16.50,"tol_mm":0.10,"at_mm":[-40,0],"axis":"z","from_mm":17.7,"to_mm":37.7}],
-//  "holes":[{"name":"all-thread rods 1/4 in","d_mm":6.60,"tol_mm":0.10,"pattern":"circle","n":4,"bc_d_mm":110.00,"start_deg":45,"axis":"z","from_mm":0,"to_mm":12.7},
-//           {"name":"U-bolt 1/4-20","d_mm":7.00,"tol_mm":0.10,"pattern":"list","at_mm":[[0,22.225],[0,-22.225]],"axis":"z","from_mm":0,"to_mm":12.7},
-//           {"name":"e-match feed-through","d_mm":3.20,"tol_mm":0.10,"pattern":"list","at_mm":[[6,-40],[-6,-40]],"axis":"z","from_mm":0,"to_mm":12.7},
-//           {"name":"terminal block #8-32 tap drill","d_mm":3.45,"tol_mm":0.10,"pattern":"list","at_mm":[[12.7,-50],[-12.7,-50]],"axis":"z","from_mm":2.7,"to_mm":12.7}],
+// {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,"hazard":"none",
+//  "critical":[{"name":"bulkhead OD","module":"plate","axis":"x","nominal_mm":146.20,"tol_mm":0.05,"round":true,"tol_src":"default"},
+//              {"name":"bulkhead OD (y)","module":"plate","axis":"y","nominal_mm":146.20,"tol_mm":0.05,"round":true,"tol_src":"default"},
+//              {"name":"plate thickness","module":"plate","axis":"z","nominal_mm":12.70,"tol_mm":0.05,"tol_src":"user"},
+//              {"name":"overall height","module":"main","axis":"z","nominal_mm":37.70,"tol_mm":0.10,"tol_src":"default"},
+//              {"name":"boss OD","module":"charge_well_a","axis":"x","nominal_mm":22.00,"tol_mm":0.10,"round":true,"tol_src":"default"}],
+//  "bores":[{"name":"charge pocket A","d_mm":16.50,"tol_mm":0.10,"at_mm":[40,0],"axis":"z","from_mm":17.7,"to_mm":37.7,"tol_src":"default"},
+//           {"name":"charge pocket B","d_mm":16.50,"tol_mm":0.10,"at_mm":[-40,0],"axis":"z","from_mm":17.7,"to_mm":37.7,"tol_src":"default"}],
+//  "holes":[{"name":"all-thread rods 1/4 in","d_mm":6.60,"tol_mm":0.10,"pattern":"circle","n":4,"bc_d_mm":110.00,"start_deg":45,"axis":"z","from_mm":0,"to_mm":12.7,"tol_src":"default"},
+//           {"name":"U-bolt 1/4-20","d_mm":7.00,"tol_mm":0.10,"pattern":"list","at_mm":[[0,22.225],[0,-22.225]],"axis":"z","from_mm":0,"to_mm":12.7,"tol_src":"default"},
+//           {"name":"e-match feed-through","d_mm":3.20,"tol_mm":0.10,"pattern":"list","at_mm":[[6,-40],[-6,-40]],"axis":"z","from_mm":0,"to_mm":12.7,"tol_src":"default"},
+//           {"name":"terminal block #8-32 tap drill","d_mm":3.45,"tol_mm":0.10,"pattern":"list","at_mm":[[12.7,-50],[-12.7,-50]],"axis":"z","from_mm":2.7,"to_mm":12.7,"tol_src":"default"}],
 //  "gauges":[{"name":"groove GO ring","module":"gauge_groove_go","expect":"clear","why":"groove at least 126.68 ID to 132.72 OD and 1.94 deep everywhere"},
 //            {"name":"groove ID wall NO-GO","module":"gauge_groove_nogo_id","expect":"blocked","why":"groove ID wall not below 126.52 (O-ring seats on this wall)"},
 //            {"name":"groove OD wall NO-GO","module":"gauge_groove_nogo_od","expect":"blocked","why":"groove OD wall not above 132.88"},
 //            {"name":"groove depth NO-GO","module":"gauge_groove_nogo_depth","expect":"blocked","why":"groove floor not deeper than 2.00 (squeeze stays above 22 %)"}],
-//  "loads":[{"check":"bolt_shear","name":"U-bolt recovery shock","size":"1/4-20","n":2,"force_N":5000,"plate_t_mm":12.7,"sf_min":2.0},
-//           {"check":"thread","name":"terminal block screws","size":"#8-32","engagement_mm":10,"internal_material":"6061-T6","sf_min":2.0}],
+//  "loads":[{"check":"bolt_shear","name":"U-bolt recovery shock","size":"1/4-20","n":2,"force_N":5000,"plate_t_mm":12.7,"sf_min":2.0,"inputs_src":"default"},
+//           {"check":"thread","name":"terminal block screws","size":"#8-32","engagement_mm":10,"internal_material":"6061-T6","sf_min":2.0,"inputs_src":"default"}],
 //  "mfg":{"stock":"152.4 mm (6.000 in) 6061-T6 round bar, 45 mm slice per bulkhead",
 //         "finish":"bare or type II clear anodize; seal land and groove 0.8 um Ra (32 uin) max with a circular lay",
 //         "heat_treat":"none",
@@ -2047,19 +2060,19 @@ main();
 //  "profile":[{"part":"fin","along":"y","measure":"x","from_mm":300,"to_mm":100,"why":"clipped delta: chord tapers from the root to the tip"}]}
 // SPEC-END
 // FLIGHT-BEGIN
-// {"material":"6061-T6","process":"cnc_mill","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,
-//  "critical":[{"name":"root chord","module":"fin","axis":"x","nominal_mm":300.00,"tol_mm":0.20},
-//              {"name":"semi-span","module":"fin","axis":"y","nominal_mm":140.00,"tol_mm":0.20},
-//              {"name":"plate thickness","module":"fin","axis":"z","nominal_mm":6.35,"tol_mm":0.05,"round":false},
-//              {"name":"tip chord at the tip flat","module":"tip_chord_gauge","axis":"x","nominal_mm":100.00,"tol_mm":0.20},
-//              {"name":"tab length","module":"tab","axis":"x","nominal_mm":220.00,"tol_mm":0.20},
-//              {"name":"tab height below the root","module":"tab_gauge","axis":"y","nominal_mm":15.00,"tol_mm":0.20},
-//              {"name":"overall height, tab to tip","module":"main","axis":"y","nominal_mm":155.00,"tol_mm":0.30}],
+// {"material":"6061-T6","process":"cnc_mill","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,"hazard":"none",
+//  "critical":[{"name":"root chord","module":"fin","axis":"x","nominal_mm":300.00,"tol_mm":0.20,"tol_src":"default"},
+//              {"name":"semi-span","module":"fin","axis":"y","nominal_mm":140.00,"tol_mm":0.20,"tol_src":"default"},
+//              {"name":"plate thickness","module":"fin","axis":"z","nominal_mm":6.35,"tol_mm":0.05,"round":false,"tol_src":"default"},
+//              {"name":"tip chord at the tip flat","module":"tip_chord_gauge","axis":"x","nominal_mm":100.00,"tol_mm":0.20,"tol_src":"default"},
+//              {"name":"tab length","module":"tab","axis":"x","nominal_mm":220.00,"tol_mm":0.20,"tol_src":"default"},
+//              {"name":"tab height below the root","module":"tab_gauge","axis":"y","nominal_mm":15.00,"tol_mm":0.20,"tol_src":"default"},
+//              {"name":"overall height, tab to tip","module":"main","axis":"y","nominal_mm":155.00,"tol_mm":0.30,"tol_src":"default"}],
 //  "bores":[],
-//  "holes":[{"name":"tab epoxy-key holes","d_mm":4.50,"tol_mm":0.10,"pattern":"list","at_mm":[[80,-7.5],[220,-7.5]],"axis":"z","from_mm":0,"to_mm":6.35}],
+//  "holes":[{"name":"tab epoxy-key holes","d_mm":4.50,"tol_mm":0.10,"pattern":"list","at_mm":[[80,-7.5],[220,-7.5]],"axis":"z","from_mm":0,"to_mm":6.35,"tol_src":"default"}],
 //  "gauges":[{"name":"LE bevel GO","module":"gauge_le_bevel","expect":"clear","why":"45 deg bevel fully cut on both faces along the whole leading edge"},
 //            {"name":"LE flat present","module":"gauge_le_flat","expect":"interfere","why":"the 1.0 mm leading-edge flat exists, not a knife edge"}],
-//  "loads":[{"check":"flutter","name":"fin at max Q","root_mm":300,"tip_mm":100,"span_mm":140,"thick_mm":6.35,"v_max_m_s":700,"alt_m":3000,"sf_min":1.5}],
+//  "loads":[{"check":"flutter","name":"fin at max Q","root_mm":300,"tip_mm":100,"span_mm":140,"thick_mm":6.35,"v_max_m_s":700,"alt_m":3000,"sf_min":1.5,"inputs_src":"default"}],
 //  "mfg":{"stock":"6.35 mm (1/4 in) 6061-T6 plate, 320 x 175 mm blank per fin",
 //         "finish":"as cut; scuff the whole tab and a 12 mm band each side of the root with 80 grit before epoxy",
 //         "heat_treat":"none",
@@ -2153,14 +2166,14 @@ main();
 //  "parts":[{"name":"plate","role":"retainer plate with bore, counterbore, chamfers and bolt holes","size_mm":[149.5,149.5,10]}]}
 // SPEC-END
 // FLIGHT-BEGIN
-// {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,
-//  "critical":[{"name":"plate thickness","module":"plate","axis":"z","nominal_mm":10.00,"tol_mm":0.05}],
-//  "od":[{"name":"plate OD","d_mm":149.50,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":10}],
-//  "bores":[{"name":"case bore","d_mm":98.60,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":10,"to_mm":4},
-//           {"name":"thrust-ring counterbore","d_mm":104.00,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":4}],
-//  "holes":[{"name":"M6 retention bolts","d_mm":6.40,"tol_mm":0.10,"pos_tol_mm":0.10,"pattern":"circle","n":8,"bc_d_mm":132.00,"start_deg":0,"axis":"z","from_mm":10,"to_mm":0}],
-//  "loads":[{"check":"bolt_shear","name":"thrust bolts","size":"M6","grade":"8.8","n":8,"force_N":20000,"plate_t_mm":10,"sf_min":2.0},
-//           {"check":"thread","name":"retainer screws into 6061","size":"M6","engagement_mm":12,"internal_material":"6061-T6"}],
+// {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,"hazard":"none",
+//  "critical":[{"name":"plate thickness","module":"plate","axis":"z","nominal_mm":10.00,"tol_mm":0.05,"tol_src":"default"}],
+//  "od":[{"name":"plate OD","d_mm":149.50,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":10,"tol_src":"default"}],
+//  "bores":[{"name":"case bore","d_mm":98.60,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":10,"to_mm":4,"tol_src":"default"},
+//           {"name":"thrust-ring counterbore","d_mm":104.00,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":4,"tol_src":"default"}],
+//  "holes":[{"name":"M6 retention bolts","d_mm":6.40,"tol_mm":0.10,"pos_tol_mm":0.10,"pattern":"circle","n":8,"bc_d_mm":132.00,"start_deg":0,"axis":"z","from_mm":10,"to_mm":0,"tol_src":"default"}],
+//  "loads":[{"check":"bolt_shear","name":"thrust bolts","size":"M6","grade":"8.8","n":8,"force_N":20000,"plate_t_mm":10,"sf_min":2.0,"inputs_src":"default"},
+//           {"check":"thread","name":"retainer screws into 6061","size":"M6","engagement_mm":12,"internal_material":"6061-T6","inputs_src":"default"}],
 //  "mfg":{"stock":"152.4 mm (6.000 in) 6061-T6 round bar, 14 mm slice","finish":"type II clear anodize after machining","heat_treat":"none",
 //         "deburr":"0.5 × 45° chamfer on the OD and the bore, both faces (in the profile); break hole edges",
 //         "inspect":["OD with micrometer at 2 places","bore with 98.55 GO / 98.65 NO-GO plug","counterbore depth with a depth micrometer","bolt circle with 6.30 GO pins in a fixture or on a CMM"],
@@ -2208,15 +2221,15 @@ main();
 //  "parts":[{"name":"tube","role":"coupler tube with chamfers and radial holes","size_mm":[149.3,149.3,300]}]}
 // SPEC-END
 // FLIGHT-BEGIN
-// {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,
-//  "critical":[{"name":"length","module":"main","axis":"z","nominal_mm":300.00,"tol_mm":0.10}],
-//  "od":[{"name":"coupler OD","d_mm":149.30,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":2,"to_mm":298}],
-//  "bores":[{"name":"bore","d_mm":142.90,"tol_mm":0.10,"at_mm":[0,0],"axis":"z","from_mm":300,"to_mm":0}],
-//  "holes":[{"name":"shear pin, aft, 0°","d_mm":2.20,"tol_mm":0.10,"pattern":"single","at_mm":[0,25],"axis":"x","from_mm":74.65,"to_mm":71.45},
-//           {"name":"shear pin, fwd, 0°","d_mm":2.20,"tol_mm":0.10,"pattern":"single","at_mm":[0,275],"axis":"x","from_mm":74.65,"to_mm":71.45},
-//           {"name":"rail button tap drill #8-32","d_mm":3.45,"tol_mm":0.10,"pattern":"single","at_mm":[0,150],"axis":"y","from_mm":-74.65,"to_mm":-71.45}],
+// {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,"hazard":"none",
+//  "critical":[{"name":"length","module":"main","axis":"z","nominal_mm":300.00,"tol_mm":0.10,"tol_src":"default"}],
+//  "od":[{"name":"coupler OD","d_mm":149.30,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":2,"to_mm":298,"tol_src":"default"}],
+//  "bores":[{"name":"bore","d_mm":142.90,"tol_mm":0.10,"at_mm":[0,0],"axis":"z","from_mm":300,"to_mm":0,"tol_src":"default"}],
+//  "holes":[{"name":"shear pin, aft, 0°","d_mm":2.20,"tol_mm":0.10,"pattern":"single","at_mm":[0,25],"axis":"x","from_mm":74.65,"to_mm":71.45,"tol_src":"default"},
+//           {"name":"shear pin, fwd, 0°","d_mm":2.20,"tol_mm":0.10,"pattern":"single","at_mm":[0,275],"axis":"x","from_mm":74.65,"to_mm":71.45,"tol_src":"default"},
+//           {"name":"rail button tap drill #8-32","d_mm":3.45,"tol_mm":0.10,"pattern":"single","at_mm":[0,150],"axis":"y","from_mm":-74.65,"to_mm":-71.45,"tol_src":"default"}],
 //  "gauges":[{"name":"shear pins at 120° and 240°, both ends","module":"gauge_pins_go","expect":"clear","why":"the four off-axis radial pin holes exist at 2.09 minimum"}],
-//  "loads":[{"check":"bolt_shear","name":"3 nylon shear pins at separation","size":"#2-56","n":3,"force_N":150,"bolt_sigma_y_MPa":60,"plate_t_mm":3.2,"sf_min":1.0}],
+//  "loads":[{"check":"bolt_shear","name":"3 nylon shear pins at separation","size":"#2-56","n":3,"force_N":150,"bolt_sigma_y_MPa":60,"plate_t_mm":3.2,"sf_min":1.0,"inputs_src":"default"}],
 //  "mfg":{"stock":"152.4 mm 6061-T6 round bar, 310 mm, or 6 in × 0.25 in wall 6061-T6 tube","finish":"bare or type II anodize; the OD is a sliding fit, no paint on it","heat_treat":"none",
 //         "deburr":"0.5 × 45° chamfer on OD and bore at both ends (in the profile); deburr the radial holes inside and out",
 //         "inspect":["OD with micrometer at both ends and mid-length","bore with a bore gauge","length with a height gauge","pin holes with 2.10 GO / 2.30 NO-GO pins","tap drill with a 3.40 pin before tapping"],
@@ -2268,13 +2281,13 @@ main();
 //  "layout":[{"a":"bosses","rel":"above","b":"plate","tol_mm":2}]}
 // SPEC-END
 // FLIGHT-BEGIN
-// {"material":"PA12-SLS","process":"sls","tolerance_class":"ISO 2768-c","tess_tol_mm":0.01,
-//  "critical":[{"name":"plate length","module":"plate","axis":"x","nominal_mm":220.00,"tol_mm":0.30},
-//              {"name":"plate width","module":"plate","axis":"y","nominal_mm":90.00,"tol_mm":0.30},
-//              {"name":"plate thickness","module":"plate","axis":"z","nominal_mm":4.00,"tol_mm":0.30},
-//              {"name":"overall height","module":"main","axis":"z","nominal_mm":9.00,"tol_mm":0.30}],
-//  "holes":[{"name":"all-thread rods 1/4 in","d_mm":6.60,"tol_mm":0.15,"pos_tol_mm":0.15,"pattern":"list","at_mm":[[10,13.25],[10,76.75],[210,13.25],[210,76.75]],"axis":"z","from_mm":0,"to_mm":4},
-//           {"name":"M3 heat-set boss holes","d_mm":4.00,"tol_mm":0.15,"pattern":"list","at_mm":[[42.5,18.5],[87.5,18.5],[132.5,18.5],[177.5,18.5],[42.5,45],[87.5,45],[132.5,45],[177.5,45],[42.5,71.5],[87.5,71.5],[132.5,71.5],[177.5,71.5]],"axis":"z","from_mm":9,"to_mm":4.2}],
+// {"material":"PA12-SLS","process":"sls","tolerance_class":"ISO 2768-c","tess_tol_mm":0.01,"hazard":"none",
+//  "critical":[{"name":"plate length","module":"plate","axis":"x","nominal_mm":220.00,"tol_mm":0.30,"tol_src":"source","tol_ref":"EOS PA 2200 datasheet: typical accuracy +/-0.3 mm"},
+//              {"name":"plate width","module":"plate","axis":"y","nominal_mm":90.00,"tol_mm":0.30,"tol_src":"source","tol_ref":"EOS PA 2200 datasheet: typical accuracy +/-0.3 mm"},
+//              {"name":"plate thickness","module":"plate","axis":"z","nominal_mm":4.00,"tol_mm":0.30,"tol_src":"source","tol_ref":"EOS PA 2200 datasheet: typical accuracy +/-0.3 mm"},
+//              {"name":"overall height","module":"main","axis":"z","nominal_mm":9.00,"tol_mm":0.30,"tol_src":"source","tol_ref":"EOS PA 2200 datasheet: typical accuracy +/-0.3 mm"}],
+//  "holes":[{"name":"all-thread rods 1/4 in","d_mm":6.60,"tol_mm":0.15,"pos_tol_mm":0.15,"pattern":"list","at_mm":[[10,13.25],[10,76.75],[210,13.25],[210,76.75]],"axis":"z","from_mm":0,"to_mm":4,"tol_src":"default"},
+//           {"name":"M3 heat-set boss holes","d_mm":4.00,"tol_mm":0.15,"pattern":"list","at_mm":[[42.5,18.5],[87.5,18.5],[132.5,18.5],[177.5,18.5],[42.5,45],[87.5,45],[132.5,45],[177.5,45],[42.5,71.5],[87.5,71.5],[132.5,71.5],[177.5,71.5]],"axis":"z","from_mm":9,"to_mm":4.2,"tol_src":"default"}],
 //  "gauges":[{"name":"strap slots GO","module":"gauge_slots_go","expect":"clear","why":"two 25 × 4 slots exist at least 24.7 × 3.7"}],
 //  "mfg":{"stock":"SLS PA12 powder bed; or 1.75 mm CF-nylon filament","finish":"bead blast; ream the four rod holes 6.60","heat_treat":"none","deburr":"none needed",
 //         "inspect":["rod hole centres 63.50 ± 0.15 with calipers","rod holes with a 6.35 mm rod: must slide","boss holes with a 3.9 mm pin before inserts"],
@@ -3882,8 +3895,22 @@ function partsContainedJS(mesh, rows){
    each (measured 4–5 s), and a six-hole part would have doubled its own render time.
    Ray casting measures the same thing in milliseconds and also reports the numbers a
    machinist wants (Ø, position, roundness, depth), not just pass/fail. */
+/* DECL-BEGIN */
+/* ---------------- flight grade: the declaration layer ----------------
+   Parsing the FLIGHT block, the provenance of every tolerance, and the tier that decides
+   which document the part gets. No geometry and no DOM here, so tests/flight-decl.test.mjs
+   runs this exact code in Node. */
 const FLIGHT_AXIS = /^(x|y|z)$/;
 const FLIGHT_CAP = 24;   // entries per category — bounds the measurement time
+/* Where a tolerance came from. The distinction exists because a team's published number and
+   a number this tool proposed are not the same kind of thing, and a sheet that prints them
+   identically invites the second to be built to as if it were the first.
+     source  — from a cited document: a standard, a datasheet, a team report, a drawing
+     user    — the person asked for it, or accepted it
+     default — the tool proposed it: a starting point, not a flight number
+   Absent means default, because that is the safe reading of silence. */
+const TOL_SRC = /^(source|user|default)$/;
+const FLIGHT_HAZARD = /^(none|pressure|hot_gas|energetic|bonded|welded)$/;
 function parseFlight(code){
   const m = code.match(/\/\/\s*FLIGHT-BEGIN\s*\n([\s\S]*?)\/\/\s*FLIGHT-END/);
   if(!m) return null;
@@ -3896,18 +3923,26 @@ function parseFlight(code){
   const pair = v => Array.isArray(v) && v.length === 2 && v.every(x => typeof x === 'number' && isFinite(x)) ? v.map(Number) : null;
   const arr = k => (Array.isArray(f[k]) ? f[k] : []).filter(e => e && typeof e === 'object').slice(0, FLIGHT_CAP);
   const out = { material: str(f.material), process: str(f.process), tolerance_class: str(f.tolerance_class, 'ISO 2768-m') || 'ISO 2768-m',
-    tess_tol_mm: num(f.tess_tol_mm, 0), critical: [], od: [], bores: [], holes: [], revolve: [], gauges: [], loads: [], mfg: null, dropped: 0 };
+    tess_tol_mm: num(f.tess_tol_mm, 0), hazard: FLIGHT_HAZARD.test(str(f.hazard)) ? str(f.hazard) : 'none', tier_declared: /^[ABC]$/.test(str(f.tier).toUpperCase()) ? str(f.tier).toUpperCase() : null,
+    critical: [], od: [], bores: [], holes: [], revolve: [], gauges: [], loads: [], mfg: null, dropped: 0, demoted: 0 };
+  // A "source" claim without a reference is not a source claim; it falls back to default and says so.
+  const prov = e => {
+    const src = TOL_SRC.test(str(e.tol_src)) ? str(e.tol_src) : 'default';
+    const ref = str(e.tol_ref).slice(0, 140);
+    if(src === 'source' && !ref){ out.demoted++; return { tol_src: 'default', tol_ref: '' }; }
+    return { tol_src: src, tol_ref: src === 'source' ? ref : '' };
+  };
   for(const c of arr('critical')){
     if(!FLIGHT_AXIS.test(str(c.axis)) || !(num(c.nominal_mm, 0) > 0) || !(num(c.tol_mm, 0) > 0)){ out.dropped++; continue; }
     out.critical.push({ name: str(c.name, 'dimension').slice(0, 60), module: (str(c.module, 'main') || 'main').replace(/\(\)$/, ''), axis: str(c.axis),
-      nominal_mm: num(c.nominal_mm), tol_mm: num(c.tol_mm), round: !!c.round });
+      nominal_mm: num(c.nominal_mm), tol_mm: num(c.tol_mm), round: !!c.round, ...prov(c) });
   }
   const round = (e, dflt) => {
     if(!FLIGHT_AXIS.test(str(e.axis)) || !(num(e.d_mm, 0) > 0) || !(num(e.tol_mm, 0) > 0)) return null;
     const from = num(e.from_mm, NaN), to = num(e.to_mm, NaN);
     if(!isFinite(from) || !isFinite(to) || from === to) return null;
     return { name: str(e.name, dflt).slice(0, 60), d_mm: num(e.d_mm), tol_mm: num(e.tol_mm), pos_tol_mm: num(e.pos_tol_mm, num(e.tol_mm)),
-      at_mm: pair(e.at_mm) || [0, 0], axis: str(e.axis), from_mm: from, to_mm: to };
+      at_mm: pair(e.at_mm) || [0, 0], axis: str(e.axis), from_mm: from, to_mm: to, ...prov(e) };
   };
   for(const e of arr('od')){ const r = round(e, 'OD'); if(r) out.od.push(r); else out.dropped++; }
   for(const e of arr('bores')){ const r = round(e, 'bore'); if(r) out.bores.push(r); else out.dropped++; }
@@ -3930,7 +3965,7 @@ function parseFlight(code){
   for(const r of arr('revolve')){
     if(!TYPES.test(str(r.type)) || !(num(r.L_mm, 0) > 0) || !(num(r.R_mm, 0) > 0) || !isFinite(num(r.tip_at_mm, NaN))){ out.dropped++; continue; }
     out.revolve.push({ name: str(r.name, 'profile').slice(0, 60), type: str(r.type), L_mm: num(r.L_mm), R_mm: num(r.R_mm), C: num(r.C, 0), K: num(r.K, 0.75), n: num(r.n, 0.5),
-      axis: FLIGHT_AXIS.test(str(r.axis)) ? str(r.axis) : 'z', tip_at_mm: num(r.tip_at_mm), direction: num(r.direction, -1) >= 0 ? 1 : -1, at_mm: pair(r.at_mm) || [0, 0], tol_mm: num(r.tol_mm, 0.1) });
+      axis: FLIGHT_AXIS.test(str(r.axis)) ? str(r.axis) : 'z', tip_at_mm: num(r.tip_at_mm), direction: num(r.direction, -1) >= 0 ? 1 : -1, at_mm: pair(r.at_mm) || [0, 0], tol_mm: num(r.tol_mm, 0.1), ...prov(r) });
   }
   for(const g of arr('gauges')){
     if(!/^[A-Za-z_]\w*$/.test(str(g.module))){ out.dropped++; continue; }
@@ -3940,6 +3975,11 @@ function parseFlight(code){
     if(!/^(hoop|flutter|thread|bolt_shear)$/.test(str(l.check))){ out.dropped++; continue; }
     const o = { check: str(l.check), name: str(l.name, str(l.check)).slice(0, 60) };
     for(const [k, v] of Object.entries(l)) if(k !== 'check' && k !== 'name' && /^[a-z_]+$/i.test(k)) o[k] = typeof v === 'number' ? v : str(String(v)).slice(0, 40);
+    // Where the LOADS came from — a thrust the team measured and a thrust the tool guessed
+    // produce the same arithmetic and mean entirely different things.
+    o.inputs_src = TOL_SRC.test(str(l.inputs_src)) ? str(l.inputs_src) : 'default';
+    o.inputs_ref = o.inputs_src === 'source' ? str(l.inputs_ref).slice(0, 140) : '';
+    if(o.inputs_src === 'source' && !o.inputs_ref){ o.inputs_src = 'default'; out.demoted++; }
     out.loads.push(o);
   }
   if(f.mfg && typeof f.mfg === 'object'){
@@ -3947,7 +3987,80 @@ function parseFlight(code){
     out.mfg = { stock: str(mf.stock), finish: str(mf.finish), heat_treat: str(mf.heat_treat), deburr: str(mf.deburr), inspect: list(mf.inspect), notes: list(mf.notes) };
   }
   out.declared = out.critical.length + out.od.length + out.bores.length + out.holes.length + out.revolve.length + out.gauges.length;
+  out.provenance = provenanceSummary(out);
   return out;
+}
+/* Counts by provenance across every dimension and load. `dims` counts only the entries that
+   carry a tolerance; gauges are pass/fail features and have none. */
+function provenanceSummary(f){
+  const dims = [...f.critical, ...f.od, ...f.bores, ...f.holes, ...f.revolve];
+  const tally = (list, key) => list.reduce((a, e) => { a[e[key] || 'default']++; return a; }, { source: 0, user: 0, default: 0 });
+  const d = tally(dims, 'tol_src'), l = tally(f.loads, 'inputs_src');
+  return { dims: d, loads: l, n_dims: dims.length, n_loads: f.loads.length,
+           defaults: d.default + l.default, cited: d.source + l.source,
+           refs: [...new Set(dims.filter(e => e.tol_src === 'source').map(e => e.tol_ref)
+             .concat(f.loads.filter(e => e.inputs_src === 'source').map(e => e.inputs_ref)))].filter(Boolean) };
+}
+/* ---------------- what kind of part is this, and therefore what document ----------------
+   Tier A is a passive single body a shop can make and a person can inspect with hand tools:
+     it gets a manufacturing sheet.
+   Tier B is an interface on something this tool cannot represent — a laminate, a weld, a
+     pressure boundary, a hot-gas path. The geometry may be right and the qualification is
+     not in the file, so it gets an interface control drawing instead of a release document.
+   Tier C is energetic hardware. Geometry is never a sign-off for it at all.
+   A declared tier may only escalate: a part that says "A" while declaring a hoop check is
+   still B, because the safe direction is the one that asks for more evidence. */
+function partTier(f, materials, processes){
+  if(!f || f.malformed) return { tier: 'A', why: [], hazard: 'none' };
+  const why = [];
+  const mat = (materials || {})[f.material] || null;
+  const proc = (processes || {})[f.process] || null;
+  let tier = 'A';
+  const up = (t, reason) => { if(t > tier) tier = t; why.push(reason); };
+  if(f.hazard === 'energetic') up('C', 'declared energetic: pyrotechnic, initiator or propellant hardware');
+  if(f.hazard === 'pressure') up('B', 'declared a pressure boundary');
+  if(f.hazard === 'hot_gas') up('B', 'declared a hot-gas path');
+  if(f.hazard === 'bonded') up('B', 'declared a bonded joint');
+  if(f.hazard === 'welded') up('B', 'declared a welded joint');
+  if(mat && mat.kind === 'composite') up('B', `${f.material} is a laminate: strength depends on the layup, not the geometry`);
+  if(f.process === 'composite_layup') up('B', 'made by composite layup');
+  if(f.loads.some(l => l.check === 'hoop')) up('B', 'a hoop-stress check means an internal pressure boundary');
+  if(f.tier_declared && f.tier_declared > tier){ tier = f.tier_declared; why.push(`declared tier ${f.tier_declared}`); }
+  else if(f.tier_declared && f.tier_declared < tier) why.push(`declared tier ${f.tier_declared}, raised to ${tier} by the rules above`);
+  return { tier, why, hazard: f.hazard, doc: tier === 'A' ? 'manufacturing sheet' : 'interface control drawing',
+           mat_kind: mat ? mat.kind : null, proc: proc ? proc.name : null };
+}
+/* The evidence a tier-B or tier-C part needs before anyone can call it done. Geometry supplies
+   none of it, which is the point of saying so on the drawing. */
+function tierEvidence(t){
+  const common = ['Independent design review by someone who did not draw the part',
+                  'As-built inspection of every interface dimension, recorded against this drawing',
+                  'Material certificate or batch record for the actual stock used'];
+  const byHazard = {
+    pressure: ['Proof test to the programme factor over MEOP, on the article or a sister article, with the record attached',
+               'Burst test or a validated analysis to the burst factor',
+               'Wall-thickness measurement on the finished part, not the model',
+               'Weld procedure, welder qualification and NDE where the boundary is welded'],
+    hot_gas: ['Hot-fire or equivalent thermal test with erosion measured before and after',
+              'Ablative or insulator material, thickness and bond process qualified separately',
+              'Post-test inspection of every sealing face'],
+    bonded: ['Bond process specification: surface preparation, adhesive, cure, bond-line thickness',
+             'Coupon or lap-shear data for the actual process',
+             'NDE of the bond area'],
+    welded: ['Weld procedure specification and welder qualification', 'NDE of every structural weld',
+             'Post-weld heat treatment where the alloy needs it'],
+    energetic: ['This part class cannot be signed off from geometry under any circumstances',
+                'Handling, storage, transport and arming procedures reviewed and approved',
+                'Functional testing of the assembled device, by people qualified to do it',
+                'Range and regulatory approval for the energetic materials involved'],
+  };
+  const composite = ['Laminate schedule: fibre, resin, ply count, orientations, fibre volume fraction',
+                     'Cure cycle and its verification', 'Coupon data for the actual layup and cure',
+                     'NDE criteria and results for the finished part'];
+  const out = [...common];
+  if(byHazard[t.hazard]) out.push(...byHazard[t.hazard]);
+  if(t.mat_kind === 'composite' || t.proc === 'Composite layup (wet / prepreg)') out.push(...composite);
+  return [...new Set(out)];
 }
 function flightCounts(f){
   return f && !f.malformed ? { critical: f.critical.length, od: f.od.length, bores: f.bores.length, holes: f.holes.length, revolve: f.revolve.length, gauges: f.gauges.length, loads: f.loads.length } : null;
@@ -3965,6 +4078,7 @@ function flightLint(src){
   if(/\b(sin|cos|tan)\s*\(\s*[A-Za-z_]\w*\s*\*\s*PI\s*\/\s*180/.test(code)) out.push('sin/cos/tan of a radian value — OpenSCAD trig takes DEGREES');
   return out;
 }
+/* DECL-END */
 const AXIS_IDX = { x:0, y:1, z:2 };
 async function flightCheck(code, g, mesh, onStatus){
   g.flight = null; g.flightRows = null; g.massProps = null; g.flightNote = '';
@@ -3986,11 +4100,17 @@ async function flightCheck(code, g, mesh, onStatus){
     return g;
   }
   g.flight = f;
-  const rows = g.flightRows = { lint: [], critical: [], od: [], bores: [], holes: [], revolve: [], gauges: [], loads: [], envelope: null, tess: null };
+  g.tier = partTier(f, FLIGHT_MATERIALS, FLIGHT_PROCESSES);
+  const rows = g.flightRows = { lint: [], critical: [], od: [], bores: [], holes: [], revolve: [], gauges: [], loads: [], envelope: null, tess: null, tier: g.tier, provenance: f.provenance };
   const tess = f.tess_tol_mm > 0 ? f.tess_tol_mm : settings.tessTol;
   const f3 = v => (+v).toFixed(3);
   if(!f.declared) g.fails.push('Your FLIGHT block declares nothing measurable. Declare every dimension a shop will put an instrument on — at least one critical, od, bores, holes, revolve or gauges entry — with its tolerance; the program measures each one.');
   if(f.dropped) rows.lint.push(`${f.dropped} FLIGHT entr${f.dropped > 1 ? 'ies were' : 'y was'} ignored: missing axis, nominal, tolerance, from/to or pattern fields`);
+  if(f.demoted) rows.lint.push(`${f.demoted} entr${f.demoted > 1 ? 'ies claim' : 'y claims'} a cited tolerance with no tol_ref — counted as a tool default until the citation is given`);
+  // Tool defaults are legitimate starting points and never fail a check; they are counted here
+  // so that no one reads a proposal as a number somebody stands behind.
+  const pv = f.provenance;
+  if(pv.defaults) rows.lint.push(`${pv.defaults} of ${pv.n_dims + pv.n_loads} declared tolerances and load inputs are tool defaults — proposals, not flight numbers. Accept or replace each one before release.`);
   // --- code discipline
   for(const w of flightLint(code)){
     rows.lint.push(w);
@@ -4124,6 +4244,9 @@ async function flightCheck(code, g, mesh, onStatus){
         row.result = `${l.n}× ${l.size} carrying ${(+l.force_N/1000).toFixed(1)} kN: ${(r.F_per_N/1000).toFixed(2)} kN per bolt, shear ${r.tau_MPa.toFixed(0)} MPa (SF ${r.sf_shear.toFixed(2)})` + (r.sf_bearing != null ? `, bearing ${r.sigma_bearing_MPa.toFixed(0)} MPa in ${M.name} (SF ${r.sf_bearing.toFixed(2)})` : '');
       }
       row.ok = row.sf != null && isFinite(row.sf) && row.sf >= row.sf_min - 1e-9;
+      // Provenance never decides pass or fail — honesty about it must cost nothing — but a
+      // margin computed from inputs the tool proposed is reported as computed, not passed.
+      row.provisional = row.ok && row.inputs_src === 'default';
       if(!row.ok) g.fails.push(`Engineering check "${l.name}" (${row.formula}): ${row.result} — below the safety factor of ${row.sf_min} ${+l.sf_min > 0 ? 'you declared' : 'the doctrine requires'}. Thicken the section, add bolts, change material, or correct the inputs if they were wrong; keep the check.`);
     } catch(err){
       row.result = 'not evaluated: ' + String(err && err.message || err).slice(0, 80);
@@ -4881,20 +5004,29 @@ function flightReportHtml(g){
   const f3 = v => (+v).toFixed(3);
   const tagOK = ok => ok ? '<span class="tag good">OK</span>' : '<span class="tag bad">FAIL</span>';
   if(!g.flight) return `<div class="line"><span>Flight declaration</span><span class="tag ${/DROPPED|parse/.test(g.flightNote) ? 'bad' : 'warn'}">${escapeHtml(g.flightNote)}</span></div>`;
-  const r = g.flightRows, f = g.flight;
-  let h = `<div class="w" style="font-size:11px;color:var(--dim)">Geometry and declared checks only — not a flight qualification. Independent design review, as-built inspection and test evidence are still required.</div><div class="line"><span>Flight declaration</span><span><span style="color:var(--dim);font-size:11px">${escapeHtml(f.material || settings.flightMaterial)} · ${escapeHtml(f.process || settings.flightProcess)} · ${escapeHtml(f.tolerance_class)}</span> <b>${escapeHtml(g.flightNote)}</b></span></div>`;
+  const r = g.flightRows, f = g.flight, t = g.tier || { tier:'A', why:[], doc:'manufacturing sheet' };
+  const tierTag = t.tier === 'A' ? '<span class="tag good">A</span>' : t.tier === 'B' ? '<span class="tag warn">B</span>' : '<span class="tag bad">C</span>';
+  let h = `<div class="line"><span>Part class</span><span>${tierTag} <span style="color:var(--dim);font-size:11px">${escapeHtml(t.doc)}</span></span></div>`
+    + `<div class="w" style="font-size:11px;color:${t.tier === 'A' ? 'var(--dim)' : 'var(--warn)'}">${
+        t.tier === 'A' ? 'Geometry and declared checks only — not a flight qualification. Independent design review, as-built inspection and test evidence are still required.'
+        : t.tier === 'B' ? 'Tier B — ' + escapeHtml(t.why.join('; ')) + '. What makes this part safe is not in the file: the tool draws the interface, not the qualification. It gets an interface control drawing, never a release sheet.'
+        : 'Tier C — ' + escapeHtml(t.why.join('; ')) + '. Energetic hardware is never signed off from geometry. The drawing exists to record the interface for people who will qualify it by test.'}</div>`
+    + `<div class="line"><span>Tolerance provenance</span><span style="font-size:11px">${r.provenance.cited} cited · ${r.provenance.dims.user + r.provenance.loads.user} user · <b style="color:${r.provenance.defaults ? 'var(--warn)' : 'inherit'}">${r.provenance.defaults} tool default</b></span></div>`
+    + `<div class="line"><span>Flight declaration</span><span><span style="color:var(--dim);font-size:11px">${escapeHtml(f.material || settings.flightMaterial)} · ${escapeHtml(f.process || settings.flightProcess)} · ${escapeHtml(f.tolerance_class)}</span> <b>${escapeHtml(g.flightNote)}</b></span></div>`;
   const sub = [];
   const bad = t => ` <span class="tag bad">${escapeHtml(t || 'FAIL')}</span>`;
-  for(const c of r.critical) sub.push(`${escapeHtml(c.name)} ${f3(c.nominal_mm)} ±${c.tol_mm} ${c.axis} → ${c.measured != null ? f3(c.measured) : '—'}${c.ok ? ' ✓' : bad(c.note)}`);
-  for(const e of r.od) sub.push(`OD ${escapeHtml(e.name)} Ø${f3(e.d_mm)} ±${e.tol_mm} → ${escapeHtml(e.r.note || '—')}${e.ok ? ' ✓' : bad()}`);
-  for(const e of r.bores) sub.push(`bore ${escapeHtml(e.name)} Ø${f3(e.d_mm)} ±${e.tol_mm} → ${escapeHtml(e.r.note || '—')}${e.ok ? ' ✓' : bad()}`);
-  for(const e of r.holes) sub.push(`holes ${escapeHtml(e.name)} ${e.pattern === 'circle' ? `${e.n}× on Ø${e.bc_d_mm}` : `${e.at_mm.length}×`} Ø${f3(e.d_mm)} ±${e.tol_mm} → ${escapeHtml(e.r.note || '—')}${e.ok ? ' ✓' : bad()}`);
-  for(const e of r.revolve) sub.push(`profile ${escapeHtml(e.name)} ${escapeHtml(e.type)} L${e.L_mm} R${f3(e.R_mm)} → ${escapeHtml(e.r.note || '—')}${e.ok ? ' ✓' : bad()}`);
+  // Only tool defaults are marked inline: they are the ones that need somebody's decision.
+  const pmark = e => e.tol_src === 'default' ? ' <span style="color:var(--warn)">·tool</span>' : (e.tol_src === 'user' ? ' <span style="color:var(--dim)">·user</span>' : '');
+  for(const c of r.critical) sub.push(`${escapeHtml(c.name)} ${f3(c.nominal_mm)} ±${c.tol_mm}${pmark(c)} ${c.axis} → ${c.measured != null ? f3(c.measured) : '—'}${c.ok ? ' ✓' : bad(c.note)}`);
+  for(const e of r.od) sub.push(`OD ${escapeHtml(e.name)} Ø${f3(e.d_mm)} ±${e.tol_mm}${pmark(e)} → ${escapeHtml(e.r.note || '—')}${e.ok ? ' ✓' : bad()}`);
+  for(const e of r.bores) sub.push(`bore ${escapeHtml(e.name)} Ø${f3(e.d_mm)} ±${e.tol_mm}${pmark(e)} → ${escapeHtml(e.r.note || '—')}${e.ok ? ' ✓' : bad()}`);
+  for(const e of r.holes) sub.push(`holes ${escapeHtml(e.name)} ${e.pattern === 'circle' ? `${e.n}× on Ø${e.bc_d_mm}` : `${e.at_mm.length}×`} Ø${f3(e.d_mm)} ±${e.tol_mm}${pmark(e)} → ${escapeHtml(e.r.note || '—')}${e.ok ? ' ✓' : bad()}`);
+  for(const e of r.revolve) sub.push(`profile ${escapeHtml(e.name)} ${escapeHtml(e.type)} L${e.L_mm} R${f3(e.R_mm)}${pmark(e)} → ${escapeHtml(e.r.note || '—')}${e.ok ? ' ✓' : bad()}`);
   for(const e of r.gauges) sub.push(`gauge ${escapeHtml(e.name)} (${e.expect}) → ${escapeHtml(e.note || '—')}${e.ok ? ' ✓' : bad()}`);
   if(sub.length) h += `<div class="w" style="font-size:11px;color:var(--dim)">${sub.join('<br>')}</div>`;
   for(const l of r.loads)
-    h += `<div class="line"><span>${escapeHtml(l.name)} <span style="color:var(--dim);font-size:11px">${escapeHtml(l.check)}</span></span><span>${l.sf != null && isFinite(l.sf) ? `SF <b>${l.sf.toFixed(2)}</b> / ${l.sf_min} ` : ''}${tagOK(l.ok)}</span></div>`
-       + `<div class="w" style="font-size:11px;color:var(--dim)">${escapeHtml(l.formula ? l.formula + ' — ' : '')}${escapeHtml(l.result)}</div>`;
+    h += `<div class="line"><span>${escapeHtml(l.name)} <span style="color:var(--dim);font-size:11px">${escapeHtml(l.check)}${l.inputs_src === 'source' ? ' · cited inputs' : l.inputs_src === 'user' ? ' · user inputs' : ' · tool-proposed inputs'}</span></span><span>${l.sf != null && isFinite(l.sf) ? `SF <b>${l.sf.toFixed(2)}</b> / ${l.sf_min} ` : ''}${l.provisional ? '<span class="tag warn">COMPUTED</span>' : tagOK(l.ok)}${t.tier !== 'A' && l.ok ? ' <span class="tag warn">screening</span>' : ''}</span></div>`
+       + `<div class="w" style="font-size:11px;color:var(--dim)">${escapeHtml(l.formula ? l.formula + ' — ' : '')}${escapeHtml(l.result)}${l.provisional ? ' The inputs are the tool\u2019s proposals, so this margin is arithmetic, not evidence — replace them with the flight numbers.' : ''}</div>`;
   if(g.massProps){
     const m = g.massProps, I = m.I_g_mm2, gI = v => Math.round(v).toLocaleString();
     h += `<div class="line"><span>Mass · CG (${escapeHtml(m.material)})</span><b>${m.mass_g.toFixed(2)} g · (${m.cg_mm.map(v => v.toFixed(2)).join(', ')}) mm</b></div>`
@@ -4905,8 +5037,49 @@ function flightReportHtml(g){
   if(r.lint.length) h += `<div class="w" style="color:var(--warn);font-size:12px">${r.lint.map(w => '⚠ ' + escapeHtml(w)).join('<br>')}</div>`;
   return h;
 }
-/* The drawing substitute: everything a shop needs that a mesh cannot carry. Markdown, so
-   it reads in a browser, a chat, or a repo, and prints. */
+/* One row per declared dimension, shared by both documents so the manufacturing sheet and
+   the interface control drawing can never disagree about what was declared or measured. */
+function dimensionRows(r){
+  const f3 = v => (+v).toFixed(3);
+  const prov = e => e.tol_src === 'source' ? `cited: ${e.tol_ref}` : e.tol_src === 'user' ? 'user' : '**tool default**';
+  const out = [];
+  if(!r) return out;
+  for(const c of r.critical) out.push({ feature: `${c.name} (${c.module}, ${c.axis})`, nominal: f3(c.nominal_mm), inch: inch(c.nominal_mm),
+    tol: `±${c.tol_mm}`, prov: prov(c), modelled: c.measured != null ? f3(c.measured) : '—', ok: c.ok, note: c.note });
+  for(const e of r.od) out.push({ feature: `OD ${e.name} at (${e.at_mm.join(', ')}) ${e.axis} ${e.from_mm}→${e.to_mm}`, nominal: `Ø${f3(e.d_mm)}`, inch: `Ø${inch(e.d_mm)}`,
+    tol: `±${e.tol_mm}`, prov: prov(e), modelled: e.r.note || '—', ok: e.ok });
+  for(const e of r.bores) out.push({ feature: `Bore ${e.name} at (${e.at_mm.join(', ')}) ${e.axis} ${e.from_mm}→${e.to_mm}`, nominal: `Ø${f3(e.d_mm)}`, inch: `Ø${inch(e.d_mm)}`,
+    tol: `±${e.tol_mm} (pos ±${e.pos_tol_mm})`, prov: prov(e), modelled: e.r.note || '—', ok: e.ok });
+  for(const e of r.holes) out.push({ feature: `Holes ${e.name}: ${e.pattern === 'circle' ? `${e.n}× on Ø${e.bc_d_mm} BC from ${e.start_deg}°` : e.at_mm.map(p => '(' + p.join(', ') + ')').join(' ')} ${e.axis} ${e.from_mm}→${e.to_mm}`,
+    nominal: `Ø${f3(e.d_mm)}`, inch: `Ø${inch(e.d_mm)}`, tol: `±${e.tol_mm} (pos ±${e.pos_tol_mm})`, prov: prov(e), modelled: e.r.note || '—', ok: e.ok });
+  for(const e of r.revolve) out.push({ feature: `Profile ${e.name}: ${e.type} L ${e.L_mm} R ${f3(e.R_mm)} tip at ${e.axis}=${e.tip_at_mm}`, nominal: '—', inch: '—',
+    tol: `±${e.tol_mm}`, prov: prov(e), modelled: e.r.note || '—', ok: e.ok });
+  for(const e of r.gauges) out.push({ feature: `Gauge ${e.name} (${e.module}, must ${e.expect})${e.why ? ' — ' + e.why : ''}`, nominal: '—', inch: '—',
+    tol: '—', prov: '—', modelled: e.note || '—', ok: e.ok });
+  return out;
+}
+/* Everything both documents state about the part itself. */
+function docHead(){
+  const g = lastGate, f = g && g.flight, r = g && g.flightRows, a = lastAnalysis;
+  const mat = f && FLIGHT_MATERIALS[f.material] ? FLIGHT_MATERIALS[f.material] : flightMat();
+  const matId = f && FLIGHT_MATERIALS[f.material] ? f.material : settings.flightMaterial;
+  const proc = f && FLIGHT_PROCESSES[f.process] ? FLIGHT_PROCESSES[f.process] : flightProc();
+  return { g, f, r, a, mat, matId, proc, tier: (g && g.tier) || { tier:'A', why:[], doc:'manufacturing sheet' },
+    name: firstPartName(currentCode), tessUm: (((r && r.tess && r.tess.tol) || settings.tessTol) * 1000).toFixed(0),
+    notes: [...currentCode.matchAll(/^\/\/\s*(MAKE|NOTE):\s*(.*)$/gm)].map(m => `- **${m[1]}** ${m[2]}`),
+    params: extractParams(currentCode).map(p => `| \`${p.name}\` | ${p.value} | ${p.desc} |`) };
+}
+/* Whichever document this part's tier earns. */
+function releaseDoc(){
+  const g = lastGate;
+  return (g && g.tier && g.tier.tier !== 'A') ? icdSheet() : mfgSheet();
+}
+function releaseDocName(){
+  const g = lastGate;
+  return (g && g.tier && g.tier.tier !== 'A') ? 'interface control drawing' : 'manufacturing sheet';
+}
+/* The drawing substitute for a tier-A part: everything a shop needs that a mesh cannot carry.
+   Markdown, so it reads in a browser, a chat, or a repo, and prints. */
 function mfgSheet(){
   if(!lastAnalysis || !currentCode) return '';
   const g = lastGate, f = g && g.flight, r = g && g.flightRows, a = lastAnalysis;
@@ -4923,6 +5096,8 @@ function mfgSheet(){
   L.push('');
   L.push('**Status: geometry and declared checks complete — not a flight qualification.** Release requires independent design review, as-built inspection of every dimension below, and test evidence for any pressure, hot-gas, composite or pyrotechnic interface.');
   L.push('');
+  L.push(`**Part class: tier A** — a passive single body whose critical features are all in this drawing. ${(g && g.tier && g.tier.why.length) ? g.tier.why.join('; ') + '. ' : ''}Nothing about it is declared as a pressure boundary, a hot-gas path, a laminate, a bonded or welded joint, or energetic hardware; if that is wrong, declare the hazard and the part gets an interface control drawing instead.`);
+  L.push('');
   L.push('## Part');
   L.push(`- Material: **${matId}** (${mat.name}) — density ${mat.den} g/cm³, yield ${mat.sy} MPa, UTS ${mat.su} MPa, E ${mat.E} GPa. Typical published values; verify against the material certificate.`);
   L.push(`- Process: **${proc.name}**${f && f.mfg && f.mfg.stock ? ` · stock: ${f.mfg.stock}` : ''} · general tolerance **${f ? f.tolerance_class : 'ISO 2768-m'}** (process capability ±${proc.tol_general_mm} mm, ±${proc.tol_precision_mm} mm where called out)`);
@@ -4933,18 +5108,20 @@ function mfgSheet(){
   L.push('## Dimensions to inspect');
   L.push('Nominal and tolerance are the declaration; "modelled" is what the program measured on the finished geometry. Inspect the machined part to nominal ± tolerance.');
   L.push('');
-  L.push('| Feature | Nominal (mm) | Nominal (in) | Tol (mm) | Modelled | Result |');
-  L.push('|---|---|---|---|---|---|');
-  if(r){
-    for(const c of r.critical) L.push(`| ${c.name} (${c.module}, ${c.axis}) | ${f3(c.nominal_mm)} | ${inch(c.nominal_mm)} | ±${c.tol_mm} | ${c.measured != null ? f3(c.measured) : '—'} | ${c.ok ? 'OK' : 'FAIL ' + (c.note || '')} |`);
-    for(const e of r.od) L.push(`| OD ${e.name} at (${e.at_mm.join(', ')}) ${e.axis} ${e.from_mm}→${e.to_mm} | Ø${f3(e.d_mm)} | Ø${inch(e.d_mm)} | ±${e.tol_mm} | ${e.r.note || '—'} | ${e.ok ? 'OK' : 'FAIL'} |`);
-    for(const e of r.bores) L.push(`| Bore ${e.name} at (${e.at_mm.join(', ')}) ${e.axis} ${e.from_mm}→${e.to_mm} | Ø${f3(e.d_mm)} | Ø${inch(e.d_mm)} | ±${e.tol_mm} (pos ±${e.pos_tol_mm}) | ${e.r.note || '—'} | ${e.ok ? 'OK' : 'FAIL'} |`);
-    for(const e of r.holes) L.push(`| Holes ${e.name}: ${e.pattern === 'circle' ? `${e.n}× on Ø${e.bc_d_mm} BC from ${e.start_deg}°` : e.at_mm.map(p => '(' + p.join(', ') + ')').join(' ')} ${e.axis} ${e.from_mm}→${e.to_mm} | Ø${f3(e.d_mm)} | Ø${inch(e.d_mm)} | ±${e.tol_mm} (pos ±${e.pos_tol_mm}) | ${e.r.note || '—'} | ${e.ok ? 'OK' : 'FAIL'} |`);
-    for(const e of r.revolve) L.push(`| Profile ${e.name}: ${e.type} L ${e.L_mm} R ${f3(e.R_mm)} tip at ${e.axis}=${e.tip_at_mm} | — | — | ±${e.tol_mm} | ${e.r.note || '—'} | ${e.ok ? 'OK' : 'FAIL'} |`);
-    for(const e of r.gauges) L.push(`| Gauge ${e.name} (${e.module}, must ${e.expect}) ${e.why ? '— ' + e.why : ''} | — | — | — | ${e.note || '—'} | ${e.ok ? 'OK' : 'FAIL'} |`);
-  }
-  if(!r || !(r.critical.length + r.od.length + r.bores.length + r.holes.length + r.revolve.length + r.gauges.length)) L.push('| (nothing declared) | | | | | |');
+  L.push('| Feature | Nominal (mm) | Nominal (in) | Tol (mm) | Tolerance from | Modelled | Result |');
+  L.push('|---|---|---|---|---|---|---|');
+  const rows = dimensionRows(r);
+  for(const d of rows) L.push(`| ${d.feature} | ${d.nominal} | ${d.inch} | ${d.tol} | ${d.prov} | ${d.modelled} | ${d.ok ? 'OK' : 'FAIL' + (d.note ? ' ' + d.note : '')} |`);
+  if(!rows.length) L.push('| (nothing declared) | | | | | | |');
   L.push('');
+  const pv = r && r.provenance;
+  if(pv){
+    L.push('### Where the tolerances came from');
+    L.push(`${pv.cited} cited · ${pv.dims.user + pv.loads.user} set by the engineer · **${pv.defaults} proposed by the tool**.`);
+    if(pv.defaults) L.push(`A tool default is a plausible starting point for the process, not a number anybody has stood behind. Before this drawing is released, an engineer accepts each one (it becomes theirs) or replaces it with the value the interface actually needs.`);
+    if(pv.refs.length){ L.push(''); L.push('Cited sources: ' + pv.refs.map(x => `*${x}*`).join('; ') + '.'); }
+    L.push('');
+  }
   if(r && r.loads.length){
     L.push('## Engineering checks');
     L.push('Declared by the designer, recomputed by the program from the material table. A check is only as good as its inputs — confirm loads, pressures and speeds against the flight profile.');
@@ -4966,15 +5143,98 @@ function mfgSheet(){
   L.push('- Tessellated meshes are suitable for SLS/DMLS printing and for CAM roughing; finish dimensions to the table above.');
   return L.join('\n');
 }
+/* ---------------- the interface control drawing ----------------
+   For a tier-B or tier-C part the geometry can be exactly right and still say nothing about
+   whether the part is safe: a filament-wound case is its layup, a welded tank is its weld, a
+   pyrotechnic valve is its qualification campaign. So this document does not carry a result
+   column or a release status. It states the interface the rest of the vehicle has to meet,
+   what was measured on the model, what provenance each number has, and — at length — the
+   evidence that is still missing. A team can hand this to whoever builds the real article. */
+function icdSheet(){
+  if(!lastAnalysis || !currentCode) return '';
+  const d = docHead(), g = d.g, f = d.f, r = d.r, a = d.a, t = d.tier;
+  const f3 = v => (+v).toFixed(3);
+  const L = [];
+  L.push(`# ${d.name} — interface control drawing`);
+  L.push(`Generated by PartForge (flight grade) ${new Date().toISOString().slice(0, 10)}. Geometry of record: \`${slug()}.scad\`.`);
+  L.push('');
+  L.push(`## Classification: tier ${t.tier}`);
+  L.push(`${t.why.length ? t.why.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('. ') + '.' : 'Escalated by declaration.'}`);
+  L.push('');
+  if(t.tier === 'C'){
+    L.push('> **This part is energetic hardware. No geometric check, and no output of this tool, constitutes approval to build, assemble, install or fire it.** The drawing exists so that the people who will qualify it by test have the interface in writing. Handling, storage, arming and range approval are governed by procedures outside this document.');
+  } else {
+    L.push('> **This is not a release document and not a manufacturing sheet.** What makes this part airworthy — the laminate, the weld, the bond, the proof test — is not representable in the model this drawing came from, so the tool states the interface and stops. Treat every dimension below as a requirement on the article, to be met and then verified by measurement, not as an instruction that has been checked.');
+  }
+  L.push('');
+  L.push('## Part and interface');
+  L.push(`- Material declared: **${d.matId}** (${d.mat.name})${d.mat.kind === 'composite' ? ' — a laminate: the table’s properties are nominal for a generic layup and do not describe your part' : ` — density ${d.mat.den} g/cm³, yield ${d.mat.sy} MPa, UTS ${d.mat.su} MPa`}. Typical published values; the article’s properties come from its own certificate, coupons or test.`);
+  L.push(`- Process declared: **${d.proc.name}**${f && f.mfg && f.mfg.stock ? ` · stock: ${f.mfg.stock}` : ''} · general tolerance **${f ? f.tolerance_class : 'ISO 2768-m'}**`);
+  if(f && f.hazard && f.hazard !== 'none') L.push(`- Hazard class: **${f.hazard.replace('_', ' ')}**`);
+  L.push(`- Envelope as modelled: ${a.size.map(f3).join(' × ')} mm (${a.size.map(inch).join(' × ')} in) · volume ${a.volume.toFixed(3)} cm³`);
+  if(g && g.massProps){ const m = g.massProps; L.push(`- Mass as modelled ${m.mass_g.toFixed(2)} g at ${d.mat.den} g/cm³ · CG (${m.cg_mm.map(v => v.toFixed(2)).join(', ')}) mm — nominal geometry at a table density, not a weighed article`); }
+  L.push('');
+  L.push('## Interface dimensions');
+  L.push('These are requirements on the finished article. "As modelled" is what this geometry measures — evidence that the model is self-consistent, not that the article conforms. Fill the last column from inspection of the real part.');
+  L.push('');
+  L.push('| Interface | Nominal (mm) | Nominal (in) | Tol (mm) | Tolerance from | As modelled | Verified on the article |');
+  L.push('|---|---|---|---|---|---|---|');
+  const rows = dimensionRows(r);
+  for(const x of rows) L.push(`| ${x.feature} | ${x.nominal} | ${x.inch} | ${x.tol} | ${x.prov} | ${x.modelled}${x.ok ? '' : ' (model does not match its own declaration)'} |  |`);
+  if(!rows.length) L.push('| (nothing declared) | | | | | | |');
+  L.push('');
+  const pv = r && r.provenance;
+  if(pv){
+    L.push(`Provenance: ${pv.cited} cited · ${pv.dims.user + pv.loads.user} set by the engineer · **${pv.defaults} proposed by the tool**.`);
+    if(pv.refs.length) L.push('Cited sources: ' + pv.refs.map(x => `*${x}*`).join('; ') + '.');
+    L.push('');
+  }
+  L.push('## Evidence required before this interface can be relied on');
+  for(const e of tierEvidence(t)) L.push(`- [ ] ${e}`);
+  L.push('');
+  L.push('## Unresolved');
+  const open = [];
+  if(pv && pv.defaults) open.push(`${pv.defaults} tolerance${pv.defaults > 1 ? 's are' : ' is'} a tool default — an engineer must accept or replace each before this drawing is issued.`);
+  if(d.mat.verify) open.push(`${d.matId} properties in the tool's table are unverified typical values; replace them with the certificate or coupon data for the actual material.`);
+  if(r && r.loads.length) open.push(`${r.loads.length} analytical check${r.loads.length > 1 ? 's are' : ' is'} screening only — closed-form arithmetic on nominal geometry, no test, no FEA, no composite or joint behaviour.`);
+  if(r && r.loads.some(l => l.inputs_src === 'default')) open.push('Some load inputs are the tool’s proposals rather than the flight numbers; the margins below are arithmetic until they are replaced.');
+  if(g && g.fails.length) open.push(`${g.fails.length} declared check${g.fails.length > 1 ? 's do' : ' does'} not currently hold on the model itself (listed below).`);
+  if(f && f.mfg && !f.mfg.inspect.length) open.push('No inspection method is declared for these interfaces.');
+  open.push('This tool exports a tessellated mesh; a B-rep (STEP) model of the interface must come from CAD that can represent it exactly.');
+  for(const o of open) L.push(`- ${o}`);
+  L.push('');
+  if(r && r.loads.length){
+    L.push('## Screening analysis (not qualification)');
+    L.push('| Check | Method | Result | SF | Required | Inputs from |');
+    L.push('|---|---|---|---|---|---|');
+    for(const l of r.loads) L.push(`| ${l.name} (${l.check}) | ${l.formula || '—'} | ${l.result} | ${l.sf != null && isFinite(l.sf) ? l.sf.toFixed(2) : '—'} | ${l.sf_min ?? '—'} | ${l.inputs_src === 'source' ? 'cited: ' + l.inputs_ref : l.inputs_src === 'user' ? 'engineer' : '**tool default**'} |`);
+    L.push('');
+  }
+  if(g && g.fails.length){ L.push('## Where the model does not match its own declaration'); for(const w of g.fails) L.push(`- ${w}`); L.push(''); }
+  if(f && f.mfg && f.mfg.inspect.length){ L.push('## Inspection methods proposed'); for(const s of f.mfg.inspect) L.push(`- ${s}`); L.push(''); }
+  if(d.notes.length || (f && f.mfg && f.mfg.notes.length)){ L.push('## Interface notes'); L.push(...d.notes); if(f && f.mfg) for(const s of f.mfg.notes) L.push(`- ${s}`); L.push(''); }
+  if(r && r.lint.length){ L.push('## Warnings'); for(const w of r.lint) L.push(`- ${w}`); L.push(''); }
+  L.push('## Parameters');
+  L.push('| Name | Value (mm) | Meaning |'); L.push('|---|---|---|'); L.push(...d.params); L.push('');
+  L.push('## Files');
+  L.push(`- \`${slug()}.scad\` — the parametric geometry this drawing describes.`);
+  L.push(`- \`${slug()}.stl\` / \`.3mf\` — tessellations within ${d.tessUm} µm, for visualisation and for tooling, moulds, mandrels or fixtures. Not an inspection master.`);
+  L.push('- For an exact B-rep of the interface, rebuild it in CAD that supports STEP; the OpenSCAD source is the dimensional intent.');
+  L.push('');
+  L.push('---');
+  L.push('*Issued by no one. This document becomes an interface control drawing when a named engineer reviews it, resolves the unresolved list, and signs it.*');
+  return L.join('\n');
+}
 function measurementReport(){
   const g = lastGate;
   return JSON.stringify({ app: 'PartForge', grade: settings.grade, part: currentCode ? firstPartName(currentCode) : null, at: new Date().toISOString(),
+    tier: g && g.tier, document: g && g.tier ? releaseDocName() : null, provenance: g && g.flight ? g.flight.provenance : null,
     size_mm: lastAnalysis ? lastAnalysis.size : null, volume_cm3: lastAnalysis ? lastAnalysis.volume : null,
     declaration: g && g.flight, measurements: g && g.flightRows, mass: g && g.massProps, fails: g ? g.fails : [], spec: g && g.spec ? { parts: g.parts, joints: g.joints } : null }, null, 2);
 }
 function reportText(){
   if(!lastAnalysis) return '';
-  if(isFlight() && lastGate && lastGate.flight) return mfgSheet();
+  if(isFlight() && lastGate && lastGate.flight) return releaseDoc();
   const a = lastAnalysis;
   return [
     `PartForge print checklist — ${firstPartName(currentCode)}`,
@@ -6031,8 +6291,10 @@ function rebuildMoreMenu(){
   menuItem('⬇ 3MF (with units)', () => { if(currentMesh) download(slug()+'.3mf', to3MF(currentMesh)); else toast('Render a part first'); });
   menuItem('⬇ OpenSCAD source', () => { if(currentCode) download(slug()+'.scad', new Blob([currentCode], {type:'text/plain'})); });
   if(lastGate && lastGate.flight){
-    menuItem('📋 Manufacturing sheet (.md)', () => download(slug()+'-manufacturing.md', new Blob([mfgSheet()], {type:'text/markdown'})));
-    menuItem('📐 Measurement report (.json)', () => download(slug()+'-measurements.json', new Blob([measurementReport()], {type:'application/json'})));
+    const tierA = !(lastGate.tier && lastGate.tier.tier !== 'A');
+    menuItem(tierA ? '📋 Manufacturing sheet (.md)' : `📐 Interface control drawing (.md) — tier ${lastGate.tier.tier}`,
+      () => download(slug() + (tierA ? '-manufacturing.md' : '-icd.md'), new Blob([releaseDoc()], {type:'text/markdown'})));
+    menuItem('📊 Measurement report (.json)', () => download(slug()+'-measurements.json', new Blob([measurementReport()], {type:'application/json'})));
   }
   if(currentManifest && assemblyCache){
     for(const mod of currentManifest.mods)
@@ -6339,7 +6601,8 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort, showSpecParts, partColorHex, meshBounds, gateRetryBudget, sliceExtents, bedPinning, declarationScore, declarationCounts,
   get contractFloor(){ return contractFloor; },
   // flight grade
-  isFlight, fmtMm, parseFlight, flightCheck, flightLint, flightCounts, flightSystemPrompt, activeSystemPrompt, contextLine, FLIGHT_MATERIALS, FLIGHT_PROCESSES, TEMPLATES_FLIGHT, BENCH_FLIGHT, mfgSheet, measurementReport, flightMat, flightProc,
+  isFlight, fmtMm, parseFlight, flightCheck, flightLint, flightCounts, flightSystemPrompt, activeSystemPrompt, contextLine, FLIGHT_MATERIALS, FLIGHT_PROCESSES, TEMPLATES_FLIGHT, BENCH_FLIGHT, mfgSheet, icdSheet, releaseDoc, releaseDocName, dimensionRows, measurementReport, flightMat, flightProc,
+  partTier, tierEvidence, provenanceSummary,
   massProperties, buildMeshIndex, measureBore, measureHoles, measureOD, measureRevolve, revolveProfile, pointInside, isa, hoopStress, flutterVelocity, threadCheck, boltShear, fnFor, chordalDeviation, openscadFragments,
   setGate(g){ lastGate = g; if(lastAnalysis && currentCode) renderReport(lastAnalysis, currentCode); }, mainPlainUnion, partsContainedJS,
   get lastIntent(){ return lastIntent; }, benchCostText, updateBenchCost,

@@ -10,14 +10,14 @@
 //  "parts":[{"name":"plate","role":"retainer plate with bore, counterbore, chamfers and bolt holes","size_mm":[149.5,149.5,10]}]}
 // SPEC-END
 // FLIGHT-BEGIN
-// {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,
-//  "critical":[{"name":"plate thickness","module":"plate","axis":"z","nominal_mm":10.00,"tol_mm":0.05}],
-//  "od":[{"name":"plate OD","d_mm":149.50,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":10}],
-//  "bores":[{"name":"case bore","d_mm":98.60,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":10,"to_mm":4},
-//           {"name":"thrust-ring counterbore","d_mm":104.00,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":4}],
-//  "holes":[{"name":"M6 retention bolts","d_mm":6.40,"tol_mm":0.10,"pos_tol_mm":0.10,"pattern":"circle","n":8,"bc_d_mm":132.00,"start_deg":0,"axis":"z","from_mm":10,"to_mm":0}],
-//  "loads":[{"check":"bolt_shear","name":"thrust bolts","size":"M6","grade":"8.8","n":8,"force_N":20000,"plate_t_mm":10,"sf_min":2.0},
-//           {"check":"thread","name":"retainer screws into 6061","size":"M6","engagement_mm":12,"internal_material":"6061-T6"}],
+// {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,"hazard":"none",
+//  "critical":[{"name":"plate thickness","module":"plate","axis":"z","nominal_mm":10.00,"tol_mm":0.05,"tol_src":"default"}],
+//  "od":[{"name":"plate OD","d_mm":149.50,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":10,"tol_src":"default"}],
+//  "bores":[{"name":"case bore","d_mm":98.60,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":10,"to_mm":4,"tol_src":"default"},
+//           {"name":"thrust-ring counterbore","d_mm":104.00,"tol_mm":0.05,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":4,"tol_src":"default"}],
+//  "holes":[{"name":"M6 retention bolts","d_mm":6.40,"tol_mm":0.10,"pos_tol_mm":0.10,"pattern":"circle","n":8,"bc_d_mm":132.00,"start_deg":0,"axis":"z","from_mm":10,"to_mm":0,"tol_src":"default"}],
+//  "loads":[{"check":"bolt_shear","name":"thrust bolts","size":"M6","grade":"8.8","n":8,"force_N":20000,"plate_t_mm":10,"sf_min":2.0,"inputs_src":"default"},
+//           {"check":"thread","name":"retainer screws into 6061","size":"M6","engagement_mm":12,"internal_material":"6061-T6","inputs_src":"default"}],
 //  "mfg":{"stock":"152.4 mm (6.000 in) 6061-T6 round bar, 14 mm slice","finish":"type II clear anodize after machining","heat_treat":"none",
 //         "deburr":"0.5 × 45° chamfer on the OD and the bore, both faces (in the profile); break hole edges",
 //         "inspect":["OD with micrometer at 2 places","bore with 98.55 GO / 98.65 NO-GO plug","counterbore depth with a depth micrometer","bolt circle with 6.30 GO pins in a fixture or on a CMM"],

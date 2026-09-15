@@ -12,13 +12,13 @@
 //  "layout":[{"a":"bosses","rel":"above","b":"plate","tol_mm":2}]}
 // SPEC-END
 // FLIGHT-BEGIN
-// {"material":"PA12-SLS","process":"sls","tolerance_class":"ISO 2768-c","tess_tol_mm":0.01,
-//  "critical":[{"name":"plate length","module":"plate","axis":"x","nominal_mm":220.00,"tol_mm":0.30},
-//              {"name":"plate width","module":"plate","axis":"y","nominal_mm":90.00,"tol_mm":0.30},
-//              {"name":"plate thickness","module":"plate","axis":"z","nominal_mm":4.00,"tol_mm":0.30},
-//              {"name":"overall height","module":"main","axis":"z","nominal_mm":9.00,"tol_mm":0.30}],
-//  "holes":[{"name":"all-thread rods 1/4 in","d_mm":6.60,"tol_mm":0.15,"pos_tol_mm":0.15,"pattern":"list","at_mm":[[10,13.25],[10,76.75],[210,13.25],[210,76.75]],"axis":"z","from_mm":0,"to_mm":4},
-//           {"name":"M3 heat-set boss holes","d_mm":4.00,"tol_mm":0.15,"pattern":"list","at_mm":[[42.5,18.5],[87.5,18.5],[132.5,18.5],[177.5,18.5],[42.5,45],[87.5,45],[132.5,45],[177.5,45],[42.5,71.5],[87.5,71.5],[132.5,71.5],[177.5,71.5]],"axis":"z","from_mm":9,"to_mm":4.2}],
+// {"material":"PA12-SLS","process":"sls","tolerance_class":"ISO 2768-c","tess_tol_mm":0.01,"hazard":"none",
+//  "critical":[{"name":"plate length","module":"plate","axis":"x","nominal_mm":220.00,"tol_mm":0.30,"tol_src":"source","tol_ref":"EOS PA 2200 datasheet: typical accuracy +/-0.3 mm"},
+//              {"name":"plate width","module":"plate","axis":"y","nominal_mm":90.00,"tol_mm":0.30,"tol_src":"source","tol_ref":"EOS PA 2200 datasheet: typical accuracy +/-0.3 mm"},
+//              {"name":"plate thickness","module":"plate","axis":"z","nominal_mm":4.00,"tol_mm":0.30,"tol_src":"source","tol_ref":"EOS PA 2200 datasheet: typical accuracy +/-0.3 mm"},
+//              {"name":"overall height","module":"main","axis":"z","nominal_mm":9.00,"tol_mm":0.30,"tol_src":"source","tol_ref":"EOS PA 2200 datasheet: typical accuracy +/-0.3 mm"}],
+//  "holes":[{"name":"all-thread rods 1/4 in","d_mm":6.60,"tol_mm":0.15,"pos_tol_mm":0.15,"pattern":"list","at_mm":[[10,13.25],[10,76.75],[210,13.25],[210,76.75]],"axis":"z","from_mm":0,"to_mm":4,"tol_src":"default"},
+//           {"name":"M3 heat-set boss holes","d_mm":4.00,"tol_mm":0.15,"pattern":"list","at_mm":[[42.5,18.5],[87.5,18.5],[132.5,18.5],[177.5,18.5],[42.5,45],[87.5,45],[132.5,45],[177.5,45],[42.5,71.5],[87.5,71.5],[132.5,71.5],[177.5,71.5]],"axis":"z","from_mm":9,"to_mm":4.2,"tol_src":"default"}],
 //  "gauges":[{"name":"strap slots GO","module":"gauge_slots_go","expect":"clear","why":"two 25 × 4 slots exist at least 24.7 × 3.7"}],
 //  "mfg":{"stock":"SLS PA12 powder bed; or 1.75 mm CF-nylon filament","finish":"bead blast; ream the four rod holes 6.60","heat_treat":"none","deburr":"none needed",
 //         "inspect":["rod hole centres 63.50 ± 0.15 with calipers","rod holes with a 6.35 mm rod: must slide","boss holes with a 3.9 mm pin before inserts"],
