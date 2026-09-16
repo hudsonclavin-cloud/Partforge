@@ -93,8 +93,26 @@ for(const c of cases){
   console.log(`${c.name}: ${status}`);
   if(r.fails && r.fails.length) for(const f of r.fails) console.log('   ✗ ' + f.slice(0, 220));
   if(r.ok && r.error) console.log('   !! error after render: ' + r.error.split('\n').slice(0, 3).join(' | '));
+  // Expectations: "fails" is the exact set of failure prefixes (order-free, one each);
+  // "contains" are substrings that must appear somewhere in the failures. A case with
+  // no expect block is a measurement, not a test.
+  if(c.expect){
+    const problems = [];
+    if(!r.ok) problems.push('did not render: ' + (r.error || '').split('\n')[0]);
+    else {
+      const got = (r.fails || []).slice(), want = (c.expect.fails || []).slice();
+      for(const w of want){ const i = got.findIndex(g => g.startsWith(w)); if(i < 0) problems.push(`expected a failure starting "${w}"`); else got.splice(i, 1); }
+      for(const g of got) problems.push(`unexpected failure: ${g.slice(0, 160)}`);
+      const all = (r.fails || []).join('\n');
+      for(const s of (c.expect.contains || [])) if(!all.includes(s)) problems.push(`no failure mentions "${s}"`);
+    }
+    r.expectOk = !problems.length; r.expectProblems = problems;
+    console.log(`   ${r.expectOk ? 'PASS' : 'FAIL'} expectations` + (problems.length ? ':\n      ' + problems.join('\n      ') : ''));
+  }
 }
 const summary = { warm, consoleErrors: consoleErrors.slice(0, 20), results };
 if(outPath) fs.writeFileSync(outPath, JSON.stringify(summary, null, 2));
 else console.log(JSON.stringify(summary, null, 2).slice(0, 4000));
 await browser.close();
+const bad = results.filter(r => r.expectOk === false).length;
+if(bad){ console.log(`\n${bad} case${bad > 1 ? 's' : ''} did not match expectations`); process.exit(1); }

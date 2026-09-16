@@ -314,6 +314,7 @@
   <select id="setProvider">
     <option value="anthropic">Anthropic (Claude) — works directly in the browser</option>
     <option value="openai">OpenAI-compatible — OpenRouter, local model, or proxy</option>
+    <option value="replay">Replay — no key: paste model replies, run the real checks and retry loop</option>
   </select>
   <p class="hint" id="provNote" style="margin-top:-4px"></p>
   <label id="lblKey">API key</label>
@@ -321,6 +322,11 @@
   <div id="baseRow" style="display:none">
     <label>API base URL</label>
     <input id="setBase" type="text" placeholder="https://openrouter.ai/api/v1">
+  </div>
+  <div id="replayRow" style="display:none">
+    <label>Replies to replay, in order <span style="font-weight:normal;color:var(--dim)">(each a full model reply with its ```openscad block; separate replies with a line containing only ---)</span></label>
+    <textarea id="setReplay" rows="7" style="width:100%;font-family:ui-monospace,monospace;font-size:12px" spellcheck="false"></textarea>
+    <p class="hint">Generate takes the first reply as the model's answer, runs every check, and if it fails, takes the next reply as the retry. When the queue runs out it stops and shows the result, with the exact retry prompt under Geometry gate (⧉) — paste that, with the current .scad, into any chat and paste the reply back here.</p>
   </div>
   <label>Model</label>
   <input id="setModel" type="text" list="modelList" value="claude-sonnet-5">
@@ -1114,6 +1120,18 @@ const PROVIDERS = {
     },
     usage: d => [d.usage?.input_tokens||0, d.usage?.output_tokens||0],
   },
+  // No key, no network: the "model" is a queue of replies the user pasted. The dry run
+  // burned its credits and could not answer the one question that mattered — what
+  // would the model have been told on the next retry? This runs the real Generate
+  // path, the gate, the measurements and the retry prompt on a reply from anywhere: a
+  // free chat window, a colleague, a fixture file.
+  replay: {
+    label: 'Replay — no key (paste model replies)', base: '', fixedBase: true, replay: true,
+    keyHint: '(no key needed)', defaultModel: 'replay', search: false, models: ['replay'],
+    url: () => 'replay:', headers: () => ({}), body: () => ({}),
+    image: () => ({ type:'text', text:'[photo attached]' }),
+    parse: d => d.text, usage: () => [0, 0],
+  },
   openai: {
     label: 'OpenAI-compatible (OpenRouter / local / proxy)', base: 'https://openrouter.ai/api/v1',
     fixedBase: false, keyHint: 'gateway key', defaultModel: '', search: false, models: [],
@@ -1145,6 +1163,8 @@ const settings = {
   set judgeModel(v){ store.set('pf_judge_'+this.provider, v || ''); },
   get base(){ return store.get('pf_base_'+this.provider) || P().base; },
   set base(v){ store.set('pf_base_'+this.provider, v || P().base); },
+  get replay(){ try { const q = JSON.parse(store.get('pf_replay') || '[]'); return Array.isArray(q) ? q.filter(x => typeof x === 'string') : []; } catch(e){ return []; } },
+  set replay(v){ store.set('pf_replay', JSON.stringify(Array.isArray(v) ? v.filter(x => typeof x === 'string') : [])); },
   get clarify(){ return store.get('pf_clarify')||'ask'; }, set clarify(v){ store.set('pf_clarify',v); },
   get search(){ return store.get('pf_search')!=='off'; }, set search(v){ store.set('pf_search', v?'on':'off'); },
   get gate(){ return store.get('pf_gate')!=='off'; }, set gate(v){ store.set('pf_gate', v?'on':'off'); },
@@ -1303,7 +1323,7 @@ MODE 2 — SINGLE PART. One fenced code block of complete, valid OpenSCAD. No pr
    // SPEC-BEGIN
    // {"name":"<what it is>","size_mm":[x,y,z],"parts":[{"name":"body","role":"main body","size_mm":[x,y,z]}],"joints":[{"a":"boss","b":"plate","overlap_mm":2}]}
    // SPEC-END
-   1–6 parts, lowercase identifier names; a joint for every pair of parts that must share volume. "proportions", "layout" and "profile" are optional here.
+   1–6 parts, lowercase identifier names; a joint for every pair of parts that meet. overlap_mm is the interpenetration you built; where two regions of one turned or milled monolith meet at a machined step — a flange and its shoulder, a plate and its boss — they share a face, overlap_mm is 0, and the program accepts that. "proportions", "layout" and "profile" are optional here.
 3. The FLIGHT block — the declaration the program measures against (valid JSON, every line prefixed with //). Every field:
    // FLIGHT-BEGIN
    // {"material":"6061-T6","process":"cnc_lathe","tolerance_class":"ISO 2768-m","tess_tol_mm":0.01,"hazard":"none",
@@ -1323,9 +1343,9 @@ MODE 2 — SINGLE PART. One fenced code block of complete, valid OpenSCAD. No pr
    // FLIGHT-END
    Meaning and rules:
    - material: an id from the MATERIALS list. process: an id from the PROCESSES list. tolerance_class: the general tolerance the drawing carries (ISO 2768-m unless told otherwise; ISO 2768-f for precision parts). tess_tol_mm: the curve tolerance given in context — copy it.
-   - critical: an extent of a named module (or "main", the whole object) along an axis. Use it for lengths, thicknesses, widths and rectangular features. nominal_mm is what the parameters produce; tol_mm is the shop tolerance. Add "round":true only if the extent is a turned diameter measured across a polygon (then the program allows the tessellation).
-   - od: a turned outside diameter, measured by rays cast inward at stations between from_mm and to_mm along the axis. at_mm is the axis position in the two remaining coordinates, in order (axis z → [x,y]; axis y → [x,z]; axis x → [y,z]).
-   - bores: an on-axis or off-axis round bore, measured by rays cast outward from the declared centre at stations between from_mm and to_mm. from_mm is the OPEN end (where a plug gauge enters); to_mm the far end — for a blind hole the program also measures its depth. tol_mm is the diameter tolerance; pos_tol_mm the position tolerance (defaults to tol_mm). tol_mm must be ≥ 2 × tess_tol_mm.
+   - critical: an extent of a named module (or "main", the whole object) along an axis. Use it for lengths, thicknesses, widths and rectangular features. It is the module's FULL bounding extent, never a feature inside it: a groove width, a pocket depth, a ledge or a step is a bore or od entry (depth and diameter are measured), or a helper module that renders only that feature, named here. A nominal that matches none of the part's three SPEC extents is rejected before anything is rendered. nominal_mm is what the parameters produce; tol_mm is the shop tolerance. Add "round":true only if the extent is a turned diameter measured across a polygon (then the program allows the tessellation).
+   - od: a turned outside diameter, measured by rays cast inward at stations between from_mm and to_mm along the axis. at_mm is the axis position in the two remaining coordinates, in order (axis z → [x,y]; axis y → [x,z]; axis x → [y,z]). An external annular groove — an O-ring or snap-ring groove on a shoulder — is an od entry over the groove's band: d_mm the groove root diameter, from_mm and to_mm its two walls.
+   - bores: an on-axis or off-axis round bore, measured by rays cast outward from the declared centre at stations between from_mm and to_mm. from_mm is the OPEN end (where a plug gauge enters); to_mm the far end — for a blind hole the program also measures its depth. tol_mm is the diameter tolerance; pos_tol_mm the position tolerance (defaults to tol_mm). tol_mm must be ≥ 2 × tess_tol_mm. from_mm is an outer face of the part, or the floor of a larger bore that opens onto it — never a plane inside solid material, and never a groove on the OUTSIDE of the part (that is an od). An internal groove — a widening inside a bore — is a bores entry over the groove's band.
    - holes: a pattern of bores of one size: "circle" (n holes on a bolt circle of diameter bc_d_mm about the axis, counter-clockwise from start_deg; optional "centre_mm":[u,v]), "list" (explicit at_mm pairs) or "single". Same axis/from/to convention. Every hole in the pattern is measured individually; a missing, misplaced, undersize or oversize hole names itself in the failure.
    - revolve: a nose-cone profile the program recomputes from the equation and compares at 24 stations. type ∈ conical | tangent_ogive | vonkarman | lvhaack | haack (with "C") | parabolic (with "K") | power (with "n") | elliptical. tip_at_mm is the axis coordinate of the tip; direction −1 means the base lies toward smaller axis values. tol_mm defaults to 0.10.
    - gauges: for features that are not round (slots, keyways, hex pockets, thread minor diameters) write a module named gauge_<something> that is the GO or NO-GO gauge solid in its checking position; "expect":"clear" means the gauge must not intersect the part (it fits), "interfere" means it must (the feature is not oversize). The program renders intersection(){ gauge(); main(); }.
@@ -1348,7 +1368,7 @@ WHAT KIND OF PART THIS IS — "hazard", and the tier that follows from it. Decla
 4. Parameters, one per line, exactly: name = value; // description — the FIRST parameter is tess_tol = <value from context>; // max chordal deviation of curved surfaces (mm). Millimetres only; no magic numbers in geometry. Then the line: // --- end parameters ---
 5. This helper, verbatim, right after the parameters:
    function fn_tol(d, tol=tess_tol) = max(24, ceil(180 / acos(1 - min(0.5, 2*tol/d))));
-6. ONE MODULE PER SPEC PART, named exactly as in the SPEC, each producing its part ALREADY IN ITS FINAL POSITION; then module main() unions them; the ONLY top-level statement is main();. Gauge modules (gauge_*) are extra modules that main() never calls.
+6. ONE MODULE PER SPEC PART, named exactly as in the SPEC, each producing its part ALREADY IN ITS FINAL POSITION and with its TRUE geometry — an annular ledge is an annulus, a stepped bore is stepped. Never simplify a module to make a measurement come out: main() unions it, and a module filled in "so the checker can measure it" becomes real material in the object (a retainer whose lip() was a filled disk came out as a cup). Then module main() unions the parts; it MAY cut holes, pockets, ports and grooves AFTER the union — a port that passes through a boss and the plate under it can only be cut there — and the program checks that everything main() draws belongs to a declared part at that part's own position, and that every part is present; it does not require a module to carry its own cuts. The ONLY top-level statement is main();. Gauge modules (gauge_*) are extra modules that main() never calls.
 
 MODE 3 — ASSEMBLY (several parts that mate or move): the hobby-grade assembly contract applies unchanged (print_layout, part_<name> modules, // MODULE / PLACE / JOINT manifest, print plate at the end). Add the FLIGHT block anyway, declaring the interface dimensions; the program measures the plate object.
 
@@ -3136,7 +3156,7 @@ async function specCheckInner(code, g, onStatus){
     row.size = bb.map(v => Math.round(v*10)/10);
     row.extent = bb;                    // unrounded, for flight-grade critical dimensions
     row.bounds = meshBounds(m);         // for layout relations
-    if(m.tris <= 60000) row.mesh = m;   // kept for the Parts view — the user sees what was checked
+    if(m.tris <= 250000) row.mesh = m;  // kept for the Parts view and for containment; a revolved flight part at 10 µm is ~80k
     if(p.size_mm && p.size_mm.every(v => v > 0)){
       // Compare extents sorted largest→smallest so orientation does not matter, with
       // 2 mm absolute slack so tiny features do not trip the ratio band.
@@ -3160,11 +3180,24 @@ async function specCheckInner(code, g, onStatus){
     const shared = m.tris ? meshBBox(m) : [0,0,0];
     const thinnest = Math.min(...shared);
     row.overlap = Math.round(thinnest * 100) / 100;
-    if(!m.tris || thinnest < 0.3){
-      row.note = m.tris ? `touching only (${row.overlap} mm)` : 'no overlap';
-      g.fails.push(m.tris
-        ? `${j.a}() and ${j.b}() only touch — their shared volume is ${thinnest.toFixed(2)} mm thick, which is a surface, not a join. Your SPEC promised ${j.overlap_mm || 1.5} mm of overlap. Push ${j.a} INTO ${j.b} so the solids genuinely interpenetrate; a limb placed exactly at the torso surface prints as a separate island.`
-        : `${j.a}() does not intersect ${j.b}() — their intersection is empty, so they are not joined. Your SPEC promised ${j.overlap_mm || 1.5} mm of overlap. Move ${j.a} into ${j.b} so the two solids share volume.`);
+    if(!m.tris){
+      row.note = 'no overlap';
+      g.fails.push(`${j.a}() does not intersect ${j.b}() — their intersection is empty, so they are not joined. Your SPEC promised ${j.overlap_mm || 1.5} mm of overlap. Move ${j.a} into ${j.b} so the two solids share volume.`);
+      return;
+    }
+    if(thinnest < 0.3){
+      if(isFlight()){
+        // A turned or milled monolith: its flange and shoulder, its plate and boss, meet
+        // at a machined step — a plane, not an interpenetration — and the union is one
+        // solid either way (the connectivity check says so on its own). Demanding overlap
+        // failed a correct boss in the dry run, and would have failed the same part's
+        // corrected flange/shoulder step. On a monolith, touching IS the joint.
+        row.note = `touching (${row.overlap} mm) — one monolith`;
+        row.ok = true;
+        return;
+      }
+      row.note = `touching only (${row.overlap} mm)`;
+      g.fails.push(`${j.a}() and ${j.b}() only touch — their shared volume is ${thinnest.toFixed(2)} mm thick, which is a surface, not a join. Your SPEC promised ${j.overlap_mm || 1.5} mm of overlap. Push ${j.a} INTO ${j.b} so the solids genuinely interpenetrate; a limb placed exactly at the torso surface prints as a separate island.`);
       return;
     }
     row.ok = true;
@@ -3277,10 +3310,12 @@ async function specCheckInner(code, g, onStatus){
     // in JS instead of compiling a CGAL difference of two high-facet solids.
     onStatus && onStatus('parts vs the object');
     const res = partsContainedJS(currentMesh, placed);
-    const missing = res.filter(x => x.ok === false);
-    g.placement = { ok: !missing.length, sampled: res };
-    if(missing.length)
-      g.fails.push(`Some of what you declared is not in the finished object: ${missing.map(x => `${x.name}() has ${x.outside} of ${x.tested} sampled faces outside main()`).join('; ')}. Every declared part must be drawn by main() at the same place its own module puts it — do not omit a part, and do not translate or rotate it inside main().`);
+    g.placement = { ok: res.ok, sampled: res.parts, stray: res.stray };
+    const absent = res.parts.filter(x => x.ok === false);
+    if(absent.length)
+      g.fails.push(`${absent.map(x => `${x.name}() is not in the finished object (${x.inside} of ${x.tested} of its sampled faces are inside main())`).join('; ')}. main() must call ${absent.map(x => x.name + '()').join(' and ')} — subtracting holes, pockets and ports afterwards is fine, but the part itself has to be there.`);
+    if(res.stray.ok === false)
+      g.fails.push(`main() draws geometry that no declared part accounts for: ${res.stray.outside} of ${res.stray.tested} sampled faces of the finished object lie outside every part module. Either a part is translated, rotated or scaled inside main() — call each part module bare, so it lands where the module itself puts it — or main() adds a body the SPEC does not declare. Cutting holes and pockets in main() is not this: subtraction never adds faces outside the parts.`);
   } else if(placed.length && probes < SPEC_MAX_PROBES){
     onStatus && onStatus('parts vs the printed object');
     probes++;
@@ -3641,7 +3676,16 @@ function measureBore(index, spec) {
   for (const z of cmmStations(from, to, 5)) {
     const centre = cmmPoint(F, z, at[0], at[1]);
     if (pointInside(idx, centre)) {
-      res.note = `no hole at ${where}: the point is inside material (${F.name}=${cmmFmt(z, 2)})`;
+      // How far does the material run along the axis from here? Two rays say what was
+      // actually built — "solid from z=0.00 to z=4.00" — where one sample point only said
+      // where the probe happened to land, and a retainer plugged by a filled lip module
+      // sent the model looking for a missing hole instead of an extra disk.
+      const span = idx.bbox.max[F.a] - idx.bbox.min[F.a] + 1;
+      const dp = [0, 0, 0], dn = [0, 0, 0]; dp[F.a] = 1; dn[F.a] = -1;
+      const hp = cmmFirstHit(idx, centre, dp, span), hn = cmmFirstHit(idx, centre, dn, span);
+      const lo = hn ? z - hn.t : idx.bbox.min[F.a], hi = hp ? z + hp.t : idx.bbox.max[F.a];
+      res.solid_span = [Math.min(lo, hi), Math.max(lo, hi)];
+      res.note = `no hole at ${where}: the centre is solid from ${F.name}=${cmmFmt(res.solid_span[0], 2)} to ${F.name}=${cmmFmt(res.solid_span[1], 2)} (probed at ${F.name}=${cmmFmt(z, 2)})`;
       return res;
     }
     const st = cmmRoundStation(idx, F, at, z, 0, false, 2 * d, 72);
@@ -3900,6 +3944,7 @@ function topLevelIsOnlyMain(code){
     if(s === 'main()'){ mains++; continue; }
     if(/^[A-Za-z_]\w*\s*=/.test(s)) continue;              // a parameter or variable
     if(/^function\s+[A-Za-z_]\w*\s*\(/.test(s)) continue; // a function definition
+    if(/^(assert|echo)\s*\(/.test(s)) continue;            // renders nothing (the nose cone guards its tip cut with an assert)
     return false;                                            // anything else renders geometry
   }
   return mains === 1;
@@ -3909,12 +3954,24 @@ function topLevelIsOnlyMain(code){
    inside it. A part main() omitted, moved or rotated fails at once; a part it drew in place
    passes every sample. Parts whose mesh was too large to keep are reported unchecked. */
 function partsContainedJS(mesh, rows){
-  const idx = buildMeshIndex(mesh);
-  return rows.map(r => {
-    const m = r.mesh;
-    if(!m || !m.tris) return { name:r.name, ok:null, tested:0, outside:0 };
+  // Two questions, because "is the part inside the object" is the wrong one. A flight
+  // part is normally unioned from its modules and THEN has its bores, pockets and ports
+  // cut in main() — a port that passes through a boss and the plate beneath it cannot
+  // be cut inside either module. Faces of the uncut module that lie where material was
+  // later removed are outside main(), and the dry run failed a correct end cap on
+  // exactly that (body 35/710, boss 44/588 "outside"). Subtraction can only shrink the
+  // object, so ask instead:
+  //   T1  everything main() draws belongs to some declared part, at that part's own
+  //       position — a part translated, rotated or scaled in main(), or an undeclared
+  //       body, puts object faces where no module is;
+  //   T2  each part is present at all — a module main() never calls leaves its faces
+  //       outside the object (unless another part already fills that volume, in which
+  //       case omitting it changed nothing).
+  // Cuts in main() pass both; omission, transforms and extra geometry fail one.
+  const sampleInward = (m, test) => {
+    if(!m || !m.tris) return { tested: 0, hit: 0 };
     const step = Math.max(1, Math.floor(m.tris / 600));
-    let tested = 0, outside = 0;
+    let tested = 0, hit = 0;
     const p = m.pos;
     for(let t = 0; t < m.tris; t += step){
       const b = t*9;
@@ -3924,10 +3981,26 @@ function partsContainedJS(mesh, rows){
       nx /= l; ny /= l; nz /= l;
       const cx = (p[b]+p[b+3]+p[b+6])/3, cy = (p[b+1]+p[b+4]+p[b+7])/3, cz = (p[b+2]+p[b+5]+p[b+8])/3;
       tested++;
-      if(!pointInside(idx, [cx - nx*0.02, cy - ny*0.02, cz - nz*0.02])) outside++;
+      if(test([cx - nx*0.02, cy - ny*0.02, cz - nz*0.02])) hit++;
     }
-    return { name:r.name, tested, outside, ok: tested === 0 ? null : outside <= Math.max(1, Math.floor(tested * 0.02)) };
+    return { tested, hit };
+  };
+  const objIdx = buildMeshIndex(mesh);
+  const partIdx = rows.map(r => r.mesh && r.mesh.tris ? buildMeshIndex(r.mesh) : null);
+  // T1: object faces against the union of the parts (any part contains the point). Only
+  // meaningful when every part's mesh is here — a part whose mesh was not kept cannot
+  // account for anything, and "no part contains this face" would be a statement about
+  // the cap, not the geometry. Then T1 is untested (ok: null), never a failure.
+  const complete = partIdx.every(Boolean);
+  const s1 = complete ? sampleInward(mesh, pt => partIdx.some(ix => pointInside(ix, pt))) : { tested: 0, hit: 0 };
+  const stray = { tested: s1.tested, outside: s1.tested - s1.hit, ok: !complete || s1.tested === 0 ? null : (s1.tested - s1.hit) <= Math.max(1, Math.floor(s1.tested * 0.02)) };
+  // T2: each part's faces against the object — presence, not containment
+  const parts = rows.map((r, i) => {
+    if(!partIdx[i]) return { name: r.name, ok: null, tested: 0, inside: 0 };
+    const s2 = sampleInward(r.mesh, pt => pointInside(objIdx, pt));
+    return { name: r.name, tested: s2.tested, inside: s2.hit, ok: s2.tested === 0 ? null : s2.hit > Math.max(1, Math.floor(s2.tested * 0.05)) };
   });
+  return { stray, parts, ok: stray.ok !== false && parts.every(x => x.ok !== false) };
 }
 /* ---------------- flight declaration and measurement ----------------
    The FLIGHT block is the model's promise to the shop: material, process, and every
@@ -4131,6 +4204,26 @@ function flightLint(src){
   if(/\b(sin|cos|tan)\s*\(\s*[A-Za-z_]\w*\s*\*\s*PI\s*\/\s*180/.test(code)) out.push('sin/cos/tan of a radian value — OpenSCAD trig takes DEGREES');
   return out;
 }
+/* A critical dimension is a module's full extent along an axis. The dry run's end cap
+   declared "o-ring groove width: shoulder() along z = 4.750" while its own SPEC gave the
+   shoulder a size of 101.5 × 101.5 × 20, and "lightening pocket depth: body() along z =
+   8.000" against a body of 127 × 127 × 25.4 — a feature INSIDE the module, measured by
+   the mechanism for the module itself. Both are visible in the text, before a render, and
+   both were spent on 20-minute CGAL retries. A nominal that matches none of the part's
+   three declared extents (axis order is forgiven — the SPEC check forgives it too) is a
+   contradiction between the two blocks, and the fix is the mechanism, not the number. */
+function flightContradictions(spec, f){
+  const out = [];
+  if(!spec || !Array.isArray(spec.parts) || !f || f.malformed) return out;
+  const sizes = new Map(spec.parts.filter(p => p && p.name && Array.isArray(p.size_mm) && p.size_mm.length === 3 && p.size_mm.every(v => typeof v === 'number' && v > 0)).map(p => [p.name, p.size_mm]));
+  for(const c of f.critical || []){
+    const sz = sizes.get(c.module);
+    if(!sz) continue;
+    const near = sz.some(v => Math.abs(c.nominal_mm - v) <= Math.max(2, 0.05 * v));
+    if(!near) out.push({ name: c.name, module: c.module, axis: c.axis, nominal_mm: c.nominal_mm, spec_mm: sz });
+  }
+  return out;
+}
 /* DECL-END */
 const AXIS_IDX = { x:0, y:1, z:2 };
 async function flightCheck(code, g, mesh, onStatus){
@@ -4192,9 +4285,16 @@ async function flightCheck(code, g, mesh, onStatus){
     const probed = await batchProbe(code, extra.map(m => m + '()'));
     extra.forEach((m, i) => { const pm = probed[i]; if(pm && pm.tris) extentOf.set(m, meshBBox(pm)); });
   }
+  const contradicted = new Map(flightContradictions(g.spec, f).map(x => [x.name + '|' + x.module + '|' + x.axis, x]));
   for(const c of f.critical){
     const row = { ...c, measured: null, ok: false, note: '' };
     rows.critical.push(row);
+    const x = contradicted.get(c.name + '|' + c.module + '|' + c.axis);
+    if(x){
+      row.note = `contradicts SPEC (${x.spec_mm.map(f3).join(' × ')})`;
+      g.fails.push(`Critical dimension "${c.name}": you say ${c.module}() measures ${f3(c.nominal_mm)} mm along ${c.axis}, but your SPEC gives ${c.module} a size of ${x.spec_mm.map(f3).join(' × ')} mm. A critical dimension is a module's FULL extent along an axis, never a feature inside it. To measure a groove, pocket, step or ledge, declare it as a bore or od (its depth and diameter are measured), or write a helper module that renders only that feature and name that module here. Keep the entry; change the mechanism.`);
+      continue;
+    }
     const ext = c.module === 'main' ? whole : extentOf.get(c.module);
     if(!ext){
       if(uncapped.has(c.module)){ row.note = 'not probed (cap)'; continue; }   // not a failure: just not checked this run
@@ -4227,6 +4327,15 @@ async function flightCheck(code, g, mesh, onStatus){
     if(far) return `the declared centre (${e.at_mm.join(', ')}) is outside the part, which spans ${u.map(i => `${'xyz'[i]} ${bounds.min[i].toFixed(1)}…${bounds.max[i].toFixed(1)}`).join(', ')}. at_mm is the position in the two axes perpendicular to ${AXN[e.axis]}, in order (z → [x,y], y → [x,z], x → [y,z]).`;
     return null;
   }
+  // A bore's from_mm that sits on neither outer face is the dry run's commonest mistake:
+  // a pocket declared open at the ledge it bottoms on, a groove declared as a bore down
+  // the axis. The measurement fails either way; this says why in one line.
+  const openEndHint = e => {
+    if(!bounds) return '';
+    const k = AXIS_IDX[e.axis], lo = bounds.min[k], hi = bounds.max[k], eps = 0.01;
+    if(Math.abs(e.from_mm - lo) < eps || Math.abs(e.from_mm - hi) < eps) return '';
+    return ` ${AXN[e.axis]}=${e.from_mm} is not an outer face of this object (its outer faces on ${AXN[e.axis]} are ${lo.toFixed(3)} and ${hi.toFixed(3)}); from_mm is the open end a gauge enters — an outer face, or the floor of a larger bore that opens onto it. An external groove is not a bore at all: declare it as an od over the groove's band.`;
+  };
   for(const e of f.od){
     const fault = rangeFault(e);
     const row = { ...e, r: fault ? { ok:false, note: fault } : (haveCMM ? measure(measureOD, e) : { ok:false, note:'no mesh' }), ok:false };
@@ -4241,7 +4350,7 @@ async function flightCheck(code, g, mesh, onStatus){
     row.ok = !!row.r.ok; rows.bores.push(row);
     if(!row.ok) g.fails.push(fault
       ? `Bore "${e.name}": ${fault}`
-      : `Bore "${e.name}": you declared Ø${f3(e.d_mm)} ±${e.tol_mm} (position ±${e.pos_tol_mm}) at (${e.at_mm.join(', ')}) along ${e.axis}, open end at ${e.from_mm}, far end at ${e.to_mm}; measured ${row.r.note || 'not found'}. Cut the bore exactly where and at the size you declared.`);
+      : `Bore "${e.name}": you declared Ø${f3(e.d_mm)} ±${e.tol_mm} (position ±${e.pos_tol_mm}) at (${e.at_mm.join(', ')}) along ${e.axis}, open end at ${e.from_mm}, far end at ${e.to_mm}; measured ${row.r.note || 'not found'}. Cut the bore exactly where and at the size you declared.${row.r.present === false ? openEndHint(e) : ''}`);
   }
   for(const e of f.holes){
     // A pattern declares one axis range for every hole in it, so the range fault is shared.
@@ -5034,6 +5143,7 @@ function renderReport(a, code){
       lastGate.fails.length === 0 ? '<span class="tag good">PASSED</span>'
       : `<span class="tag bad">${lastGate.fails.length} FAILED</span>`}</span></div>`
       + (lastGate.fails.length ? `<div class="w" style="color:var(--warn);font-size:12px">${lastGate.fails.map(f=>'⚠ '+escapeHtml(f)).join('<br>')}</div>` : '')
+      + (lastGate.fails.length && lastRetryPrompt ? `<div class="w"><button class="btn small" id="btnCopyRetry" title="The exact message a retry sends the model. Paste it, with the current .scad, into any chat; paste the reply into ⚙ Settings → Replay.">⧉ what the model would be told next</button></div>` : '')
       + (lastGate.spec
           ? `<div class="line"><span>Spec check</span><span>${lastGate.parts.filter(p=>p.ok).length}/${lastGate.parts.length} parts · ${lastGate.joints.filter(j=>j.ok).length}/${lastGate.joints.length} joints${lastGate.rules && lastGate.rules.length ? ` · ${lastGate.rules.filter(r=>r.ok).length}/${lastGate.rules.length} rules` : ''}${lastGate.layout && lastGate.layout.length ? ` · ${lastGate.layout.filter(l=>l.ok).length}/${lastGate.layout.length} layout` : ''}${lastGate.profile && lastGate.profile.length ? ` · ${lastGate.profile.filter(r=>r.ok).length}/${lastGate.profile.length} shape` : ''}${lastGate.placement ? (lastGate.placement.ok ? ' · all parts printed' : ' <span class="tag bad">parts missing from main()</span>') : ''}${lastGate.parts.length + lastGate.joints.length > 0 && lastGate.parts.every(p=>p.ok) && lastGate.joints.every(j=>j.ok) && (lastGate.rules||[]).every(r=>r.ok) && (lastGate.layout||[]).every(l=>l.ok) && (lastGate.profile||[]).every(r=>r.ok) ? ' <span class="tag good">OK</span>' : ''}</span></div>`
             + `<div class="w" style="font-size:11px;color:var(--dim)">${lastGate.parts.map((p, i) => `<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${partColorHex(i)};vertical-align:middle;margin-right:3px"></span>${escapeHtml(p.name)}${p.size ? p.size.map(v=>Math.round(v)).join('×') : ''}${p.ok ? '' : ' <span class="tag bad">' + escapeHtml(p.note || 'fail') + '</span>'}`).join(' · ')}${lastGate.joints.length ? '<br>' + lastGate.joints.map(j => `${escapeHtml(j.a)}∩${escapeHtml(j.b)}${j.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(j.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.rules && lastGate.rules.length ? '<br>' + lastGate.rules.map(r => `${escapeHtml(r.why || r.a + '/' + r.b)}${r.got != null ? ' = ' + r.got : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.layout && lastGate.layout.length ? '<br>' + lastGate.layout.map(l => `${escapeHtml(l.a)} ${escapeHtml(l.rel)} ${escapeHtml(l.b)}${l.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(l.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.profile && lastGate.profile.length ? '<br>' + lastGate.profile.map(r => `${escapeHtml(r.part)} ${r.from}→${r.to} ${escapeHtml(r.measure)}${r.got ? ` (got ${r.got[0]}→${r.got[1]})` : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}</div>`
@@ -5076,6 +5186,8 @@ function renderReport(a, code){
   if(h3 && h3.childNodes[0] && h3.childNodes[0].nodeType === 3) h3.childNodes[0].nodeValue = flight ? 'Shop readiness ' : 'Print readiness ';
   const dropBtn = document.getElementById('btnDrop');
   if(dropBtn) dropBtn.onclick = () => applyMeshOp(meshDropToPlate(currentMesh), 'dropped to plate');
+  const copyRetry = document.getElementById('btnCopyRetry');
+  if(copyRetry) copyRetry.onclick = () => navigator.clipboard.writeText(lastRetryPrompt || '').then(() => toast('Retry prompt copied — paste it with the current .scad into any chat, then paste the reply into ⚙ Settings → Replay'));
   const orientBtn = document.getElementById('btnApplyOrient');
   if(orientBtn) orientBtn.onclick = () => {
     const best = lastOrientAdvice[0];
@@ -5434,6 +5546,14 @@ async function callClaude(userContent, opts = {}){
     chat = [chat[0], chat[1], ...tail];
   }
   const prov = P();
+  lastSent = { system: activeSystemPrompt(), user: userContent };   // what the model was (or would be) told
+  if(prov.replay){
+    const q = settings.replay;
+    if(!q.length){ chat.pop(); throw new Error('The replay queue is empty — paste the next model reply in ⚙ Settings (Replay provider), or switch provider.'); }
+    const text = q.shift(); settings.replay = q;
+    chat.push({ role:'assistant', content: text });
+    return text;
+  }
   // opts.search === false suppresses web search for this one call (gate retries: the
   // model already has the measurements — a second search would re-spend for nothing)
   // A flight file carries its declaration before any geometry — header, SPEC, FLIGHT block,
@@ -5473,6 +5593,7 @@ function reachError(err){
 }
 async function callClaudeOneShot(system, userText, opts = {}){
   const prov = P();
+  if(prov.replay) throw new Error('Replay provides designer replies only; the judge, review and improve calls need a real provider.');
   const body = prov.body(system, [{ role:'user', content: userText }], opts.maxTokens || 1500, false, { model: opts.model, effort: opts.effort });
   let res;
   try {
@@ -5535,7 +5656,7 @@ function toast(t){
 function setBusy(b){
   busy = b;
   for(const id of ['btnGenerate','btnRunCode','btnRerender','btnAssembly','qaSubmit','qaSkip']) $(id).disabled = b;
-  $('btnRefine').disabled = b || !(settings.key && currentCode);
+  $('btnRefine').disabled = b || !((settings.key || P().replay) && currentCode);
 }
 function showRenderError(err){
   setOverlay(true, '⚠ ' + escapeHtml(String(err.message||err)).slice(0,600), {spin:false});
@@ -5843,7 +5964,7 @@ async function judgeIntent(prompt, spec, k = 1){
 let benchAbort = false, benchRunning = false;
 async function runBench(count, useGate){
   if(aiBusy || benchRunning) return;
-  if(!settings.key){ msg($('genMsg'),'err','Add an API key in ⚙ Settings first.'); return; }
+  if(!settings.key && !P().replay){ msg($('genMsg'),'err','Add an API key in ⚙ Settings first.'); return; }
   benchRunning = true; benchAbort = false; aiBusy = true;
   const savedGate = settings.gate, savedClarify = settings.clarify;
   settings.gate = !!useGate; settings.clarify = 'never';
@@ -5973,6 +6094,19 @@ const GATE_MAX_RETRIES_CAP = 6;
    allen key 2, gear 1), with the multi-part runs going 7→5→4 and 11→8→6 — monotone down,
    stopped by a flat cap of 2 rather than by converging. So the budget follows the part
    count. No spec, or an assembly: unchanged at 2. */
+/* The message a failing candidate earns. Built whether or not a retry is sent, so the
+   last failing state's prompt is on screen (⧉ under Geometry gate) and in the harness. */
+function retryPromptFor(g, a){
+  return `The code rendered, but automatic geometry checks on the resulting mesh REJECTED it:\n\n`
+    + g.fails.map((f,i)=>`${i+1}. ${f}`).join('\n')
+    + `\n\nMeasured from your own output: ${a.size.map(v=>v.toFixed(1)).join(' × ')} mm, `
+    + `${a.volume.toFixed(1)} cm³, ${a.overhangPct.toFixed(0)}% overhang past 45°`
+    + (a.conn ? `, ${a.conn.count} separate solid${a.conn.count>1?'s':''}` : '')
+    + `.\n\nThese are measurements of the actual geometry, not opinions — fix the root cause and return the FULL corrected file.`
+    + `\n\nKeep the SPEC block, the // KIND: line, and every entry you declared. Deleting a declaration does not fix the part, it only stops the check, and a file that declares less than this one is scored as a regression.`;
+}
+let lastRetryPrompt = null;   // for the failing state on screen
+let lastSent = null;          // { system, user } of the most recent designer call
 function gateRetryBudget(g){
   const n = (g && g.spec && Array.isArray(g.spec.parts)) ? g.spec.parts.length : 0;
   return n ? Math.min(GATE_MAX_RETRIES_CAP, GATE_MAX_RETRIES + n) : GATE_MAX_RETRIES;
@@ -5986,6 +6120,7 @@ let aiBusy = false; // an API request is in flight — blocks a second billable 
    function for every path that produces geometry (Generate, refine, Look & fix);
    the bench is excluded because it judges on its own terms. */
 async function judgeSettled(){
+  if(P().replay) return;   // no canned vision reply exists
   if(!(settings.judgeOn && !benchRunning && currentMesh)) return;
   try {
     setOverlay(true, '<span class="big">Asking whether it reads as what you wanted</span>advisory — it cannot reject the part', {cancel:false});
@@ -6053,7 +6188,9 @@ async function aiTurn(userContent, label){
       if(firstFails === null) firstFails = n;
       if(round === 0 && g) contractFloor = { hasSpec: !!g.spec, kind: partKind(code), counts: declarationCounts(g), hasFlight: !!g.flight, flightCounts: flightCounts(g.flight) };
       const budget = gateRetryBudget(g);   // scales with the parts THIS candidate declared
-      if(!g || !g.fails.length || round >= budget){
+      lastRetryPrompt = g && g.fails.length ? retryPromptFor(g, a) : null;
+      const outOfReplies = P().replay && settings.replay.length === 0;   // stop cleanly, show the result, keep the prompt
+      if(!g || !g.fails.length || round >= budget || outOfReplies){
         // Always show the best candidate — never withhold a result.
         // A run that ends still failing shows its trend, so converging is visibly
         // different from stuck: "6 checks still failing (was 11)".
@@ -6062,9 +6199,10 @@ async function aiTurn(userContent, label){
           pushHistory('ai', 'kept the best of ' + (round+1) + ' attempts' + (best.n ? ` — ${trend(best.n)}` : ''));
           await runCode(best.code);
           lastGate = best.g;   // already scored, spec probes included — no need to recompute
+          lastRetryPrompt = best.g && best.g.fails.length ? retryPromptFor(best.g, lastAnalysis) : null;
           renderReport(lastAnalysis, best.code);
         } else {
-          pushHistory('ai', firstPartName(code) + (g && g.fails.length ? ` — ${trend(g.fails.length)}` : ''));
+          pushHistory('ai', firstPartName(code) + (g && g.fails.length ? ` — ${trend(g.fails.length)}` : '') + (outOfReplies && g && g.fails.length ? ' — replay queue empty; the retry prompt is under Geometry gate' : ''));
         }
         // The judge runs ONCE, here, on the settled result — never on a rejected
         // candidate mid-loop. It is ~65% reliable, so it informs and never gates:
@@ -6076,14 +6214,7 @@ async function aiTurn(userContent, label){
       }
       pushHistory('ai', `rejected: ${g.fails.length} geometry check${g.fails.length>1?'s':''} failed`);
       setOverlay(true, `<span class="big">Geometry check failed</span>${escapeHtml(g.fails[0].slice(0,90))}… — regenerating ${round+1}/${budget}`, {cancel:false});
-      const retryText = await callClaude(
-        `The code rendered, but automatic geometry checks on the resulting mesh REJECTED it:\n\n`
-        + g.fails.map((f,i)=>`${i+1}. ${f}`).join('\n')
-        + `\n\nMeasured from your own output: ${a.size.map(v=>v.toFixed(1)).join(' × ')} mm, `
-        + `${a.volume.toFixed(1)} cm³, ${a.overhangPct.toFixed(0)}% overhang past 45°`
-        + (a.conn ? `, ${a.conn.count} separate solid${a.conn.count>1?'s':''}` : '')
-        + `.\n\nThese are measurements of the actual geometry, not opinions — fix the root cause and return the FULL corrected file.`
-        + `\n\nKeep the SPEC block, the // KIND: line, and every entry you declared. Deleting a declaration does not fix the part, it only stops the check, and a file that declares less than this one is scored as a regression.`, { search:false });
+      const retryText = await callClaude(lastRetryPrompt, { search:false });
       const retryCode = parseCode(retryText);
       if(!retryCode) return;   // model gave up; the current candidate stays on screen
       code = retryCode;
@@ -6094,7 +6225,7 @@ async function generate(isRefine){
   const p = $('prompt').value.trim();
   msg($('genMsg'),'','');
   if(!p && !attachedImages.length){ msg($('genMsg'),'err', isRefine ? 'Describe the change first.' : 'Describe the part (or attach a photo) first.'); return; }
-  if(!settings.key){ msg($('genMsg'),'err','Add your Anthropic API key in ⚙ Settings, or use a template.'); return; }
+  if(!settings.key && !P().replay){ msg($('genMsg'),'err','Add your Anthropic API key in ⚙ Settings, or use a template.'); return; }
   if(busy || aiBusy) return;
   aiBusy = true;
   hideQuestions();
@@ -6124,7 +6255,7 @@ async function generate(isRefine){
     msg($('genMsg'),'err', String(err.message||err).slice(0,300));
   } finally {
     aiBusy = false;
-    $('btnGenerate').disabled = false; $('btnRefine').disabled = !(settings.key && currentCode);
+    $('btnGenerate').disabled = false; $('btnRefine').disabled = !((settings.key || P().replay) && currentCode);
   }
 }
 $('qaSubmit').onclick = async () => {
@@ -6518,6 +6649,7 @@ $('btnSettings').onclick = () => {
   syncProviderUI();
   $('setKey').value = settings.key; $('setModel').value = settings.model;
   $('setBase').value = settings.base;
+  $('setReplay').value = settings.replay.join('\n---\n');
   $('setClarify').value = settings.clarify; $('setSearch').checked = settings.search;
   $('setGate').checked = settings.gate;
   $('setJudge').checked = settings.judgeOn;
@@ -6582,9 +6714,13 @@ function syncProviderUI(){
   $('setKey').placeholder = prov.keyHint;
   $('baseRow').style.display = prov.fixedBase ? 'none' : 'block';
   $('modelList').innerHTML = prov.models.map(m=>`<option value="${m}"></option>`).join('');
+  $('replayRow').style.display = prov.replay ? 'block' : 'none';
+  $('setKey').disabled = !!prov.replay; $('setModel').disabled = !!prov.replay;
   $('setModel').placeholder = prov.fixedBase ? '' : 'model id from your gateway, e.g. anthropic/claude-sonnet-5';
   $('setSearch').disabled = !prov.search;
-  $('provNote').textContent = prov.search
+  $('provNote').textContent = prov.replay
+    ? 'Nothing leaves this page. The designer\'s replies come from the queue below; the judge, review and improve buttons need a real provider.'
+    : prov.search
     ? 'Anthropic is the only provider that allows direct browser calls, and the only one with server-side web search.'
     : 'Browsers block direct calls to OpenAI and Google (CORS). Point this at OpenRouter, a local model server, or your own proxy. Web search is unavailable here.';
 }
@@ -6604,6 +6740,7 @@ $('setSave').onclick = () => {
   settings.provider = $('setProvider').value;   // set first: key/model/base are stored per provider
   settings.key = $('setKey').value.trim();
   settings.base = $('setBase').value.trim();
+  if(P().replay) settings.replay = $('setReplay').value.split(/\n\s*---\s*\n/).map(x => x.trim()).filter(Boolean);
   settings.model = $('setModel').value.trim() || P().defaultModel;
   settings.clarify = $('setClarify').value;
   settings.search = $('setSearch').checked;
@@ -6636,12 +6773,12 @@ function updateLlmHint(){
   const where = isFlight()
     ? `FLIGHT grade · ${flightMat().name} · ${flightProc().name} · curves ≤ ${settings.tessTol} mm`
     : `${settings.material} on ${pn ? pn.m : settings.bed.join('×')}`;
-  $('llmHint').textContent = settings.key
+  $('llmHint').textContent = (settings.key || P().replay)
     ? `${P().label.split(' ')[0]} · ${settings.model || 'set a model'} · ${settings.clarify==='ask'?'asks first':'just builds'}${P().search ? ` · search ${settings.search?'on':'off'}` : ''} · ${where}`
     : (isFlight()
       ? 'FLIGHT grade. AI generation needs an API key (⚙ Settings). The flight templates work without one — load one, then open its drawing under ⋯ (a manufacturing sheet, or an interface control drawing for a composite or pressure part).'
       : 'AI generation needs an Anthropic API key (⚙ Settings). Templates work without one — try “Hinged box ⚙” then its Assembly view, or print the “Fit coupon 🎯”.');
-  $('btnRefine').disabled = !(settings.key && currentCode);
+  $('btnRefine').disabled = !((settings.key || P().replay) && currentCode);
   const sub = document.querySelector('header .sub');
   if(sub) sub.textContent = isFlight()
     ? 'flight grade · prompt → declared, measured, checked part → STL/3MF + the drawing its class earns'
@@ -6698,8 +6835,9 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   isFlight, fmtMm, parseFlight, flightCheck, flightLint, flightCounts, flightSystemPrompt, activeSystemPrompt, contextLine, FLIGHT_MATERIALS, FLIGHT_PROCESSES, TEMPLATES_FLIGHT, BENCH_FLIGHT, mfgSheet, icdSheet, releaseDoc, releaseDocName, dimensionRows, measurementReport, flightMat, flightProc,
   partTier, tierEvidence, provenanceSummary,
   massProperties, buildMeshIndex, measureBore, measureHoles, measureOD, measureRevolve, revolveProfile, pointInside, isa, hoopStress, flutterVelocity, threadCheck, boltShear, fnFor, chordalDeviation, openscadFragments,
-  setGate(g){ lastGate = g; if(lastAnalysis && currentCode) renderReport(lastAnalysis, currentCode); }, mainPlainUnion, partsContainedJS,
+  setGate(g){ lastGate = g; if(lastAnalysis && currentCode) renderReport(lastAnalysis, currentCode); }, mainPlainUnion, topLevelIsOnlyMain, partsContainedJS, flightContradictions,
   get lastIntent(){ return lastIntent; }, benchCostText, updateBenchCost,
+  generate, aiTurn, retryPromptFor, get lastRetryPrompt(){ return lastRetryPrompt; }, get lastSent(){ return lastSent; }, get chat(){ return chat; },
   get specRoot(){ return specRoot; }, get partMesh(){ return partMesh; },
   get benchRunning(){ return benchRunning; },
   get aiBusy(){ return aiBusy; }, get lastGate(){ return lastGate; }, get lastAnalysis(){ return lastAnalysis; },

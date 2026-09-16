@@ -101,3 +101,78 @@ as the ones the templates produce.
   that computes a radian value into a variable first and then takes its sine is not caught by lint;
   only the geometry check catches the consequence.
 - Every material property in the table is a typical published value awaiting the verification pass.
+
+## What happened (2026-09-16, claude-sonnet-5, cases 1 and 2; credits ran out before case 3)
+
+Both generated files are kept under `tests/dryrun/` with the request that produced them, and
+both are now regression fixtures with an expected outcome. The short version: **the
+measurement layer was right every time; the loop could not converge because two of the
+checks were wrong and the vocabulary had a hole.**
+
+**Case 1 — retainer.** `body()` was correct: a stepped bore, Ø103.6 through the top 10 mm and
+a Ø108 capture pocket in the bottom 4 mm. `lip()` was a *filled* Ø108 × 4 disk — the model
+wrote in a comment that it filled it "so the checker can measure the annulus OD" and believed
+the union was a no-op. It plugged the pocket. The object is a cup. One check caught it (the
+Ø108 bore, "the point is inside material"); every other measurement passed truthfully. The
+retry loop never fixed it: the message gave one sample point and no clue that the declared open
+end (z=4) was not a face.
+
+**Case 2 — end cap.** One geometric error: `body()` walls the Ø127 flange to 25.4 mm instead of
+the 5.4 mm step, swallowing the shoulder and its (correctly turned) O-ring groove. Six
+failures were reported; two were the tool's fault and could not be fixed from inside the file:
+
+| failure | verdict |
+|---|---|
+| shoulder OD reads Ø127 | model — the real bug |
+| groove width / pocket depth measured as the module's extent | model, but visible in the text before any render |
+| O-ring groove declared as a bore down the axis | doctrine — there was no way to declare a groove |
+| body ∩ npt_boss "touching only" | tool — a lathe monolith's boss meets its face at a plane; the corrected part fails this check too |
+| body/shoulder/boss "outside main()" at 3–7 % | tool — cuts made in main() after the union read as missing material |
+
+What the model got right is worth recording: bolt force 6.00 MPa × π × 50.8² = 48 641 N, tap
+drill 7/16 in, ISO 273 M8 = 9.0, hoop check placed at the groove root (the thinnest wall),
+Parker ORD 5700 and ASME B1.20.1 cited. The failures were intent → geometry and intent →
+vocabulary, not engineering.
+
+### What changed (Gen 21)
+
+- **Containment** asks two questions instead of one: does everything main() draws belong to a
+  declared part at its own position, and is every part present. Cuts in main() pass both;
+  omission, transforms and extra geometry fail one.
+- **Joints on a flight monolith** accept a shared face. Only an empty intersection fails.
+- **Grooves** are declared as an `od` (external) or `bores` (internal) entry over the groove's
+  band; the doctrine says so, and so does the bore failure message.
+- **A critical dimension that matches none of its part's SPEC extents** is rejected on the
+  text, before a render, with the mechanism named (bore, od, or a helper module).
+- **The bore failure** reports the solid span at the centre ("solid from z=0.00 to z=4.00") and
+  says when the declared open end is not an outer face.
+- **The doctrine** says a module renders its true geometry (an annulus is an annulus), that
+  main() may cut after the union, and what a joint means on a monolith.
+
+Re-run against the same two files: the retainer earns exactly 1 failure (the pocket, with the
+span and the face hint); the end cap earns exactly 4, each independently fixable, none
+impossible. Both prompts the model would receive next are printed by `tests/harness/loop.mjs`.
+
+## Testing without an API key
+
+Two paths, neither spends anything.
+
+**In the browser — the Replay provider.** ⚙ Settings → AI provider → *Replay*. Paste one or
+more model replies (each a full reply with its ```openscad block; separate replies with a line
+containing only `---`). Generate takes the first as the designer's answer and runs the real
+gate, every measurement and the retry decision; a failing result takes the next reply as the
+retry. When the queue runs out it stops, shows the result, and puts the exact retry prompt
+under Geometry gate (⧉ *what the model would be told next*). Paste that prompt, with the
+current `.scad`, into any chat you have access to; paste the reply back into the queue; Generate
+again. That is the retry loop, by hand, at zero cost, with the model of your choosing.
+
+**Headless — the harness.** `tests/harness/loop.mjs` does the same from Node against
+`tests/dryrun/cases.json` (or any cases file with a `request` and a `file`), prints the
+failures and the retry prompt for each case, and checks them against the case's `expect`
+block. `tests/harness/run.mjs` runs the checks without the Generate path and now also honours
+`expect`. Both exit non-zero on a mismatch, so they are tests, not just measurements.
+
+What neither path tests is the thing that needs a model: whether the doctrine produces a
+conforming file on the first try. For that, a fresh model given only the doctrine and a request
+— a colleague's free chat window works — is the honest proxy, and the Replay provider scores
+its answer.

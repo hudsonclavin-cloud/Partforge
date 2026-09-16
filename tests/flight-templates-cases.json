@@ -1,30 +1,51 @@
 [
  {
   "name": "nosecone",
-  "file": "templates/nosecone.scad"
+  "file": "templates/nosecone.scad",
+  "expect": {
+   "fails": []
+  }
  },
  {
   "name": "centering-ring",
-  "file": "templates/centering-ring.scad"
+  "file": "templates/centering-ring.scad",
+  "expect": {
+   "fails": []
+  }
  },
  {
   "name": "bulkhead",
-  "file": "templates/bulkhead.scad"
+  "file": "templates/bulkhead.scad",
+  "expect": {
+   "fails": []
+  }
  },
  {
   "name": "fin",
-  "file": "templates/fin.scad"
+  "file": "templates/fin.scad",
+  "expect": {
+   "fails": []
+  }
  },
  {
   "name": "motor-retainer",
-  "file": "templates/motor-retainer.scad"
+  "file": "templates/motor-retainer.scad",
+  "expect": {
+   "fails": []
+  }
  },
  {
   "name": "coupler",
-  "file": "templates/coupler.scad"
+  "file": "templates/coupler.scad",
+  "expect": {
+   "fails": []
+  }
  },
  {
   "name": "av-sled",
-  "file": "templates/av-sled.scad"
+  "file": "templates/av-sled.scad",
+  "expect": {
+   "fails": []
+  }
  }
 ]

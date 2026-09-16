@@ -60,6 +60,12 @@ server) or through `worker.js`, a Cloudflare Worker that relays requests and kee
 your key as a Worker secret instead of in the page. Setup instructions are in the
 comments at the top of that file. Web search is Anthropic-only.
 
+A third provider, **Replay**, needs no key and sends nothing anywhere: paste one or more
+model replies in Settings and Generate runs the real checks and the retry decision on them,
+taking the next pasted reply as each retry. When the queue runs out it stops and shows the
+exact prompt a retry would send (⧉ under Geometry gate), so the loop can be driven by hand
+through any chat window at no cost, or by the headless harness (`tests/harness/loop.mjs`).
+
 ## Design spec, geometry gate and bench
 
 A generated part opens with a **SPEC** — what it is, its parts and their sizes, which
@@ -234,7 +240,9 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 360 assertions, no dependencies).
+(`node tests/run.mjs`, 368 assertions, no dependencies). Two files a real generation produced
+during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
+are tested against what a model actually writes, not only against templates written to pass.
 
 Flight templates work with no API key. `?bench=1` in flight grade runs the flight bench:
 twelve things a space-shot club types, scored by the same gate plus the measurements —

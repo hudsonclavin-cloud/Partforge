@@ -1,6 +1,6 @@
 // node flight-decl.test.mjs — the FLIGHT declaration layer: parsing, tolerance provenance,
 // part tier and the evidence each tier demands. Runs the code extracted from index.html.
-import { parseFlight, provenanceSummary, partTier, tierEvidence, flightCounts, flightLint } from './.build/flight-decl.js';
+import { parseFlight, provenanceSummary, partTier, tierEvidence, flightCounts, flightLint, flightContradictions } from './.build/flight-decl.js';
 import { FLIGHT_MATERIALS, FLIGHT_PROCESSES } from './.build/flight-eng.js';
 
 let fails = 0, passes = 0;
@@ -141,6 +141,23 @@ ok('a bare primitive is caught', flightLint(GOOD + 'sphere(d=4);\n'), has('witho
 ok('radian trig is caught', flightLint(GOOD + 'x = sin(th * PI / 180);\n'), has('degrees'), 'a degrees warning');
 check('a comment mentioning circle(4.331 in) is not a primitive', flightLint('// bolt circle (4.331 in)\n' + GOOD), [], deep);
 check('a block comment is ignored too', flightLint('/* cylinder(d=9) in prose */\n' + GOOD), [], deep);
+
+console.log('== SPEC vs FLIGHT contradictions (the dry run, before any render) ==');
+const SPEC_CAP = { parts: [{ name: 'body', size_mm: [127, 127, 25.4] }, { name: 'shoulder', size_mm: [101.5, 101.5, 20] }, { name: 'npt_boss', size_mm: [22, 22, 3] }] };
+const crit = (arr) => ({ critical: arr.map(([name, module, axis, nominal_mm]) => ({ name, module, axis, nominal_mm })) });
+check('the end cap: groove width and pocket depth are features, not extents',
+  flightContradictions(SPEC_CAP, crit([['overall cap thickness','main','z',28.4], ['shoulder length','shoulder','z',20], ['flange OD','body','x',127], ['shoulder OD','shoulder','x',101.5], ['o-ring groove width','shoulder','z',4.75], ['lightening pocket depth','body','z',8], ['npt boss height','npt_boss','z',3]])).map(x => x.name),
+  ['o-ring groove width', 'lightening pocket depth'], deep);
+const SPEC_RET = { parts: [{ name: 'body', size_mm: [150.8, 150.8, 14] }, { name: 'lip', size_mm: [108, 108, 4] }] };
+check('the retainer: every critical dimension agrees with its part',
+  flightContradictions(SPEC_RET, crit([['overall thickness','main','z',14], ['lip ledge depth','lip','z',4], ['lip ledge radial width','lip','x',108]])), [], deep);
+check('axis order is forgiven (SPEC y/z swapped, dimension still one of the three)',
+  flightContradictions({ parts: [{ name: 'fin', size_mm: [300, 6.35, 140] }] }, crit([['semi-span','fin','y',140]])), [], deep);
+check('5% or 2 mm slack, whichever is larger', flightContradictions({ parts: [{ name: 'p', size_mm: [10, 10, 100] }] }, crit([['a','p','z',104], ['b','p','x',11.9]])), [], deep);
+check('just outside the slack is a contradiction', flightContradictions({ parts: [{ name: 'p', size_mm: [10, 10, 100] }] }, crit([['a','p','z',106]])).length, 1);
+check('"main" and helper modules are not SPEC parts — never flagged', flightContradictions(SPEC_CAP, crit([['x','main','z',1], ['y','tip_gauge','x',1]])), [], deep);
+check('a SPEC part with no usable size is skipped', flightContradictions({ parts: [{ name: 'p' }, { name: 'q', size_mm: [0, 1, 2] }] }, crit([['a','p','z',5], ['b','q','z',5]])), [], deep);
+check('null spec, malformed flight: empty, never a throw', [flightContradictions(null, crit([])), flightContradictions(SPEC_CAP, { malformed: true }), flightContradictions(SPEC_CAP, null)], [[], [], []], deep);
 
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

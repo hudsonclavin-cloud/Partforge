@@ -107,7 +107,7 @@ const none = timedCall('measureBore at 22.5° (no hole)', () => measureBore(ring
 console.log('   note:', none.note);
 check('no hole at 22.5°: present false', none.present, false);
 check('no hole at 22.5°: ok false', none.ok, false);
-check('no hole note', none.note.startsWith('no hole at (55.433, 22.961): the point is inside material'), true);
+check('no hole note', none.note.startsWith('no hole at (55.433, 22.961): the centre is solid from'), true);
 
 // A wrong-size declaration: probing the big bore as if it were a Ø6.4 hole -> rays find no wall within 2·d.
 const wrongSize = measureBore(ringIdx, { d_mm: 6.40, tol_mm: 0.03, at_mm: [0, 0], axis: 'z', from_mm: 0, to_mm: 12, tess_tol_mm: 0.01 });
@@ -164,7 +164,7 @@ console.log('   note:', holes2.note);
 check('7 of 8 present', holes2.n_present, 7);
 check('missing index 3', holes2.missing, [3], (g, e) => g.join() === e.join());
 check('missing hole is at 135°', holes2.positions[3], [-42.4264, 42.4264], (g, e) => Math.abs(g[0] - e[0]) < 1e-3 && Math.abs(g[1] - e[1]) < 1e-3);
-check('hole #3 note', holes2.holes[3].note.startsWith('no hole at (-42.426, 42.426): the point is inside material'), true);
+check('hole #3 note', holes2.holes[3].note.startsWith('no hole at (-42.426, 42.426): the centre is solid from'), true);
 check('pattern ok false', holes2.ok, false);
 
 // ---------------------------------------------------------------- (c) nosecone-vk-profile
@@ -243,7 +243,7 @@ check('rail hole ok', rail.ok, true);
 const noPin = timedCall('measureBore at z=50 along x (no hole)', () => measureBore(tubeIdx, { d_mm: 2.20, tol_mm: 0.03, at_mm: [0, 50], axis: 'x', from_mm: 74.65, to_mm: 71.5, tess_tol_mm: 0.01 }));
 console.log('   note:', noPin.note);
 check('no hole at z=50', noPin.present, false);
-check('no hole note mentions material', /inside material/.test(noPin.note), true);
+check('no hole note gives the solid span', /the centre is solid from [xyz]=[-\d.]+ to [xyz]=[-\d.]+/.test(noPin.note), true);
 // no rail hole on the -y side (the cut only extended along +y)
 const noRail = measureBore(tubeIdx, { d_mm: 3.45, tol_mm: 0.03, at_mm: [0, 60], axis: 'y', from_mm: -74.65, to_mm: -71.5, tess_tol_mm: 0.01 });
 check('no rail hole on -y side', noRail.present, false);
