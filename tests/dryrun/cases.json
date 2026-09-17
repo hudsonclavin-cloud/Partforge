@@ -36,5 +36,16 @@
     "declare it as an od"
    ]
   }
+ },
+ {
+  "name": "retainer-fixed",
+  "file": "retainer-fixed.scad",
+  "request": "A bolt-on motor retainer for a 98 mm motor case in a 6 inch airframe, 8 M6 bolts, 20 kN peak thrust",
+  "model": "hand-corrected from retainer.scad",
+  "date": "2026-09-17",
+  "what_happened": "The same part with the one real error fixed: lip() is the retaining RING that overhangs the pocket (its own revolve, r 51.8-54.0, z 4.0-14.0), not a filled disk that plugs it. The pocket bore is declared from its real open face (z=0, not z=4), and the 4 mm depth is proven by a GO plug and a NO-GO ledge disc rather than by a module bounding box. Every declared dimension is now true: 9/9 measured, 2/2 checks, zero failures.",
+  "expect": {
+   "fails": []
+  }
  }
 ]
