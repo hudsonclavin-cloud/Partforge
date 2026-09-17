@@ -152,6 +152,7 @@
   #logView{flex:1;background:var(--bg);color:#8b949e;font-family:var(--mono);font-size:11.5px;line-height:1.5;padding:12px;overflow:auto;white-space:pre-wrap;display:none}
 
   dialog{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:460px;width:92vw;max-height:86vh;overflow:auto}
+  dialog .dlgFoot{position:sticky;bottom:-20px;margin:14px -20px -20px;padding:12px 20px 20px;background:var(--panel);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
   dialog::backdrop{background:rgba(0,0,0,.6)}
   dialog h2{font-size:16px;margin-bottom:10px}
   dialog h3{font-size:13px;margin:12px 0 6px;color:var(--accent2)}
@@ -386,7 +387,7 @@
   <label>Part color</label>
   <input id="setColor" type="color" value="#e8833a" style="height:38px;padding:2px">
   <p class="hint" id="tokenStats"></p>
-  <div class="row" style="justify-content:flex-end">
+  <div class="dlgFoot">
     <button class="btn" id="setCancel">Close</button>
     <button class="btn primary" id="setSave">Save</button>
   </div>
