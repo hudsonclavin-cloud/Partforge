@@ -4304,6 +4304,15 @@ function dbMotors(q){
   }).sort((a, b) => a.mfr.localeCompare(b.mfr) || a.d_mm - b.d_mm || a.len_mm - b.len_mm);
 }
 const dbF = v => (typeof v === 'number' ? (Math.round(v * 100) / 100).toFixed(2).replace(/\.?0+$/, '') : v);
+/* Rows of a verified table as objects. Formulaic tables are embedded compact — O-rings as
+   [dash, id_in, cs_in, confidence], drills as [name, kind, in, confidence] — and expanded here;
+   the others are stored as the objects the compile workflow wrote. */
+function dbRows(k){
+  const t = FLIGHT_DB_DATA[k]; if(!t || !Array.isArray(t.rows)) return null;
+  if(t.compact === 'orings') return t.rows.map(([dash, id_in, cs_in, c]) => ({ key: dash, dash, id_in, cs_in, id_mm: +(id_in * 25.4).toFixed(3), cs_mm: +(cs_in * 25.4).toFixed(3), od_in: +(id_in + 2 * cs_in).toFixed(3), od_mm: +((id_in + 2 * cs_in) * 25.4).toFixed(3), confidence: c || t.confidence || 'recall', source: t.source || '' }));
+  if(t.compact === 'drills') return t.rows.map(([name, kind, inch, c]) => ({ key: kind + ':' + name, name, kind, in: inch, mm: +(inch * 25.4).toFixed(3), confidence: c || t.confidence || 'certain', source: t.source || '' }));
+  return t.shared ? t.rows.map(r => ({ ...t.shared, ...r })) : t.rows;   // fields hoisted by embed.mjs come back on every row
+}
 /* The lines the model gets in its context for a request. Only what the request mentions; each
    table capped so a chatty request cannot flood the prompt. Empty string when nothing matched. */
 function dbHints(text){
@@ -4367,16 +4376,16 @@ function dbHints(text){
     }
   }
   // verified tables, when embedded: threads, O-rings, NPT
-  const T = k => FLIGHT_DB_DATA[k] && Array.isArray(FLIGHT_DB_DATA[k].rows) ? FLIGHT_DB_DATA[k].rows : null;
+  const T = k => dbRows(k);
   const fm = T('fasteners_metric'), fu = T('fasteners_un');
-  const threads = new Set([...s.matchAll(/\bM(\d+(?:\.\d+)?)\b/g)].map(x => 'M' + x[1]).concat([...s.matchAll(/\b(#\d+|\d+\/\d+)-(\d+)\b/g)].map(x => x[1] + '-' + x[2])));
+  const threads = new Set([...s.matchAll(/\bM(\d+(?:\.\d+)?)\b/g)].map(x => 'M' + x[1]).concat([...s.matchAll(/(?:^|[^\w#])(#\d+|\d+\/\d+)-(\d+)\b/g)].map(x => x[1] + '-' + x[2])));
   for(const t of [...threads].slice(0, 4)){
     const row = (t.startsWith('M') ? fm : fu) && (t.startsWith('M') ? fm : fu).find(r => String(r.key).toLowerCase() === t.toLowerCase());
     if(!row) continue;
     const f = [];
     if(row.clearance_medium_mm) f.push(`clearance ISO 273 fine/medium/coarse ${dbF(row.clearance_fine_mm)}/${dbF(row.clearance_medium_mm)}/${dbF(row.clearance_coarse_mm)} mm`);
     if(row.clearance_normal_in) f.push(`clearance close/normal/loose ${row.clearance_close_in}/${row.clearance_normal_in}/${row.clearance_loose_in} in`);
-    if(row.tap_drill_mm) f.push(`tap drill ${row.tap_drill || ''} ${dbF(row.tap_drill_mm)} mm`);
+    if(row.tap_drill_mm) f.push(`tap drill ${row.tap_drill ? row.tap_drill + ' = ' : ''}${dbF(row.tap_drill_mm)} mm`);
     if(row.shcs_head_d_mm) f.push(`SHCS head Ø${dbF(row.shcs_head_d_mm)} × ${dbF(row.shcs_head_h_mm)} mm, key ${dbF(row.shcs_hex_key_mm)} mm`);
     if(row.shcs_head_d_in) f.push(`SHCS head Ø${row.shcs_head_d_in} × ${row.shcs_head_h_in} in`);
     if(row.tensile_stress_area_mm2) f.push(`As ${dbF(row.tensile_stress_area_mm2)} mm²`);
@@ -4389,7 +4398,7 @@ function dbHints(text){
   }
   const np = T('npt');
   for(const x of [...s.matchAll(/(\d\/\d{1,2}|\d)\s*(?:in|")?\s*NPT/gi)].slice(0, 2)){
-    const row = np && np.find(r => String(r.key || r.nominal).replace(/\s|in|"/g, '') === x[1]);
+    const row = np && np.find(r => String(r.nominal || r.key).replace(/\s*npt.*$/i, '').replace(/\s|in|"/gi, '') === x[1] || String(r.key || '').replace(/^npt_/, '').replace('-', '/') === x[1]);
     if(row) out.push(`${x[1]} NPT (ASME B1.20.1): tap drill ${row.tap_drill || ''} ${dbF(row.tap_drill_mm)} mm, ${row.tpi} TPI, pipe OD ${dbF(row.od_mm)} mm, L1 hand-tight ${dbF(row.l1_handtight_mm)} mm [${row.confidence || 'recall'}].`);
   }
   return out.length ? 'REFERENCE DATA for this request (use it; cite it):\n- ' + out.join('\n- ') : '';

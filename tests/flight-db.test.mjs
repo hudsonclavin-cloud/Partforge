@@ -1,5 +1,5 @@
 // node tests/flight-db.test.mjs — the reference data and its resolvers, on the code that ships.
-import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbAirframes, dbMotors, dbHints, dbSummary } from './.build/flight-db.js';
+import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbAirframes, dbMotors, dbHints, dbSummary, dbRows } from './.build/flight-db.js';
 
 let fails = 0, passes = 0;
 function check(name, got, expected, cmp){
@@ -67,6 +67,19 @@ const h2 = dbHints('A 6061 end cap for a 4 inch nitrous tank at 60 bar MEOP');
 ok('"4 inch tank" is not an airframe word — no tube hint', h2, h => !/real tubes/.test(h), h2);
 ok('bounded: a request naming five sizes stays under 3 kB', dbHints('a 3 inch to 4 inch to 5.5 inch to 6 inch to 7.5 inch airframe transition coupler stack'), h => h.length < 3000, String(dbHints('a 3 inch to 4 inch to 5.5 inch to 6 inch to 7.5 inch airframe transition coupler stack').length));
 ok('summary names the sources', dbSummary(), s => /Apache/.test(s) && /ISC/.test(s) && /body tubes/.test(s), dbSummary());
+
+console.log('== verified tables (run when data/tables/ is embedded) ==');
+if(FLIGHT_DB_DATA.fasteners_metric && FLIGHT_DB_DATA.orings_as568 && FLIGHT_DB_DATA.npt && FLIGHT_DB_DATA.fasteners_un){
+  const hm = dbHints('8 M6 bolts into a 6061 ring');
+  ok('M6 gets clearance, tap drill, head and stress area', hm, h => /M6 \(/.test(h) && /clearance ISO 273/.test(h) && /tap drill/.test(h) && /SHCS head/.test(h) && /As 20\.1/.test(h), hm);
+  const hu = dbHints('a 1/4-20 tapped boss and a #10-32 clearance hole');
+  ok('1/4-20 and #10-32 are both found (no word boundary before #)', hu, h => /1\/4-20 \(/.test(h) && /#10-32 \(/.test(h), hu);
+  const ho = dbHints('AS568-240 O-ring piston seal and a 1/4 NPT port');
+  ok('AS568-240 is 3.734 in ID — the dry run wrote 88.27 mm', ho, h => /AS568-240: ID 94\.84 mm \(3\.734 in\), CS 3\.53 mm/.test(h), ho);
+  ok('1/4 NPT fires on the nominal, not the key', ho, h => /1\/4 NPT \(ASME B1\.20\.1\)/.test(h) && /tap drill/.test(h) && /TPI/.test(h), ho);
+  ok('a dash without the AS568 prefix works', dbHints('a -347 face seal'), h => /AS568-347/.test(h), dbHints('a -347 face seal'));
+  ok('O-ring rows expand from compact form with OD = ID + 2 CS', FLIGHT_DB_DATA.orings_as568, t => { const r = (t.compact ? t.rows.map(([d, i, c]) => ({ id_in: i, cs_in: c })) : t.rows); return r.length > 250 && r.every(x => x.id_in > 0 && x.cs_in > 0); }, '');
+} else console.log('SKIP  verified tables not embedded in this build');
 
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);
