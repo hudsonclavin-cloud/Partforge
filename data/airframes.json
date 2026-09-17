@@ -1,0 +1,4900 @@
+{
+ "source": "openrocket/openrocket-database (Apache-2.0), curated by curate-airframes.mjs",
+ "rows": [
+  {
+   "kind": "BodyTube",
+   "vendor": "Estes",
+   "material": "kraft paper",
+   "id_mm": 13.081,
+   "od_mm": 13.741,
+   "wall_mm": 0.33,
+   "nominal": "BT-5",
+   "pns": [
+    "BT-5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": []
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Estes",
+   "material": "kraft paper",
+   "id_mm": 18.034,
+   "od_mm": 18.694,
+   "wall_mm": 0.33,
+   "nominal": "BT-20",
+   "pns": [
+    "BT-20"
+   ],
+   "n_pns": 1,
+   "lengths_mm": []
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Estes",
+   "material": "kraft paper",
+   "id_mm": 24.13,
+   "od_mm": 24.79,
+   "wall_mm": 0.33,
+   "nominal": "BT-50",
+   "pns": [
+    "BT-50"
+   ],
+   "n_pns": 1,
+   "lengths_mm": []
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Estes",
+   "material": "kraft paper",
+   "id_mm": 32.588,
+   "od_mm": 33.655,
+   "wall_mm": 0.534,
+   "nominal": "BT-55",
+   "pns": [
+    "BT-55"
+   ],
+   "n_pns": 1,
+   "lengths_mm": []
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Estes",
+   "material": "kraft paper",
+   "id_mm": 33.122,
+   "od_mm": 34.188,
+   "wall_mm": 0.533,
+   "nominal": "BT-56",
+   "pns": [
+    "BT-56"
+   ],
+   "n_pns": 1,
+   "lengths_mm": []
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Estes",
+   "material": "kraft paper",
+   "id_mm": 40.513,
+   "od_mm": 41.58,
+   "wall_mm": 0.534,
+   "nominal": "BT-60",
+   "pns": [
+    "BT-60"
+   ],
+   "n_pns": 1,
+   "lengths_mm": []
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Estes",
+   "material": "kraft paper",
+   "id_mm": 55.245,
+   "od_mm": 56.312,
+   "wall_mm": 0.534,
+   "nominal": "BT-70",
+   "pns": [
+    "BT-70"
+   ],
+   "n_pns": 1,
+   "lengths_mm": []
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Estes",
+   "material": "kraft paper",
+   "id_mm": 65.024,
+   "od_mm": 66.04,
+   "wall_mm": 0.508,
+   "nominal": "BT-80",
+   "pns": [
+    "BT-80"
+   ],
+   "n_pns": 1,
+   "lengths_mm": []
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Estes",
+   "material": "kraft paper",
+   "id_mm": 98.958,
+   "od_mm": 100.025,
+   "wall_mm": 0.534,
+   "nominal": "BT-101",
+   "pns": [
+    "BT-101"
+   ],
+   "n_pns": 1,
+   "lengths_mm": []
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 18.161,
+   "od_mm": 19.431,
+   "wall_mm": 0.635,
+   "nominal": "0.71",
+   "pns": [
+    "MMT-0.71-34",
+    "MMT-0.71-2.75"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    69.85,
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 24.13,
+   "od_mm": 25.4,
+   "wall_mm": 0.635,
+   "nominal": "0.95",
+   "pns": [
+    "MMT-0.95, LBT-50"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 28.956,
+   "od_mm": 30.734,
+   "wall_mm": 0.889,
+   "nominal": "1.14",
+   "pns": [
+    "BT-1.14, MMT-1.14"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 28.956,
+   "od_mm": 30.861,
+   "wall_mm": 0.953,
+   "nominal": "29",
+   "pns": [
+    "T29-800"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    558.8
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 29.083,
+   "od_mm": 32.131,
+   "wall_mm": 1.524,
+   "nominal": "1.145",
+   "pns": [
+    "B-1.145"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 29.083,
+   "od_mm": 31.877,
+   "wall_mm": 1.397,
+   "nominal": "11",
+   "pns": [
+    "FT11-STD-600-NAT",
+    "FT11-STD-300-NAT"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "carbon fibre",
+   "id_mm": 29.083,
+   "od_mm": 31.877,
+   "wall_mm": 1.397,
+   "nominal": "29",
+   "pns": [
+    "FWCF-29-120",
+    "FWCF-29-240",
+    "FWCF-29-360",
+    "FWCF-29-480"
+   ],
+   "n_pns": 5,
+   "lengths_mm": [
+    304.8,
+    609.6,
+    914.4,
+    1219.2,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 29.083,
+   "od_mm": 32.233,
+   "wall_mm": 1.575,
+   "nominal": "1.1",
+   "pns": [
+    "PT-1.1",
+    "MMT-1.1-18",
+    "KS-1.1-EXT-4",
+    "KS-1.1-2K"
+   ],
+   "n_pns": 4,
+   "lengths_mm": [
+    368.3,
+    454.66,
+    457.2,
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 29.21,
+   "od_mm": 32.36,
+   "wall_mm": 1.575,
+   "nominal": "1.15",
+   "pns": [
+    "BT_1.15_12_MMT",
+    "BT_1.15_24_MMT",
+    "BT_1.15_48_MMT",
+    "BT_1.15_48"
+   ],
+   "n_pns": 4,
+   "lengths_mm": [
+    304.8,
+    609.6,
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 35.585,
+   "od_mm": 38.735,
+   "wall_mm": 1.575,
+   "nominal": "1.5",
+   "pns": [
+    "PS-1.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    38.1
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 38.608,
+   "od_mm": 41.758,
+   "wall_mm": 1.575,
+   "nominal": "1.52",
+   "pns": [
+    "BT_1.52_48_MMT",
+    "BT_1.52_48"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 38.608,
+   "od_mm": 41.275,
+   "wall_mm": 1.334,
+   "nominal": "1.52",
+   "pns": [
+    "BT-1.52, MMT-1.52"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 38.608,
+   "od_mm": 40.64,
+   "wall_mm": 1.016,
+   "nominal": "16",
+   "pns": [
+    "FT16-THIN-600-NAT",
+    "FT16-THIN-300-NAT",
+    "FT16-THIN-010-NAT FT11-010"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    25.4,
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 38.608,
+   "od_mm": 41.783,
+   "wall_mm": 1.588,
+   "nominal": "16",
+   "pns": [
+    "FT16-STD-600-NAT",
+    "FT16-STD-300-NAT",
+    "FT16-STD-010-NAT FT11-010"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    25.4,
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "carbon fibre",
+   "id_mm": 38.608,
+   "od_mm": 41.783,
+   "wall_mm": 1.588,
+   "nominal": "38",
+   "pns": [
+    "FWCF-38-120",
+    "FWCF-38-240",
+    "FWCF-38-360",
+    "FWCF-38-480"
+   ],
+   "n_pns": 5,
+   "lengths_mm": [
+    304.8,
+    609.6,
+    914.4,
+    1219.2,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 38.735,
+   "od_mm": 41.707,
+   "wall_mm": 1.486,
+   "nominal": "1.525",
+   "pns": [
+    "B-1.525"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 38.735,
+   "od_mm": 41.91,
+   "wall_mm": 1.587,
+   "nominal": "1.525",
+   "pns": [
+    "B-1.525-L"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 38.735,
+   "od_mm": 42.164,
+   "wall_mm": 1.715,
+   "nominal": "1.5",
+   "pns": [
+    "MAG 1.5 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 38.735,
+   "od_mm": 42.418,
+   "wall_mm": 1.841,
+   "nominal": "1.5",
+   "pns": [
+    "DY/MAG 1.5 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft phenolic",
+   "id_mm": 38.735,
+   "od_mm": 41.529,
+   "wall_mm": 1.397,
+   "nominal": "1.52",
+   "pns": [
+    "FT-1.52"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 38.735,
+   "od_mm": 40.894,
+   "wall_mm": 1.079,
+   "nominal": "38",
+   "pns": [
+    "TW38-220",
+    "TW38-220-S3"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    558.8
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 38.735,
+   "od_mm": 41.529,
+   "wall_mm": 1.397,
+   "nominal": "38",
+   "pns": [
+    "T38-800",
+    "T38-180"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    203.2,
+    457.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 38.735,
+   "od_mm": 41.885,
+   "wall_mm": 1.575,
+   "nominal": "1.5",
+   "pns": [
+    "PT-1.5",
+    "MMT-1.5-18",
+    "KS-1.5-EXT-4",
+    "KS-1.5-2K"
+   ],
+   "n_pns": 4,
+   "lengths_mm": [
+    368.3,
+    454.66,
+    457.2,
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 45.212,
+   "od_mm": 47.752,
+   "wall_mm": 1.27,
+   "nominal": "1.9",
+   "pns": [
+    "BT-1.9"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 51.511,
+   "od_mm": 54.661,
+   "wall_mm": 1.575,
+   "nominal": "2.1",
+   "pns": [
+    "PS-2.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    50.8
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 54.356,
+   "od_mm": 57.404,
+   "wall_mm": 1.524,
+   "nominal": "2.14",
+   "pns": [
+    "BT-2.14, MMT-2.14, MMT-54"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft phenolic",
+   "id_mm": 54.356,
+   "od_mm": 57.404,
+   "wall_mm": 1.524,
+   "nominal": "2.14",
+   "pns": [
+    "FT-2.14"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 54.356,
+   "od_mm": 57.404,
+   "wall_mm": 1.524,
+   "nominal": "54",
+   "pns": [
+    "T54-180"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    457.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 54.61,
+   "od_mm": 57.76,
+   "wall_mm": 1.575,
+   "nominal": "2.15",
+   "pns": [
+    "BT_2.15_48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 54.661,
+   "od_mm": 57.683,
+   "wall_mm": 1.511,
+   "nominal": "2.152",
+   "pns": [
+    "B-2.152"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 54.661,
+   "od_mm": 57.658,
+   "wall_mm": 1.498,
+   "nominal": "2.152",
+   "pns": [
+    "B-2.152-L"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 54.661,
+   "od_mm": 58.42,
+   "wall_mm": 1.88,
+   "nominal": "2.1",
+   "pns": [
+    "MAG 2.1 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 54.661,
+   "od_mm": 58.674,
+   "wall_mm": 2.006,
+   "nominal": "2.1",
+   "pns": [
+    "DY/MAG 2.1 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 54.661,
+   "od_mm": 56.642,
+   "wall_mm": 0.991,
+   "nominal": "22",
+   "pns": [
+    "FT22-THIN-600-NAT",
+    "FT22-THIN-300-NAT",
+    "FT22-THIN-010-NAT FT22-010"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    25.4,
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 54.661,
+   "od_mm": 57.836,
+   "wall_mm": 1.587,
+   "nominal": "22",
+   "pns": [
+    "FT22-STD-600-NAT",
+    "FT22-STD-300-NAT",
+    "FT22-STD-010-NAT FT22-010"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    25.4,
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "carbon fibre",
+   "id_mm": 54.661,
+   "od_mm": 57.836,
+   "wall_mm": 1.587,
+   "nominal": "54",
+   "pns": [
+    "FWCF-54-120",
+    "FWCF-54-240",
+    "FWCF-54-360",
+    "FWCF-54-480"
+   ],
+   "n_pns": 5,
+   "lengths_mm": [
+    304.8,
+    609.6,
+    914.4,
+    1219.2,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "Quantum polymer",
+   "id_mm": 54.661,
+   "od_mm": 57.861,
+   "wall_mm": 1.6,
+   "nominal": "2.1",
+   "pns": [
+    "QT-2.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "Quantum polymer",
+   "id_mm": 54.661,
+   "od_mm": 68.072,
+   "wall_mm": 6.706,
+   "nominal": "2.5",
+   "pns": [
+    "QT-2.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 54.661,
+   "od_mm": 57.81,
+   "wall_mm": 1.575,
+   "nominal": "2.1",
+   "pns": [
+    "PT-2.1",
+    "MMT-2.1-18",
+    "KS-2.1-EXT-4",
+    "KS-2.1-2K"
+   ],
+   "n_pns": 4,
+   "lengths_mm": [
+    368.3,
+    454.66,
+    457.2,
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "glassed phenolic",
+   "id_mm": 54.661,
+   "od_mm": 59.741,
+   "wall_mm": 2.54,
+   "nominal": "2.1",
+   "pns": [
+    "FGPT-2.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 55.245,
+   "od_mm": 57.023,
+   "wall_mm": 0.889,
+   "nominal": "22",
+   "pns": [
+    "T22-215",
+    "T22-215S3"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    546.1
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 61.874,
+   "od_mm": 65.024,
+   "wall_mm": 1.575,
+   "nominal": "2.5",
+   "pns": [
+    "PS-2.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    50.8
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 64.973,
+   "od_mm": 67.056,
+   "wall_mm": 1.041,
+   "nominal": "26",
+   "pns": [
+    "T26-255",
+    "T26-255S3",
+    "T26-255S4"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    647.7
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 65.024,
+   "od_mm": 68.174,
+   "wall_mm": 1.575,
+   "nominal": "2.56",
+   "pns": [
+    "BT_2.56_48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 65.024,
+   "od_mm": 68.072,
+   "wall_mm": 1.524,
+   "nominal": "2.56",
+   "pns": [
+    "B-2.56"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 65.024,
+   "od_mm": 68.834,
+   "wall_mm": 1.905,
+   "nominal": "2.5",
+   "pns": [
+    "MAG 2.5 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 65.024,
+   "od_mm": 69.088,
+   "wall_mm": 2.032,
+   "nominal": "2.5",
+   "pns": [
+    "DY/MAG 2.5 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 65.024,
+   "od_mm": 66.802,
+   "wall_mm": 0.889,
+   "nominal": "2.56",
+   "pns": [
+    "BT-2.56"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    762
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft phenolic",
+   "id_mm": 65.024,
+   "od_mm": 66.802,
+   "wall_mm": 0.889,
+   "nominal": "2.56",
+   "pns": [
+    "FT-2.56"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    762
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 65.024,
+   "od_mm": 67.056,
+   "wall_mm": 1.016,
+   "nominal": "26",
+   "pns": [
+    "FT26-THIN-600-NAT",
+    "FT26-THIN-300-NAT",
+    "FT26-THIN-010-NAT FT26-010"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    25.4,
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 65.024,
+   "od_mm": 68.174,
+   "wall_mm": 1.575,
+   "nominal": "2.5",
+   "pns": [
+    "PT-2.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "glassed phenolic",
+   "id_mm": 65.024,
+   "od_mm": 69.85,
+   "wall_mm": 2.413,
+   "nominal": "2.5",
+   "pns": [
+    "FGPT-2.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 73.101,
+   "od_mm": 76.251,
+   "wall_mm": 1.575,
+   "nominal": "3.0",
+   "pns": [
+    "PS-3.0"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    50.8
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 76.2,
+   "od_mm": 79.35,
+   "wall_mm": 1.575,
+   "nominal": "3.00",
+   "pns": [
+    "BT_3.00_48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 76.2,
+   "od_mm": 80.01,
+   "wall_mm": 1.905,
+   "nominal": "3.0",
+   "pns": [
+    "MAG 3.0 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 76.2,
+   "od_mm": 80.772,
+   "wall_mm": 2.286,
+   "nominal": "3.0",
+   "pns": [
+    "DY/MAG 3.0 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 76.2,
+   "od_mm": 78.74,
+   "wall_mm": 1.27,
+   "nominal": "3.00",
+   "pns": [
+    "BT-3.00"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 76.2,
+   "od_mm": 79.248,
+   "wall_mm": 1.524,
+   "nominal": "3.00",
+   "pns": [
+    "MMTHD-3.00"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft phenolic",
+   "id_mm": 76.2,
+   "od_mm": 78.74,
+   "wall_mm": 1.27,
+   "nominal": "3.00",
+   "pns": [
+    "FT-3.00"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 76.2,
+   "od_mm": 78.74,
+   "wall_mm": 1.27,
+   "nominal": "30",
+   "pns": [
+    "T30-210",
+    "T30-240",
+    "T30-240S4"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    533.4,
+    609.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 76.2,
+   "od_mm": 78.689,
+   "wall_mm": 1.244,
+   "nominal": "30",
+   "pns": [
+    "FT30-THIN-600-NAT",
+    "FT30-THIN-300-NAT",
+    "FT30-THIN-010-NAT FT30-010"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    25.4,
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 76.2,
+   "od_mm": 79.375,
+   "wall_mm": 1.587,
+   "nominal": "30",
+   "pns": [
+    "FT30-STD-600-NAT",
+    "FT30-STD-300-NAT",
+    "FT30-STD-010-NAT FT30-010"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    25.4,
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "carbon fibre",
+   "id_mm": 76.2,
+   "od_mm": 79.375,
+   "wall_mm": 1.587,
+   "nominal": "3",
+   "pns": [
+    "FWCF-3-120",
+    "FWCF-3-240",
+    "FWCF-3-360",
+    "FWCF-3-480"
+   ],
+   "n_pns": 5,
+   "lengths_mm": [
+    304.8,
+    609.6,
+    914.4,
+    1219.2,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 76.25,
+   "od_mm": 77.851,
+   "wall_mm": 0.8,
+   "nominal": "3.00",
+   "pns": [
+    "B-3.00"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 76.25,
+   "od_mm": 79.375,
+   "wall_mm": 1.563,
+   "nominal": "3.00",
+   "pns": [
+    "B-3.00-L"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "Quantum polymer",
+   "id_mm": 76.251,
+   "od_mm": 79.908,
+   "wall_mm": 1.828,
+   "nominal": "3.0",
+   "pns": [
+    "QT-3.0"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 76.251,
+   "od_mm": 79.4,
+   "wall_mm": 1.575,
+   "nominal": "3.0",
+   "pns": [
+    "PT-3.0"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 76.251,
+   "od_mm": 81.077,
+   "wall_mm": 2.413,
+   "nominal": "3.0",
+   "pns": [
+    "FGPT-3.0"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 95.91,
+   "od_mm": 99.06,
+   "wall_mm": 1.575,
+   "nominal": "3.9",
+   "pns": [
+    "PS-3.9"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    63.5
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 99.06,
+   "od_mm": 102.21,
+   "wall_mm": 1.575,
+   "nominal": "3.90",
+   "pns": [
+    "BT_3.90_48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 99.06,
+   "od_mm": 101.854,
+   "wall_mm": 1.397,
+   "nominal": "3.90",
+   "pns": [
+    "B-3.90"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 99.06,
+   "od_mm": 102.108,
+   "wall_mm": 1.524,
+   "nominal": "3.90",
+   "pns": [
+    "B-3.90-L"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 99.06,
+   "od_mm": 102.87,
+   "wall_mm": 1.905,
+   "nominal": "3.9",
+   "pns": [
+    "MAG 3.9 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 99.06,
+   "od_mm": 103.632,
+   "wall_mm": 2.286,
+   "nominal": "3.9",
+   "pns": [
+    "DY/MAG 3.9 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 99.06,
+   "od_mm": 101.6,
+   "wall_mm": 1.27,
+   "nominal": "3.9",
+   "pns": [
+    "BT-3.9"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 99.06,
+   "od_mm": 102.108,
+   "wall_mm": 1.524,
+   "nominal": "3.9",
+   "pns": [
+    "MMTHD-3.9"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft phenolic",
+   "id_mm": 99.06,
+   "od_mm": 101.6,
+   "wall_mm": 1.27,
+   "nominal": "3.9",
+   "pns": [
+    "FT-3.9"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    863.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 99.06,
+   "od_mm": 101.6,
+   "wall_mm": 1.27,
+   "nominal": "40",
+   "pns": [
+    "T40-310, T39-310",
+    "T40-310S3, T39-310S3",
+    "T40-310S4, T39-310S4",
+    "T40-190, T39-190"
+   ],
+   "n_pns": 8,
+   "lengths_mm": [
+    25.4,
+    304.8,
+    482.6,
+    787.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 99.06,
+   "od_mm": 102.21,
+   "wall_mm": 1.575,
+   "nominal": "40",
+   "pns": [
+    "FT40-STD-600-NAT",
+    "FT40-STD-300-NAT",
+    "FT40-STD-010-NAT FT40-010"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    25.4,
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "carbon fibre",
+   "id_mm": 99.06,
+   "od_mm": 102.21,
+   "wall_mm": 1.575,
+   "nominal": "4",
+   "pns": [
+    "FWCF-4-120",
+    "FWCF-4-240",
+    "FWCF-4-360",
+    "FWCF-4-480"
+   ],
+   "n_pns": 5,
+   "lengths_mm": [
+    304.8,
+    609.6,
+    914.4,
+    1219.2,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "Quantum polymer",
+   "id_mm": 99.06,
+   "od_mm": 102.362,
+   "wall_mm": 1.651,
+   "nominal": "3.9",
+   "pns": [
+    "QT-3.9-48",
+    "QT-3.9"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    914.4,
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 99.06,
+   "od_mm": 102.21,
+   "wall_mm": 1.575,
+   "nominal": "3.9",
+   "pns": [
+    "PT-3.9"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "glassed phenolic",
+   "id_mm": 99.06,
+   "od_mm": 103.886,
+   "wall_mm": 2.413,
+   "nominal": "3.9",
+   "pns": [
+    "FGPT-3.9"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 111.125,
+   "od_mm": 114.3,
+   "wall_mm": 1.587,
+   "nominal": "45",
+   "pns": [
+    "FT45-STD-600-NAT",
+    "FT45-STD-300-NAT",
+    "FT45-STD-010-NAT FT45-010"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    25.4,
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 127,
+   "od_mm": 130.81,
+   "wall_mm": 1.905,
+   "nominal": "50",
+   "pns": [
+    "FT50-STD-600-NAT",
+    "FT50-STD-300-NAT",
+    "FT50-STD-010-NAT FT50-010"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    25.4,
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 136.525,
+   "od_mm": 140.335,
+   "wall_mm": 1.905,
+   "nominal": "55",
+   "pns": [
+    "FT55-STD-600-NAT",
+    "FT55-STD-300-NAT",
+    "FT55-STD-020-NAT FT55-020"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    50.8,
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 136.652,
+   "od_mm": 140.716,
+   "wall_mm": 2.032,
+   "nominal": "5.38",
+   "pns": [
+    "BT-5.38"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1066.8
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft phenolic",
+   "id_mm": 136.652,
+   "od_mm": 140.716,
+   "wall_mm": 2.032,
+   "nominal": "5.38",
+   "pns": [
+    "FT-5.38"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1066.8
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 139.7,
+   "od_mm": 143.612,
+   "wall_mm": 1.956,
+   "nominal": "5.5",
+   "pns": [
+    "BT_5.5_48",
+    "BT_5.5_72"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    1219.2,
+    1828.8
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 148.819,
+   "od_mm": 152.578,
+   "wall_mm": 1.88,
+   "nominal": "6.0",
+   "pns": [
+    "PS-6.0"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    101.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 152.4,
+   "od_mm": 156.159,
+   "wall_mm": 1.879,
+   "nominal": "6.0",
+   "pns": [
+    "BT_6.0_48",
+    "BT_6.0_72"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    1219.2,
+    1828.8
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 152.4,
+   "od_mm": 155.575,
+   "wall_mm": 1.587,
+   "nominal": "6.00",
+   "pns": [
+    "B-6.00"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 152.4,
+   "od_mm": 156.21,
+   "wall_mm": 1.905,
+   "nominal": "6.0",
+   "pns": [
+    "MAG 6.0 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 152.4,
+   "od_mm": 157.48,
+   "wall_mm": 2.54,
+   "nominal": "6.0",
+   "pns": [
+    "DY/MAG 6.0 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 152.4,
+   "od_mm": 156.718,
+   "wall_mm": 2.159,
+   "nominal": "60",
+   "pns": [
+    "FT60-STD-600-NAT",
+    "FT60-STD-300-NAT",
+    "FT60-STD-020-NAT FT6-020"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    50.8,
+    762,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "carbon fibre",
+   "id_mm": 152.4,
+   "od_mm": 156.718,
+   "wall_mm": 2.159,
+   "nominal": "6",
+   "pns": [
+    "FWCF-6-120",
+    "FWCF-6-240",
+    "FWCF-6-360",
+    "FWCF-6-480"
+   ],
+   "n_pns": 5,
+   "lengths_mm": [
+    304.8,
+    609.6,
+    914.4,
+    1219.2,
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 152.578,
+   "od_mm": 156.337,
+   "wall_mm": 1.879,
+   "nominal": "6.0",
+   "pns": [
+    "PT-6.0"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "glassed phenolic",
+   "id_mm": 152.578,
+   "od_mm": 157.759,
+   "wall_mm": 2.59,
+   "nominal": "6.0",
+   "pns": [
+    "FGPT-6.0"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 186.741,
+   "od_mm": 190.805,
+   "wall_mm": 2.032,
+   "nominal": "7.5",
+   "pns": [
+    "PS-7.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    101.6
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 190.5,
+   "od_mm": 194.564,
+   "wall_mm": 2.032,
+   "nominal": "7.5",
+   "pns": [
+    "BT_7.5_48",
+    "BT_7.5_72"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    1219.2,
+    1828.8
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 190.8,
+   "od_mm": 195.07,
+   "wall_mm": 2.135,
+   "nominal": "7.50",
+   "pns": [
+    "B-7.50"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 190.8,
+   "od_mm": 194.818,
+   "wall_mm": 2.009,
+   "nominal": "6.0",
+   "pns": [
+    "MAG 6.0 x 48, PH 7.5 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 190.8,
+   "od_mm": 196.596,
+   "wall_mm": 2.898,
+   "nominal": "7.5",
+   "pns": [
+    "DY/PH 7.5 x 48"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 190.805,
+   "od_mm": 194.869,
+   "wall_mm": 2.032,
+   "nominal": "7.5",
+   "pns": [
+    "PT-7.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "glassed phenolic",
+   "id_mm": 190.805,
+   "od_mm": 196.952,
+   "wall_mm": 3.073,
+   "nominal": "7.5",
+   "pns": [
+    "FGPT-7.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 190.881,
+   "od_mm": 194.945,
+   "wall_mm": 2.032,
+   "nominal": "7.51",
+   "pns": [
+    "BT-7.51"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "LOC",
+   "material": "kraft phenolic",
+   "id_mm": 190.881,
+   "od_mm": 194.945,
+   "wall_mm": 2.032,
+   "nominal": "7.51",
+   "pns": [
+    "FT-7.51"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 190.957,
+   "od_mm": 195.783,
+   "wall_mm": 2.413,
+   "nominal": "75",
+   "pns": [
+    "FT75"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 198.12,
+   "od_mm": 203.327,
+   "wall_mm": 2.603,
+   "nominal": "80",
+   "pns": [
+    "FT80"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 198.501,
+   "od_mm": 203.327,
+   "wall_mm": 2.413,
+   "nominal": "80",
+   "pns": [
+    "FT80-020 FT8-020"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    50.8
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 286.969,
+   "od_mm": 292.1,
+   "wall_mm": 2.566,
+   "nominal": "115",
+   "pns": [
+    "FT115"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1524
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 289.814,
+   "od_mm": 296.164,
+   "wall_mm": 3.175,
+   "nominal": "11.4",
+   "pns": [
+    "PT-11.4"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "BodyTube",
+   "vendor": "PML",
+   "material": "glassed phenolic",
+   "id_mm": 289.814,
+   "od_mm": 298.094,
+   "wall_mm": 4.14,
+   "nominal": "11.4",
+   "pns": [
+    "FGPT-11.4"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 18.771,
+   "od_mm": 38.659,
+   "wall_mm": 9.944,
+   "nominal": "1.52",
+   "pns": [
+    "CR-1.52-18mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 25.476,
+   "od_mm": 38.659,
+   "wall_mm": 6.591,
+   "nominal": "1.52",
+   "pns": [
+    "CR-1.52-24mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 25.476,
+   "od_mm": 45.136,
+   "wall_mm": 9.83,
+   "nominal": "1.90",
+   "pns": [
+    "CR-1.90-24mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 25.476,
+   "od_mm": 54.28,
+   "wall_mm": 14.402,
+   "nominal": "2.14",
+   "pns": [
+    "CR-2.14-24mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 25.476,
+   "od_mm": 64.948,
+   "wall_mm": 19.736,
+   "nominal": "2.56",
+   "pns": [
+    "CR-2.56-24mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 25.476,
+   "od_mm": 62.89,
+   "wall_mm": 18.707,
+   "nominal": "2.56",
+   "pns": [
+    "CRTC-2.56-24mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 25.476,
+   "od_mm": 76.124,
+   "wall_mm": 25.324,
+   "nominal": "3.00",
+   "pns": [
+    "CR-3.00-24mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 30.81,
+   "od_mm": 38.659,
+   "wall_mm": 3.925,
+   "nominal": "1.52",
+   "pns": [
+    "CR-1.52-29mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 30.81,
+   "od_mm": 45.136,
+   "wall_mm": 7.163,
+   "nominal": "1.90",
+   "pns": [
+    "CR-1.90-29mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 30.81,
+   "od_mm": 54.28,
+   "wall_mm": 11.735,
+   "nominal": "2.14",
+   "pns": [
+    "CR-2.14-29mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 30.81,
+   "od_mm": 64.948,
+   "wall_mm": 17.069,
+   "nominal": "2.56",
+   "pns": [
+    "CR-2.56-29mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 30.81,
+   "od_mm": 62.89,
+   "wall_mm": 16.04,
+   "nominal": "2.56",
+   "pns": [
+    "CRTC-2.56-29mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 30.81,
+   "od_mm": 76.124,
+   "wall_mm": 22.657,
+   "nominal": "3.00",
+   "pns": [
+    "CR-3.00-29mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 30.81,
+   "od_mm": 98.984,
+   "wall_mm": 34.087,
+   "nominal": "3.90",
+   "pns": [
+    "CR-3.90-29mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "plywood",
+   "id_mm": 30.937,
+   "od_mm": 54.28,
+   "wall_mm": 11.671,
+   "nominal": "2229",
+   "pns": [
+    "CR2229A-CK4",
+    "CR2229F-CK3"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "plywood",
+   "id_mm": 30.937,
+   "od_mm": 64.897,
+   "wall_mm": 16.98,
+   "nominal": "2629",
+   "pns": [
+    "CR2629A-CJ3",
+    "CR2629F-CJ4"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 31.953,
+   "od_mm": 54.585,
+   "wall_mm": 11.316,
+   "nominal": "5429",
+   "pns": [
+    "FCR5429-GDL5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    2.337
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 31.953,
+   "od_mm": 64.948,
+   "wall_mm": 16.497,
+   "nominal": "2629",
+   "pns": [
+    "FCR2629A-GDL3",
+    "FCR2629F-GDL4"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    2.337
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 32.131,
+   "od_mm": 54.661,
+   "wall_mm": 11.265,
+   "nominal": "54",
+   "pns": [
+    "CR-54mm-29mm-ply"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 32.131,
+   "od_mm": 65.024,
+   "wall_mm": 16.447,
+   "nominal": "2.56",
+   "pns": [
+    "CR-2.56/29"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 32.131,
+   "od_mm": 76.2,
+   "wall_mm": 22.035,
+   "nominal": "3.00",
+   "pns": [
+    "CR-3.00/29"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 32.131,
+   "od_mm": 38.735,
+   "wall_mm": 3.302,
+   "nominal": "38",
+   "pns": [
+    "CR-38/29"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 32.233,
+   "od_mm": 38.735,
+   "wall_mm": 3.251,
+   "nominal": "1.5",
+   "pns": [
+    "CR-1.5-1.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    4.762
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 32.233,
+   "od_mm": 54.661,
+   "wall_mm": 11.214,
+   "nominal": "2.1",
+   "pns": [
+    "CR-2.1-1.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    4.762
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 32.233,
+   "od_mm": 65.024,
+   "wall_mm": 16.396,
+   "nominal": "2.5",
+   "pns": [
+    "CR-2.5-1.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    4.762
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 32.233,
+   "od_mm": 76.251,
+   "wall_mm": 22.009,
+   "nominal": "3.0",
+   "pns": [
+    "CR-3.0-1.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    4.762
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 32.233,
+   "od_mm": 99.06,
+   "wall_mm": 33.413,
+   "nominal": "3.9",
+   "pns": [
+    "CR-3.9-1.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    4.762
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 32.487,
+   "od_mm": 38.481,
+   "wall_mm": 2.997,
+   "nominal": "38",
+   "pns": [
+    "CR-38/29"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 32.487,
+   "od_mm": 57.633,
+   "wall_mm": 12.573,
+   "nominal": "54",
+   "pns": [
+    "CR-54/29"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 32.487,
+   "od_mm": 64.897,
+   "wall_mm": 16.205,
+   "nominal": "63",
+   "pns": [
+    "CR-63/29"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 32.487,
+   "od_mm": 76.073,
+   "wall_mm": 21.793,
+   "nominal": "75",
+   "pns": [
+    "CR-75/29"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 32.487,
+   "od_mm": 98.933,
+   "wall_mm": 33.223,
+   "nominal": "98",
+   "pns": [
+    "CR-98/29"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 41.605,
+   "od_mm": 54.28,
+   "wall_mm": 6.338,
+   "nominal": "2.14",
+   "pns": [
+    "CR-2.14-38mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 41.605,
+   "od_mm": 64.948,
+   "wall_mm": 11.671,
+   "nominal": "2.56",
+   "pns": [
+    "CR-2.56-38mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 41.605,
+   "od_mm": 62.89,
+   "wall_mm": 10.643,
+   "nominal": "2.56",
+   "pns": [
+    "CRTC-2.56-38mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 41.605,
+   "od_mm": 76.124,
+   "wall_mm": 17.259,
+   "nominal": "3.00",
+   "pns": [
+    "CR-3.00-38mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 41.605,
+   "od_mm": 98.984,
+   "wall_mm": 28.689,
+   "nominal": "3.90",
+   "pns": [
+    "CR-3.90-38mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 41.605,
+   "od_mm": 136.576,
+   "wall_mm": 47.486,
+   "nominal": "5.38",
+   "pns": [
+    "CR-5.38-38mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 41.605,
+   "od_mm": 190.805,
+   "wall_mm": 74.6,
+   "nominal": "7.51",
+   "pns": [
+    "CR-7.51-38mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "plywood",
+   "id_mm": 41.605,
+   "od_mm": 76.124,
+   "wall_mm": 17.259,
+   "nominal": "3038",
+   "pns": [
+    "CR3038A-CG4",
+    "CR3038F-CG5"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "plywood",
+   "id_mm": 41.605,
+   "od_mm": 98.984,
+   "wall_mm": 28.689,
+   "nominal": "3938",
+   "pns": [
+    "CR3938A-AH1",
+    "CR3938F-AH2"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 41.71,
+   "od_mm": 54.661,
+   "wall_mm": 6.476,
+   "nominal": "54",
+   "pns": [
+    "CR-54mm-38mm-ply"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 41.71,
+   "od_mm": 65.024,
+   "wall_mm": 11.657,
+   "nominal": "2.56",
+   "pns": [
+    "CR-2.56/38"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 41.71,
+   "od_mm": 76.2,
+   "wall_mm": 17.245,
+   "nominal": "3.00",
+   "pns": [
+    "CR-3.00/38",
+    "CR-3.00-38mm-0.5"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    6.35,
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 41.71,
+   "od_mm": 99.06,
+   "wall_mm": 28.675,
+   "nominal": "3.90",
+   "pns": [
+    "CR-3.90/38",
+    "CR-3.90-38mm-0.5"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    6.35,
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 41.71,
+   "od_mm": 152.4,
+   "wall_mm": 55.345,
+   "nominal": "6.00",
+   "pns": [
+    "CR-6.00/38"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 41.71,
+   "od_mm": 54.66,
+   "wall_mm": 6.475,
+   "nominal": "54",
+   "pns": [
+    "CR-54/38"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    17.78
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 41.859,
+   "od_mm": 54.585,
+   "wall_mm": 6.363,
+   "nominal": "5438",
+   "pns": [
+    "FCR5438-GCF5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    2.337
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 41.859,
+   "od_mm": 64.948,
+   "wall_mm": 11.544,
+   "nominal": "2638",
+   "pns": [
+    "FCR2638A-GDL1",
+    "FCR2638F-DL2"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    2.337
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 41.859,
+   "od_mm": 76.124,
+   "wall_mm": 17.132,
+   "nominal": "3038",
+   "pns": [
+    "FCR3038-GDH3"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    2.337
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 41.859,
+   "od_mm": 136.449,
+   "wall_mm": 47.295,
+   "nominal": "5538",
+   "pns": [
+    "FCR5538-RDE5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 41.885,
+   "od_mm": 54.483,
+   "wall_mm": 6.299,
+   "nominal": "54",
+   "pns": [
+    "CR-54/38"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 41.885,
+   "od_mm": 64.897,
+   "wall_mm": 11.506,
+   "nominal": "63",
+   "pns": [
+    "CR-63/38"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 41.885,
+   "od_mm": 76.073,
+   "wall_mm": 17.094,
+   "nominal": "75",
+   "pns": [
+    "CR-75/38"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 41.885,
+   "od_mm": 98.933,
+   "wall_mm": 28.524,
+   "nominal": "98",
+   "pns": [
+    "CR-98/38"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 41.885,
+   "od_mm": 139.573,
+   "wall_mm": 48.844,
+   "nominal": "139",
+   "pns": [
+    "CR-139/38"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 41.885,
+   "od_mm": 54.661,
+   "wall_mm": 6.388,
+   "nominal": "2.1",
+   "pns": [
+    "CR-2.1-1.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    4.762
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 41.885,
+   "od_mm": 65.024,
+   "wall_mm": 11.57,
+   "nominal": "2.5",
+   "pns": [
+    "CR-2.5-1.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    4.762
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 41.885,
+   "od_mm": 76.251,
+   "wall_mm": 17.183,
+   "nominal": "3.0",
+   "pns": [
+    "CR-3.0-1.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    4.762
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 41.885,
+   "od_mm": 99.06,
+   "wall_mm": 28.588,
+   "nominal": "3.9",
+   "pns": [
+    "CR-3.9-1.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    4.762
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "plywood",
+   "id_mm": 57.099,
+   "od_mm": 98.984,
+   "wall_mm": 20.942,
+   "nominal": "3954",
+   "pns": [
+    "CR3954A-DM3",
+    "CR3954F-DM4"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 57.48,
+   "od_mm": 76.124,
+   "wall_mm": 9.322,
+   "nominal": "3.00",
+   "pns": [
+    "CR-3.00-54mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 57.48,
+   "od_mm": 98.984,
+   "wall_mm": 20.752,
+   "nominal": "3.90",
+   "pns": [
+    "CR-3.90-54mm",
+    "LNR-3.90-54mm3S",
+    "LNR-3.90-54mm4S"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 57.48,
+   "od_mm": 136.576,
+   "wall_mm": 39.548,
+   "nominal": "5.38",
+   "pns": [
+    "CR-5.38-54mm",
+    "LNR-5.38-54mm3S25",
+    "LNR-5.38-54mm4S25"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 57.48,
+   "od_mm": 190.805,
+   "wall_mm": 66.663,
+   "nominal": "7.51",
+   "pns": [
+    "CR-7.51-54mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 57.68,
+   "od_mm": 65.024,
+   "wall_mm": 3.672,
+   "nominal": "2.56",
+   "pns": [
+    "CR-2.56/54"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 57.68,
+   "od_mm": 76.2,
+   "wall_mm": 9.26,
+   "nominal": "3.00",
+   "pns": [
+    "CR-3.00/54"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 57.68,
+   "od_mm": 99.06,
+   "wall_mm": 20.69,
+   "nominal": "3.90",
+   "pns": [
+    "CR-3.90/54"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 57.68,
+   "od_mm": 152.4,
+   "wall_mm": 47.36,
+   "nominal": "6.00",
+   "pns": [
+    "CR-6.00/54"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 57.68,
+   "od_mm": 190.8,
+   "wall_mm": 66.56,
+   "nominal": "7.50",
+   "pns": [
+    "CR-7.50/54"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 57.81,
+   "od_mm": 65.024,
+   "wall_mm": 3.607,
+   "nominal": "2.5",
+   "pns": [
+    "CR-2.5-2.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    4.762
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 57.81,
+   "od_mm": 76.251,
+   "wall_mm": 9.221,
+   "nominal": "3.0",
+   "pns": [
+    "CR-3.0-2.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    4.762
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 57.81,
+   "od_mm": 99.06,
+   "wall_mm": 20.625,
+   "nominal": "3.9",
+   "pns": [
+    "CR-3.9-2.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    4.762
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 57.887,
+   "od_mm": 76.073,
+   "wall_mm": 9.093,
+   "nominal": "75",
+   "pns": [
+    "CR-75/54"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 57.887,
+   "od_mm": 98.933,
+   "wall_mm": 20.523,
+   "nominal": "98",
+   "pns": [
+    "CR-98/54"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 57.887,
+   "od_mm": 139.573,
+   "wall_mm": 40.843,
+   "nominal": "139",
+   "pns": [
+    "CR-139/54"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 57.912,
+   "od_mm": 64.948,
+   "wall_mm": 3.518,
+   "nominal": "2654",
+   "pns": [
+    "FCR2654-GCL5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    2.337
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 57.912,
+   "od_mm": 76.124,
+   "wall_mm": 9.106,
+   "nominal": "3054",
+   "pns": [
+    "FCR3054-GDH4"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    2.337
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 57.912,
+   "od_mm": 95.301,
+   "wall_mm": 18.695,
+   "nominal": "39",
+   "pns": [
+    "FCR39C54-RBD3"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    2.337
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 57.912,
+   "od_mm": 98.984,
+   "wall_mm": 20.536,
+   "nominal": "3954",
+   "pns": [
+    "FCR3954-GAJ1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    2.337
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 57.912,
+   "od_mm": 111.023,
+   "wall_mm": 26.555,
+   "nominal": "4554",
+   "pns": [
+    "FCR4554"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    2.337
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 57.912,
+   "od_mm": 136.449,
+   "wall_mm": 39.269,
+   "nominal": "5554",
+   "pns": [
+    "FCR5554-GBL1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 57.912,
+   "od_mm": 152.349,
+   "wall_mm": 47.218,
+   "nominal": "6054",
+   "pns": [
+    "FCR6054"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 77.85,
+   "od_mm": 99.06,
+   "wall_mm": 10.605,
+   "nominal": "3.90",
+   "pns": [
+    "CR-3.90/76"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 77.85,
+   "od_mm": 152.4,
+   "wall_mm": 37.275,
+   "nominal": "6.00",
+   "pns": [
+    "CR-6.00/76"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 77.85,
+   "od_mm": 190.8,
+   "wall_mm": 56.475,
+   "nominal": "7.50",
+   "pns": [
+    "CR-7.50/76"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 78.816,
+   "od_mm": 98.984,
+   "wall_mm": 10.084,
+   "nominal": "3.90",
+   "pns": [
+    "CR-3.90-75mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 78.816,
+   "od_mm": 136.576,
+   "wall_mm": 28.88,
+   "nominal": "5.38",
+   "pns": [
+    "CR-5.38-75mm",
+    "LNR-5.38-75mm3S375",
+    "LNR-5.38-75mm4S375"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 78.816,
+   "od_mm": 190.805,
+   "wall_mm": 55.995,
+   "nominal": "7.51",
+   "pns": [
+    "CR-7.51-75mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "PML",
+   "material": "plywood",
+   "id_mm": 79.4,
+   "od_mm": 99.06,
+   "wall_mm": 9.83,
+   "nominal": "3.9",
+   "pns": [
+    "CR-3.9-3.0"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 79.451,
+   "od_mm": 98.984,
+   "wall_mm": 9.767,
+   "nominal": "3975",
+   "pns": [
+    "FCR3975-GAJ2"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    2.337
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 79.451,
+   "od_mm": 111.023,
+   "wall_mm": 15.786,
+   "nominal": "4575",
+   "pns": [
+    "FCR4575"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    2.337
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 79.451,
+   "od_mm": 126.924,
+   "wall_mm": 23.737,
+   "nominal": "5075",
+   "pns": [
+    "FCR5075-DJ1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 79.451,
+   "od_mm": 136.449,
+   "wall_mm": 28.499,
+   "nominal": "5575",
+   "pns": [
+    "FCR5575"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 79.451,
+   "od_mm": 152.349,
+   "wall_mm": 36.449,
+   "nominal": "6075",
+   "pns": [
+    "FCR6075-RCK2"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 79.477,
+   "od_mm": 98.933,
+   "wall_mm": 9.728,
+   "nominal": "98",
+   "pns": [
+    "CR-98/75"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 79.477,
+   "od_mm": 139.573,
+   "wall_mm": 30.048,
+   "nominal": "139",
+   "pns": [
+    "CR-139/75"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 101.676,
+   "od_mm": 136.576,
+   "wall_mm": 17.45,
+   "nominal": "5.38",
+   "pns": [
+    "CR-5.38-98mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "LOC",
+   "material": "plywood",
+   "id_mm": 101.676,
+   "od_mm": 190.805,
+   "wall_mm": 44.565,
+   "nominal": "7.51",
+   "pns": [
+    "CR-7.51-98mm"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    6.35
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 101.85,
+   "od_mm": 152.4,
+   "wall_mm": 25.275,
+   "nominal": "6.00",
+   "pns": [
+    "CR-6.00/98"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Giant Leap",
+   "material": "plywood",
+   "id_mm": 101.85,
+   "od_mm": 190.8,
+   "wall_mm": 44.475,
+   "nominal": "7.50",
+   "pns": [
+    "CR-7.50/98"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 102.26,
+   "od_mm": 190.906,
+   "wall_mm": 44.323,
+   "nominal": "7598",
+   "pns": [
+    "FCR7598"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 102.26,
+   "od_mm": 198.45,
+   "wall_mm": 48.095,
+   "nominal": "8075",
+   "pns": [
+    "FCR8075-BK1",
+    "FCR8075-BLK-BK1",
+    "FCR8098-GBK2",
+    "FCR8098-BLK-BK2"
+   ],
+   "n_pns": 4,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 102.286,
+   "od_mm": 126.924,
+   "wall_mm": 12.319,
+   "nominal": "5098",
+   "pns": [
+    "FCR5098-RDJ3",
+    "FCR5098-BLK-RDJ3"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 102.286,
+   "od_mm": 136.449,
+   "wall_mm": 17.082,
+   "nominal": "5598",
+   "pns": [
+    "FCR5598-GBL3"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 102.286,
+   "od_mm": 152.349,
+   "wall_mm": 25.031,
+   "nominal": "6098",
+   "pns": [
+    "FCR6098-CK1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    3.175
+   ]
+  },
+  {
+   "kind": "CenteringRing",
+   "vendor": "Blue Tube (ARR)",
+   "material": "plywood",
+   "id_mm": 102.337,
+   "od_mm": 139.573,
+   "wall_mm": 18.618,
+   "nominal": "139",
+   "pns": [
+    "CR-139/98"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    12.7
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 25.4,
+   "od_mm": 29.032,
+   "wall_mm": 1.816,
+   "nominal": "29",
+   "pns": [
+    "FC29_4in",
+    "FC29_6in"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    101.6,
+    152.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "carbon fibre",
+   "id_mm": 25.4,
+   "od_mm": 29.032,
+   "wall_mm": 1.816,
+   "nominal": "29",
+   "pns": [
+    "FWCF-29C-040",
+    "FWCF-29C-060"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    101.6,
+    152.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 25.552,
+   "od_mm": 28.626,
+   "wall_mm": 1.537,
+   "nominal": "1.14",
+   "pns": [
+    "TC-1.14"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    63.5
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 25.984,
+   "od_mm": 29.134,
+   "wall_mm": 1.575,
+   "nominal": "1.15",
+   "pns": [
+    "TC_1.15_8",
+    "TC_1.15_48"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    203.2,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 34.798,
+   "od_mm": 38.557,
+   "wall_mm": 1.88,
+   "nominal": "38",
+   "pns": [
+    "FC38_4in",
+    "FC38_6in",
+    "FC38_8in"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    101.6,
+    152.4,
+    203.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "carbon fibre",
+   "id_mm": 34.798,
+   "od_mm": 38.557,
+   "wall_mm": 1.88,
+   "nominal": "38",
+   "pns": [
+    "FWCF-38C-040",
+    "FWCF-38C-060"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    101.6,
+    152.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 35.382,
+   "od_mm": 38.532,
+   "wall_mm": 1.575,
+   "nominal": "1.52",
+   "pns": [
+    "TC_1.52_8",
+    "TC_1.52_48"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    203.2,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 35.509,
+   "od_mm": 38.608,
+   "wall_mm": 1.549,
+   "nominal": "1.52",
+   "pns": [
+    "TC-1.52"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    101.6
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 35.56,
+   "od_mm": 38.659,
+   "wall_mm": 1.549,
+   "nominal": "38",
+   "pns": [
+    "C38-400"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    101.6
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 35.56,
+   "od_mm": 38.735,
+   "wall_mm": 1.587,
+   "nominal": "1.5",
+   "pns": [
+    "CT-1.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    76.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 35.56,
+   "od_mm": 38.71,
+   "wall_mm": 1.575,
+   "nominal": "1.5",
+   "pns": [
+    "CTF-1.5"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    914.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 44.577,
+   "od_mm": 50.8,
+   "wall_mm": 3.111,
+   "nominal": "2.14",
+   "pns": [
+    "STC-2.14"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    152.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 50.8,
+   "od_mm": 54.61,
+   "wall_mm": 1.905,
+   "nominal": "54",
+   "pns": [
+    "FC54_6in",
+    "FC54_8in"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    152.4,
+    203.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "carbon fibre",
+   "id_mm": 50.8,
+   "od_mm": 54.61,
+   "wall_mm": 1.905,
+   "nominal": "54",
+   "pns": [
+    "FWCF-54C-060",
+    "FWCF-54C-080"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    152.4,
+    203.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 51.232,
+   "od_mm": 54.305,
+   "wall_mm": 1.537,
+   "nominal": "2.14",
+   "pns": [
+    "TC-2.14"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    146.05
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 51.308,
+   "od_mm": 54.61,
+   "wall_mm": 1.651,
+   "nominal": "2.15",
+   "pns": [
+    "C-2.15",
+    "C-2.15-6.25",
+    "C-2.15-L",
+    "C-2.15-48"
+   ],
+   "n_pns": 4,
+   "lengths_mm": [
+    101.6,
+    158.75,
+    927.1
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 51.384,
+   "od_mm": 54.534,
+   "wall_mm": 1.575,
+   "nominal": "2.15",
+   "pns": [
+    "TC_2.15_8",
+    "TC_2.15_48"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    203.2,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 51.486,
+   "od_mm": 54.661,
+   "wall_mm": 1.588,
+   "nominal": "2.1",
+   "pns": [
+    "CT-2.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    101.6
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 51.486,
+   "od_mm": 54.635,
+   "wall_mm": 1.575,
+   "nominal": "2.1",
+   "pns": [
+    "CTF-2.1"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    101.6
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 52.07,
+   "od_mm": 55.169,
+   "wall_mm": 1.549,
+   "nominal": "22",
+   "pns": [
+    "C22-400"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    101.6
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 57.023,
+   "od_mm": 62.941,
+   "wall_mm": 2.959,
+   "nominal": "2.56",
+   "pns": [
+    "STC-2.56"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    152.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 61.798,
+   "od_mm": 64.948,
+   "wall_mm": 1.575,
+   "nominal": "2.56",
+   "pns": [
+    "TC_2.56_8",
+    "TC_2.56_48"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    203.2,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 61.798,
+   "od_mm": 64.897,
+   "wall_mm": 1.55,
+   "nominal": "26",
+   "pns": [
+    "C26-500"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    127
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 61.9,
+   "od_mm": 65.024,
+   "wall_mm": 1.562,
+   "nominal": "2.5",
+   "pns": [
+    "CT-2.5",
+    "CTF-2.5"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    127,
+    914.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 62.738,
+   "od_mm": 65.024,
+   "wall_mm": 1.143,
+   "nominal": "2.56",
+   "pns": [
+    "C-2.56",
+    "C-2.56-L"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    127,
+    927.1
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 62.865,
+   "od_mm": 64.973,
+   "wall_mm": 1.054,
+   "nominal": "26",
+   "pns": [
+    "FC26_6in",
+    "FC26_8in"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    152.4,
+    203.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 62.967,
+   "od_mm": 64.897,
+   "wall_mm": 0.965,
+   "nominal": "2.56",
+   "pns": [
+    "TC-2.56"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    152.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 66.675,
+   "od_mm": 73.101,
+   "wall_mm": 3.213,
+   "nominal": "3.00",
+   "pns": [
+    "STC-3.00"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    139.7
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 72.974,
+   "od_mm": 76.124,
+   "wall_mm": 1.575,
+   "nominal": "3.00",
+   "pns": [
+    "TC_3.00_8",
+    "TC_3.00_48"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    203.2,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 73.025,
+   "od_mm": 76.124,
+   "wall_mm": 1.549,
+   "nominal": "30",
+   "pns": [
+    "C30-600"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    152.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 73.025,
+   "od_mm": 76.149,
+   "wall_mm": 1.562,
+   "nominal": "30",
+   "pns": [
+    "FC30_6in",
+    "FC30_9in"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    152.4,
+    228.6
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "carbon fibre",
+   "id_mm": 73.025,
+   "od_mm": 76.149,
+   "wall_mm": 1.562,
+   "nominal": "3",
+   "pns": [
+    "FWCF-3C-060",
+    "FWCF-3C-090"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    152.4,
+    228.6
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 73.152,
+   "od_mm": 75.946,
+   "wall_mm": 1.397,
+   "nominal": "3.00",
+   "pns": [
+    "TC-3.00"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    152.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 73.152,
+   "od_mm": 76.251,
+   "wall_mm": 1.55,
+   "nominal": "3.0",
+   "pns": [
+    "CT-3.0",
+    "CTF-3.0"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    127,
+    914.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 73.66,
+   "od_mm": 76.2,
+   "wall_mm": 1.27,
+   "nominal": "3.00",
+   "pns": [
+    "C-3.00",
+    "C-3.00-8",
+    "C-3.00-L",
+    "C-3.00-48"
+   ],
+   "n_pns": 4,
+   "lengths_mm": [
+    127,
+    203.2,
+    927.1,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 90.297,
+   "od_mm": 96.139,
+   "wall_mm": 2.921,
+   "nominal": "3.90",
+   "pns": [
+    "STC-3.90"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    190.5
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "kraft paper",
+   "id_mm": 93.142,
+   "od_mm": 98.984,
+   "wall_mm": 2.921,
+   "nominal": "40",
+   "pns": [
+    "C40-800, C39-800HD"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    203.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 95.377,
+   "od_mm": 99.035,
+   "wall_mm": 1.829,
+   "nominal": "40",
+   "pns": [
+    "FC40_8in",
+    "FC40_9in",
+    "FC40_12in"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    203.2,
+    228.6,
+    304.8
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "carbon fibre",
+   "id_mm": 95.377,
+   "od_mm": 99.035,
+   "wall_mm": 1.829,
+   "nominal": "4",
+   "pns": [
+    "FWCF-4C-090",
+    "FWCF-4C-120"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    228.6,
+    304.8
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 95.834,
+   "od_mm": 98.984,
+   "wall_mm": 1.575,
+   "nominal": "3.90",
+   "pns": [
+    "TC_3.90_8",
+    "TC_3.90_48"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    203.2,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 95.91,
+   "od_mm": 99.06,
+   "wall_mm": 1.575,
+   "nominal": "3.9",
+   "pns": [
+    "CT-3.9",
+    "CTF-3.9"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    177.8,
+    914.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 96.266,
+   "od_mm": 99.06,
+   "wall_mm": 1.397,
+   "nominal": "3.90",
+   "pns": [
+    "C-3.90",
+    "C-3.90-8",
+    "C-3.90-L",
+    "C-3.90-48"
+   ],
+   "n_pns": 4,
+   "lengths_mm": [
+    177.8,
+    203.2,
+    927.1,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 96.876,
+   "od_mm": 98.654,
+   "wall_mm": 0.889,
+   "nominal": "3.90",
+   "pns": [
+    "TC-3.90"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    203.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 107.417,
+   "od_mm": 111.074,
+   "wall_mm": 1.828,
+   "nominal": "45",
+   "pns": [
+    "FC45_9in",
+    "FC45_12in"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    228.6,
+    304.8
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 122.301,
+   "od_mm": 126.949,
+   "wall_mm": 2.324,
+   "nominal": "50",
+   "pns": [
+    "FC50_10in",
+    "FC50_12in"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    254,
+    304.8
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 126.492,
+   "od_mm": 133.096,
+   "wall_mm": 3.302,
+   "nominal": "5.38",
+   "pns": [
+    "STC-5.38"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    279.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 131.572,
+   "od_mm": 136.474,
+   "wall_mm": 2.451,
+   "nominal": "55",
+   "pns": [
+    "FC55_12in",
+    "FC55_14in"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    304.8,
+    355.6
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 133.909,
+   "od_mm": 136.449,
+   "wall_mm": 1.27,
+   "nominal": "5.38",
+   "pns": [
+    "TC-5.38"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    279.4
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 135.712,
+   "od_mm": 139.624,
+   "wall_mm": 1.956,
+   "nominal": "5.5",
+   "pns": [
+    "TC_5.5_12",
+    "TC_5.5_16",
+    "TC_5.5_48"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    304.8,
+    406.4,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 146.685,
+   "od_mm": 152.349,
+   "wall_mm": 2.832,
+   "nominal": "60",
+   "pns": [
+    "FC60_12in",
+    "FC60_14in"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    304.8,
+    355.6
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "carbon fibre",
+   "id_mm": 146.685,
+   "od_mm": 152.349,
+   "wall_mm": 2.832,
+   "nominal": "6",
+   "pns": [
+    "FWCF-6C-120",
+    "FWCF-6C-180"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    304.8,
+    457.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 148.565,
+   "od_mm": 152.324,
+   "wall_mm": 1.88,
+   "nominal": "6.0",
+   "pns": [
+    "TC_6.0_12",
+    "TC_6.0_16",
+    "TC_6.0_48"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    304.8,
+    406.4,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 148.59,
+   "od_mm": 152.578,
+   "wall_mm": 1.994,
+   "nominal": "6.007",
+   "pns": [
+    "C-6.007-L"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 148.819,
+   "od_mm": 152.578,
+   "wall_mm": 1.88,
+   "nominal": "6.0",
+   "pns": [
+    "CT-6.0",
+    "CTF-6.0"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    304.8,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 177.673,
+   "od_mm": 187.325,
+   "wall_mm": 4.826,
+   "nominal": "7.51",
+   "pns": [
+    "STC-7.51"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    381
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Giant Leap",
+   "material": "kraft phenolic",
+   "id_mm": 186.182,
+   "od_mm": 190.805,
+   "wall_mm": 2.312,
+   "nominal": "7.512",
+   "pns": [
+    "C-7.512-L"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    30.968
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 186.182,
+   "od_mm": 190.906,
+   "wall_mm": 2.362,
+   "nominal": "75",
+   "pns": [
+    "FC75-160",
+    "FC75-180"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    406.4,
+    457.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Blue Tube (ARR)",
+   "material": "vulcanised fibre (Blue Tube)",
+   "id_mm": 186.36,
+   "od_mm": 190.424,
+   "wall_mm": 2.032,
+   "nominal": "7.5",
+   "pns": [
+    "TC_7.5_12",
+    "TC_7.5_16",
+    "TC_7.5_48"
+   ],
+   "n_pns": 3,
+   "lengths_mm": [
+    304.8,
+    406.4,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 186.741,
+   "od_mm": 190.805,
+   "wall_mm": 2.032,
+   "nominal": "7.5",
+   "pns": [
+    "CT-7.5",
+    "CTF-7.5"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    304.8,
+    1219.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "LOC",
+   "material": "kraft paper",
+   "id_mm": 187.909,
+   "od_mm": 190.703,
+   "wall_mm": 1.397,
+   "nominal": "7.51",
+   "pns": [
+    "TC-7.51-11",
+    "TC-7.51-15"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    279.4,
+    381
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "Madcow",
+   "material": "G12 fiberglass",
+   "id_mm": 190.5,
+   "od_mm": 197.993,
+   "wall_mm": 3.746,
+   "nominal": "80",
+   "pns": [
+    "FC80-160",
+    "FC80-180"
+   ],
+   "n_pns": 2,
+   "lengths_mm": [
+    406.4,
+    457.2
+   ]
+  },
+  {
+   "kind": "TubeCoupler",
+   "vendor": "PML",
+   "material": "kraft phenolic",
+   "id_mm": 283.464,
+   "od_mm": 289.814,
+   "wall_mm": 3.175,
+   "nominal": "11.4",
+   "pns": [
+    "CT-11.4"
+   ],
+   "n_pns": 1,
+   "lengths_mm": [
+    406.4
+   ]
+  }
+ ]
+}

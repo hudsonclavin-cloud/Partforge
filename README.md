@@ -240,9 +240,20 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 368 assertions, no dependencies). Two files a real generation produced
+(`node tests/run.mjs`, 407 assertions, no dependencies). Two files a real generation produced
 during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
 are tested against what a model actually writes, not only against templates written to pass.
+
+**Reference data.** A request that names an airframe size, a motor, or (once the verified tables
+land) a thread, O-ring or NPT port gets the real hardware handed to the designer with the vendor and
+part number: 122 body tubes, 62 couplers and 107 centering rings from LOC, Madcow, Blue Tube, PML,
+Giant Leap and Estes (openrocket-database, Apache-2.0), and 100 current reload hardware sets from
+Cesaroni, AeroTech, Loki, AMW and Gorilla (ThrustCurve.org via thrustcurve-db, ISC). "6 inch
+airframe" becomes "6 of 9 share ID 152.4 (Blue Tube, Giant Leap, Madcow) … OD ranges 155.57–157.48;
+PML PT-6.0 is 152.58" instead of "assumed 152.40 — measure actual tube", and the doctrine requires the
+vendor and PN in a NOTE with `tol_src "source"`. What the data does not know — motor closures,
+Wildman — the hint says so. ⚙ Settings → *Look up real hardware…* runs the same lookup by hand.
+`data/README.md` has the sources, licences and the regeneration pipeline (`tools/db/`).
 
 Flight templates work with no API key. `?bench=1` in flight grade runs the flight bench:
 twelve things a space-shot club types, scored by the same gate plus the measurements —

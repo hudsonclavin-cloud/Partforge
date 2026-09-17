@@ -21,10 +21,12 @@ fs.writeFileSync(path.join(build, 'flight-eng.js'), block('ENG',
   'export { massProperties, jacobiEigen3, isa, hoopStress, flutterVelocity, threadCheck, boltShear, parseThreadSize, tensileStressArea_mm2, fnFor, chordalDeviation, openscadFragments, FLIGHT_MATERIALS, FLIGHT_PROCESSES, ISA_LAYERS, ISA_BASE_P, METRIC_COARSE_PITCH, UN_MAJOR_IN, ENGAGEMENT_RULE };'));
 fs.writeFileSync(path.join(build, 'flight-cmm.js'), block('CMM',
   'export { buildMeshIndex, rayHits, pointInside, measureBore, measureHoles, measureExtent, measureOD, revolveProfile, measureRevolve };'));
+fs.writeFileSync(path.join(build, 'flight-db.js'), block('DB',
+  'export { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbAirframes, dbMotors, dbHints, dbSummary };'));
 fs.writeFileSync(path.join(build, 'flight-decl.js'), block('DECL',
   'export { parseFlight, provenanceSummary, partTier, tierEvidence, flightCounts, flightLint, flightContradictions, TOL_SRC, FLIGHT_HAZARD, FLIGHT_AXIS, FLIGHT_CAP };'));
 let failed = 0;
-for(const t of ['flight-eng.test.mjs', 'flight-cmm.test.mjs', 'flight-decl.test.mjs']){
+for(const t of ['flight-eng.test.mjs', 'flight-cmm.test.mjs', 'flight-decl.test.mjs', 'flight-db.test.mjs']){
   console.log(`\n===== ${t} =====`);
   const r = spawnSync(process.execPath, [path.join(here, t)], { stdio: 'inherit' });
   if(r.status !== 0) failed++;
