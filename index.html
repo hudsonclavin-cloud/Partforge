@@ -331,7 +331,7 @@
     <input id="setBase" type="text" placeholder="https://openrouter.ai/api/v1">
   </div>
   <div id="replayRow" style="display:none">
-    <label>Replies to replay, in order <span style="font-weight:normal;color:var(--dim)">(each a full model reply with its ```openscad block; separate replies with a line containing only ---)</span></label>
+    <label>Replies to replay, in order <span style="font-weight:normal;color:var(--dim)">(paste the raw .scad — no need to add ```openscad fences yourself, they're added automatically if missing; separate multiple replies with a line containing only ---)</span></label>
     <textarea id="setReplay" rows="7" style="width:100%;font-family:ui-monospace,monospace;font-size:12px" spellcheck="false"></textarea>
     <p class="hint">Generate takes the first reply as the model's answer, runs every check, and if it fails, takes the next reply as the retry. When the queue runs out it stops and shows the result, with the exact retry prompt under Geometry gate (⧉) — paste that, with the current .scad, into any chat and paste the reply back here.</p>
   </div>
@@ -5569,7 +5569,8 @@ async function callClaude(userContent, opts = {}){
   if(prov.replay){
     const q = settings.replay;
     if(!q.length){ chat.pop(); throw new Error('The replay queue is empty — paste the next model reply in ⚙ Settings (Replay provider), or switch provider.'); }
-    const text = q.shift(); settings.replay = q;
+    let text = q.shift(); settings.replay = q;
+    if(!/```/.test(text)) text = '```openscad\n' + text.trim() + '\n```';   // a raw pasted file, not a fenced reply — fence it so parseCode() finds it
     chat.push({ role:'assistant', content: text });
     return text;
   }
