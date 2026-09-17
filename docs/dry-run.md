@@ -166,6 +166,11 @@ under Geometry gate (⧉ *what the model would be told next*). Paste that prompt
 current `.scad`, into any chat you have access to; paste the reply back into the queue; Generate
 again. That is the retry loop, by hand, at zero cost, with the model of your choosing.
 
+On a phone or tablet the loop is two taps: after Generate the report scrolls into view; ⧉ copies
+the retry prompt **and the current file** together (or shows them in a box to select, if the
+browser refuses the clipboard); ▸ *paste the reply* takes the chat's answer and runs it as the
+retry — no trip into Settings. Verified on an emulated iPad in both orientations.
+
 **Headless — the harness.** `tests/harness/loop.mjs` does the same from Node against
 `tests/dryrun/cases.json` (or any cases file with a `request` and a `file`), prints the
 failures and the retry prompt for each case, and checks them against the case's `expect`

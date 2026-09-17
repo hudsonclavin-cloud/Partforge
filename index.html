@@ -158,6 +158,7 @@
   dialog p{font-size:13px;color:var(--dim);margin-bottom:10px}
   dialog input,dialog select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 10px;font-size:13px;margin-bottom:10px;font-family:var(--mono)}
   dialog label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
+  dialog textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 10px;font-size:13px;margin-bottom:10px;font-family:var(--mono);resize:vertical;min-height:120px}
   dialog .check{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px}
   dialog .check input{width:auto;margin:0}
   dialog .cols{display:flex;gap:8px}
@@ -307,6 +308,11 @@
   </div>
 </main>
 
+<dialog id="dlgText">
+  <h2 id="dlgTextTitle">Text</h2>
+  <textarea id="dlgTextArea" rows="12" spellcheck="false"></textarea>
+  <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="dlgTextCancel">Close</button><button class="btn primary" id="dlgTextOk">Run this reply</button></div>
+</dialog>
 <dialog id="dlgSettings">
   <h2>Settings</h2>
   <p>Your API key is used directly from this browser. It is stored only on this device and sent only to the provider you choose below.</p>
@@ -328,7 +334,7 @@
     <textarea id="setReplay" rows="7" style="width:100%;font-family:ui-monospace,monospace;font-size:12px" spellcheck="false"></textarea>
     <p class="hint">Generate takes the first reply as the model's answer, runs every check, and if it fails, takes the next reply as the retry. When the queue runs out it stops and shows the result, with the exact retry prompt under Geometry gate (⧉) — paste that, with the current .scad, into any chat and paste the reply back here.</p>
   </div>
-  <label>Model</label>
+  <label id="lblModel">Model</label>
   <input id="setModel" type="text" list="modelList" value="claude-sonnet-5">
   <datalist id="modelList"></datalist>
   <label>Judge model <span style="font-weight:normal;color:var(--dim)">(bench intent score · blank = same as the designer · a different model avoids grading its own work)</span></label>
@@ -5143,7 +5149,7 @@ function renderReport(a, code){
       lastGate.fails.length === 0 ? '<span class="tag good">PASSED</span>'
       : `<span class="tag bad">${lastGate.fails.length} FAILED</span>`}</span></div>`
       + (lastGate.fails.length ? `<div class="w" style="color:var(--warn);font-size:12px">${lastGate.fails.map(f=>'⚠ '+escapeHtml(f)).join('<br>')}</div>` : '')
-      + (lastGate.fails.length && lastRetryPrompt ? `<div class="w"><button class="btn small" id="btnCopyRetry" title="The exact message a retry sends the model. Paste it, with the current .scad, into any chat; paste the reply into ⚙ Settings → Replay.">⧉ what the model would be told next</button></div>` : '')
+      + (lastGate.fails.length && lastRetryPrompt ? `<div class="w" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="btnCopyRetry" title="The exact message a retry sends the model. Paste it, with the current .scad, into any chat.">⧉ what the model would be told next</button>${P().replay ? `<button class="btn small" id="btnPasteReply" title="Paste the chat's reply here; it runs as the retry.">▸ paste the reply</button>` : ''}</div>` : '')
       + (lastGate.spec
           ? `<div class="line"><span>Spec check</span><span>${lastGate.parts.filter(p=>p.ok).length}/${lastGate.parts.length} parts · ${lastGate.joints.filter(j=>j.ok).length}/${lastGate.joints.length} joints${lastGate.rules && lastGate.rules.length ? ` · ${lastGate.rules.filter(r=>r.ok).length}/${lastGate.rules.length} rules` : ''}${lastGate.layout && lastGate.layout.length ? ` · ${lastGate.layout.filter(l=>l.ok).length}/${lastGate.layout.length} layout` : ''}${lastGate.profile && lastGate.profile.length ? ` · ${lastGate.profile.filter(r=>r.ok).length}/${lastGate.profile.length} shape` : ''}${lastGate.placement ? (lastGate.placement.ok ? ' · all parts printed' : ' <span class="tag bad">parts missing from main()</span>') : ''}${lastGate.parts.length + lastGate.joints.length > 0 && lastGate.parts.every(p=>p.ok) && lastGate.joints.every(j=>j.ok) && (lastGate.rules||[]).every(r=>r.ok) && (lastGate.layout||[]).every(l=>l.ok) && (lastGate.profile||[]).every(r=>r.ok) ? ' <span class="tag good">OK</span>' : ''}</span></div>`
             + `<div class="w" style="font-size:11px;color:var(--dim)">${lastGate.parts.map((p, i) => `<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${partColorHex(i)};vertical-align:middle;margin-right:3px"></span>${escapeHtml(p.name)}${p.size ? p.size.map(v=>Math.round(v)).join('×') : ''}${p.ok ? '' : ' <span class="tag bad">' + escapeHtml(p.note || 'fail') + '</span>'}`).join(' · ')}${lastGate.joints.length ? '<br>' + lastGate.joints.map(j => `${escapeHtml(j.a)}∩${escapeHtml(j.b)}${j.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(j.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.rules && lastGate.rules.length ? '<br>' + lastGate.rules.map(r => `${escapeHtml(r.why || r.a + '/' + r.b)}${r.got != null ? ' = ' + r.got : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.layout && lastGate.layout.length ? '<br>' + lastGate.layout.map(l => `${escapeHtml(l.a)} ${escapeHtml(l.rel)} ${escapeHtml(l.b)}${l.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(l.note || 'fail') + '</span>'}`).join(' · ') : ''}${lastGate.profile && lastGate.profile.length ? '<br>' + lastGate.profile.map(r => `${escapeHtml(r.part)} ${r.from}→${r.to} ${escapeHtml(r.measure)}${r.got ? ` (got ${r.got[0]}→${r.got[1]})` : ''}${r.ok ? ' ✓' : ' <span class="tag bad">' + escapeHtml(r.note || 'fail') + '</span>'}`).join(' · ') : ''}</div>`
@@ -5187,7 +5193,19 @@ function renderReport(a, code){
   const dropBtn = document.getElementById('btnDrop');
   if(dropBtn) dropBtn.onclick = () => applyMeshOp(meshDropToPlate(currentMesh), 'dropped to plate');
   const copyRetry = document.getElementById('btnCopyRetry');
-  if(copyRetry) copyRetry.onclick = () => navigator.clipboard.writeText(lastRetryPrompt || '').then(() => toast('Retry prompt copied — paste it with the current .scad into any chat, then paste the reply into ⚙ Settings → Replay'));
+  if(copyRetry) copyRetry.onclick = () => {
+    const text = (lastRetryPrompt || '') + '\n\nThe current file:\n```openscad\n' + (currentCode || '') + '\n```';
+    const p = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(text) : Promise.reject();
+    p.then(() => toast('Copied: the retry prompt and the current file. Paste into any chat, then ▸ paste the reply here.'))
+     .catch(() => showTextDialog('The retry prompt and the current file', text));   // clipboard denied: let the user select it
+  };
+  const pasteReply = document.getElementById('btnPasteReply');
+  if(pasteReply) pasteReply.onclick = () => showTextDialog('Paste the model\'s reply', '', async text => {
+    if(!text.trim()) return;
+    settings.replay = [...settings.replay, text];
+    $('prompt').value = lastRequest || $('prompt').value || 'Design the part in the reply.';
+    await generate(false);
+  });
   const orientBtn = document.getElementById('btnApplyOrient');
   if(orientBtn) orientBtn.onclick = () => {
     const best = lastOrientAdvice[0];
@@ -5649,6 +5667,17 @@ function statusText(s, pct, prefix=''){
 }
 function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 function msg(el, kind, text){ el.className = 'msg ' + kind; el.textContent = text; if(!text) el.className='msg'; }
+/* One dialog for both directions of the hand-driven loop: show text the user must copy (when
+   the clipboard is refused — iPadOS is strict about it), or take the text they paste back. */
+function showTextDialog(title, text, onOk){
+  const d = $('dlgText'), ta = $('dlgTextArea');
+  $('dlgTextTitle').textContent = title; ta.value = text; ta.readOnly = !onOk;
+  $('dlgTextOk').style.display = onOk ? '' : 'none';
+  $('dlgTextOk').onclick = () => { const v = ta.value; d.close(); onOk && onOk(v); };
+  $('dlgTextCancel').onclick = () => d.close();
+  d.showModal();
+  if(!onOk){ ta.focus(); ta.select(); ta.scrollTop = 0; } else ta.focus();
+}
 function toast(t){
   const el = $('toast'); el.textContent = t; el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'), 2000);
@@ -6180,6 +6209,7 @@ async function aiTurn(userContent, label){
         if(currentMesh) setOverlay(false);
       }
       lastGate = g;
+      lastRetryPrompt = g && g.fails.length ? retryPromptFor(g, a) : null;   // before the report: the ⧉ button reads it
       renderReport(a, code);
       // Rank on fails, then on how much the candidate declared. Without the tie-break a
       // candidate that deleted its promises ties at zero fails and wins.
@@ -6188,7 +6218,6 @@ async function aiTurn(userContent, label){
       if(firstFails === null) firstFails = n;
       if(round === 0 && g) contractFloor = { hasSpec: !!g.spec, kind: partKind(code), counts: declarationCounts(g), hasFlight: !!g.flight, flightCounts: flightCounts(g.flight) };
       const budget = gateRetryBudget(g);   // scales with the parts THIS candidate declared
-      lastRetryPrompt = g && g.fails.length ? retryPromptFor(g, a) : null;
       const outOfReplies = P().replay && settings.replay.length === 0;   // stop cleanly, show the result, keep the prompt
       if(!g || !g.fails.length || round >= budget || outOfReplies){
         // Always show the best candidate — never withhold a result.
@@ -6210,6 +6239,7 @@ async function aiTurn(userContent, label){
         // geometry check and was still not an axe head; this is the only mechanism
         // that can say so, and it was previously wired only into the bench.
         await judgeSettled();
+        if(matchMedia('(pointer:coarse)').matches){ const card = document.getElementById('reportCard'); if(card) card.scrollIntoView({ behavior:'smooth', block:'start' }); }
         return;
       }
       pushHistory('ai', `rejected: ${g.fails.length} geometry check${g.fails.length>1?'s':''} failed`);
@@ -6715,7 +6745,7 @@ function syncProviderUI(){
   $('baseRow').style.display = prov.fixedBase ? 'none' : 'block';
   $('modelList').innerHTML = prov.models.map(m=>`<option value="${m}"></option>`).join('');
   $('replayRow').style.display = prov.replay ? 'block' : 'none';
-  $('setKey').disabled = !!prov.replay; $('setModel').disabled = !!prov.replay;
+  for(const id of ['lblKey', 'setKey', 'lblModel', 'setModel']) $(id).style.display = prov.replay ? 'none' : '';
   $('setModel').placeholder = prov.fixedBase ? '' : 'model id from your gateway, e.g. anthropic/claude-sonnet-5';
   $('setSearch').disabled = !prov.search;
   $('provNote').textContent = prov.replay
