@@ -4247,8 +4247,10 @@ function flightContradictions(spec, f){
    are built by tools/db/ from permissively licensed upstream data — body tubes, couplers and
    centering rings from openrocket-database (Apache-2.0); motor hardware sets from ThrustCurve.org
    via thrustcurve-db (ISC) — and embedded between the DB-DATA markers by tools/db/embed.mjs;
-   never edit that literal by hand. Verified reference tables (fasteners, O-rings, NPT, drills,
-   stock, rails, avionics) land in the same literal as data/tables/*.json. dbHints() reads the
+   never edit that literal by hand. Eleven more tables land in the same literal from
+   data/tables/*.json: certified motor performance, ISO 286 fits, ISO and UN fasteners, AS568
+   O-rings with their Parker glands, NPT ports, twist drills, aluminium stock, launch rails,
+   altimeter boards, and the Poisson/expansion constants for every material. dbHints() reads the
    user's request and puts the matching rows in front of the model, with vendor and part
    number, so they reach the file as tol_src "source" instead of an assumption.
    No DOM, no geometry: tests/flight-db.test.mjs runs this exact code in Node. */

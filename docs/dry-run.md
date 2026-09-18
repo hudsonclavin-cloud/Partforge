@@ -198,3 +198,22 @@ fixture exists for, are unchanged and still earn the same four failures). The do
 O-rings that carried the wrong face-seal widths is corrected from the same table, and the hint
 for a dash number now prints both glands, labelled, so the next end cap does not have to recall
 either. `docs/data/PROVENANCE.md` has the full list of what the reviewers contested.
+
+## What the rest of the tables would have changed (Gen 24–26)
+
+Case 1's retainer was told its load: the request said "20 kN peak thrust" because nothing in
+the app knew what a motor pulls. It now does. `data/tables/motor_perf.json` carries the certified
+figures for all 1037 F-and-up motors, so "a 98 mm motor" brings its own load case — the
+hardest-pulling current 98 mm motor is a Cesaroni N10000 at 11 560 N peak, and a retainer that
+must take any motor of that size is designed to that, not to the one the club happens to fly.
+Naming a motor gives its own number: Cesaroni M1670, 2232 N peak, certified.
+
+Case 2's end cap slid a machined shoulder into a tank bore with no fit class at all. ISO 286 is
+now in the same literal: "H7/g6 on a 101.60 bore" resolves to hole 101.600/101.635 over shaft
+101.566/101.588, clearance 0.012 to 0.069 mm. And because the material constants landed with it,
+the hint adds the part the handbook cannot: the same fit between 6061 and G10 loses 59 µm over a
+60 K drop from a warm pad to altitude, which is more than the whole band, so that pair cannot
+hold an IT fit in flight.
+
+Neither of these is a geometry check, which is the point. The gate could only ever catch what the
+file said about itself; these catch what the file never knew to say.
