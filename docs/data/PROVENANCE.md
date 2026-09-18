@@ -1,5 +1,17 @@
 # PartForge reference tables — provenance, licence, confidence and doctrine
 
+> **Status, 2026-09-18.** This document was written while the tables still sat in a scratch
+> directory, so its "Integration notes" describe the repository as it was then: the ten tables are
+> now `data/tables/*.json`, `tools/db/embed.mjs` projects them into `index.html` between the
+> DB-DATA markers, and everything its final section asked for has been done — the compact O-ring
+> rows carry their tolerances and the per-dash Parker Table 4-2 diameters, drills carry the printed
+> mm rather than a recomputed one, the object tables pass `grades`, `design_rules`, `field_sources`,
+> `core_fields`, `families` and table-level `field_confidence`, every hint line prints its row's
+> confidence and a disputed marker, and the three repo defects it names (the end-cap fixture's
+> AS568-240 ID and radial groove, the doctrine's face-seal widths, the gland-less hint) are fixed.
+> `tests/flight-db-embed.test.mjs` now re-derives the projection from these files and fails if the
+> shipped literal drifts from them. The rest of the document stands as written.
+
 Written 2026-09-17 from the ten reconciled tables in `scratchpad/db/tables/*.final.json` (1,958,584 bytes in total). Every number in these files was compiled from memory of a standard, a vendor catalogue or an open-source data file, reviewed by three independent skeptic passes, and — where a host on `raw.githubusercontent.com` carried a usable copy — cross-checked by script. **No standard was read from the standards body, and no vendor site was reachable.** "certain" therefore appears only on values fixed by definition or arithmetic (pitches, thread-profile formulas, drill diameters, inch-to-mm conversions, rod diameters, ASME B36.10M pipe dimensions). "likely" means the value matched at least one independent published copy or three independent recalls. "recall" means one memory, or a value two reviewers disagreed on. The tables never inflate: where a reviewer disputed a cell the row carries a `disputed` field and the row label drops to the lower confidence.
 
 Confidence at row level is always the weakest load-bearing field in that row; per-field detail is in `field_confidence` (fasteners_metric, fasteners_un, drills, rails), `field_confidence` at table level (npt), `hole_confidence` / `outline_confidence` (avionics), `tolerance_confidence` (stock), or the per-item `confidence` inside `supplement` arrays (orings, motors, airframes).
