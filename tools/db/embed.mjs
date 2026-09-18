@@ -84,7 +84,7 @@ const data = { meta: {} };
   data.stock = { columns: Object.fromEntries(F.filter(k => t.columns && t.columns[k]).map(k => [k, t.columns[k]])), rows: t.rows.map(r => { const x = strip(r, F); if(flag(r)) x.disputed = true; return x; }), notes: t.notes, license_note: t.license_note };
 }
 // object tables, in full: fasteners_metric, fasteners_un, npt, rails, avionics (+ the table-level maps the hints read)
-for(const key of ['fasteners_metric', 'fasteners_un', 'npt', 'rails', 'avionics', 'fits']){
+for(const key of ['fasteners_metric', 'fasteners_un', 'npt', 'rails', 'avionics', 'fits', 'materials_thermal']){
   const t = need(key);
   const rows = t.rows || [];
   const hoist = {};

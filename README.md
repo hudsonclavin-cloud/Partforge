@@ -240,7 +240,7 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 555 assertions, no dependencies). Two files a real generation produced
+(`node tests/run.mjs`, 570 assertions, no dependencies). Two files a real generation produced
 during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
 are tested against what a model actually writes, not only against templates written to pass.
 
@@ -250,7 +250,7 @@ handed to the designer, each with its source and a confidence label: 122 body tu
 and 107 centering rings from LOC, Madcow, Blue Tube, PML, Giant Leap and Estes
 (openrocket-database, Apache-2.0); 103 current reload hardware sets with the motor-mount tubes for
 each class, and the certified performance of 1037 motors — the peak thrust a retainer is actually
-loaded by (ThrustCurve.org via thrustcurve-db, ISC); and nine standards tables — ISO 286 fits that turn "H7/g6 on a 101.60 bore" into 101.600/101.635 over 101.566/101.588, 299 AS568
+loaded by (ThrustCurve.org via thrustcurve-db, ISC); and ten standards tables — Poisson's ratio and thermal expansion for every material the app offers, ISO 286 fits that turn "H7/g6 on a 101.60 bore" into 101.600/101.635 over 101.566/101.588, 299 AS568
 O-rings with the per-dash Parker ORD 5700 gland diameters, M2–M20 and #2-56–1/2-20 fasteners,
 1/16–1 in NPT, 282 twist drills, 192 6061 stock sizes with the finished size each can yield, rails
 and rail buttons, and altimeter board envelopes — each compiled, attacked by three independent

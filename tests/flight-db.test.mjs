@@ -1,5 +1,5 @@
 // node tests/flight-db.test.mjs — the reference data and its resolvers, on the code that ships.
-import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbHints, dbSummary, dbRows, dbCredits } from './.build/flight-db.js';
+import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal, dbHints, dbSummary, dbRows, dbCredits } from './.build/flight-db.js';
 
 let fails = 0, passes = 0;
 function check(name, got, expected, cmp){
@@ -101,6 +101,24 @@ console.log('== ISO 286 fits: the numbers a mating pair is cut to ==');
   const hp = dbHints('press fit a bushing into a 25 mm bore');
   ok('"press fit" resolves to H7/n6 with real numbers', hp, h => /H7\/n6 at Ø25 mm/.test(h) && /interference/.test(h), hp);
   ok('an interference letter the table does not carry is refused, not invented', dbHints('a 50 mm H7/p6 press fit'), h => /not in the fits table|Interference letters/.test(h), dbHints('a 50 mm H7/p6 press fit'));
+}
+
+console.log('== material constants the checks could not do without ==');
+{
+  const T = dbRows('materials_thermal');
+  ok('every material the app offers has one', T.length, n => n === 21, String(T.length));
+  ok('metals sit in the physical bands', T.filter(r => /6061|7075|2024|304|316|4130|Ti-6Al|brass|copper|Inconel|17-4/.test(r.key)), r => r.every(x => x.nu >= 0.25 && x.nu <= 0.36 && x.cte_um_m_K >= 8 && x.cte_um_m_K <= 25), '');
+  ok('aluminium expands about twice as fast as titanium', [dbMaterialThermal('6061-T6').cte_um_m_K / dbMaterialThermal('Ti-6Al-4V').cte_um_m_K], r => r[0] > 2.5 && r[0] < 3, String(dbMaterialThermal('6061-T6').cte_um_m_K / dbMaterialThermal('Ti-6Al-4V').cte_um_m_K));
+  ok('anything whose value depends on layup or print direction says so', T.filter(r => /CF-|G10|Fiberglass|Phenolic|Nylon|Ultem/.test(r.key)), r => r.every(x => x.confidence === 'recall' && /direction|layup|weave|across|in-?plane|print|winding|variable/i.test(x.note || '')), T.filter(r => /CF-|G10/.test(r.key)).map(x => x.key + ':' + x.confidence).join(','));
+  // same material both sides: nothing moves, whatever the temperature
+  ok('a like-for-like joint is temperature-neutral', dbFitThermal(101.6, '6061-T6', '6061-T6', -60), f => Math.abs(f.d_mm) < 1e-9, JSON.stringify(dbFitThermal(101.6, '6061-T6', '6061-T6', -60)));
+  // 6061 bore, G10 plug, 60 K drop: (23.6 - 14) * 1e-6 * 101.6 * -60 = -0.0585 mm (the bore shrinks onto the plug)
+  const g = dbFitThermal(101.6, '6061-T6', 'G10-FR4', -60);
+  ok('a 6061 bore closes 59 µm on a G10 plug over a 60 K drop', g, f => Math.abs(f.d_mm * 1000 + 58.5) < 1.5 && f.confidence === 'recall', JSON.stringify(g));
+  ok('an unknown material returns nothing rather than a guess', dbFitThermal(50, '6061-T6', 'unobtainium', -60), f => f === null, '');
+  const ht = dbHints('a 6061 plug that slides into a 101.60 mm G10 coupler, H7/g6');
+  ok('the hint warns when the pair cannot hold the fit across the flight', ht, h => /Temperature: /.test(h) && /cannot hold an IT fit across the flight/.test(h), ht.split('\n- ').find(l => /H7/.test(l)) || ht);
+  ok('and says so when both halves are the same alloy', dbHints('a 6061 plug in a 101.60 mm 6061 bore, H7/g6'), h => /temperature-neutral/.test(h), '');
 }
 
 console.log('== the hints the model gets ==');
