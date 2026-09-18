@@ -20,6 +20,19 @@ Run:
 render time, triangle count, size to 0.001 mm, the gate failures, the flight measurements, the report
 text and the manufacturing sheet.
 
+## Prompt caching
+
+    node cache.mjs                                   # no key needed: the API is intercepted
+
+Checks the request the app would actually send to Anthropic: the system block carries the
+1-hour `cache_control` marker, it is byte-identical between turns (anything per-request that
+leaked into it would cost a cache miss on every call), the looked-up reference data rides in
+the user turn instead, cache reads are counted and shown in ⚙ Settings, and a provider that
+rejects the TTL gets one silent retry with the 5-minute marker without the turn being
+decorated or duplicated. The TTL matters because the cache clock starts when the request is
+sent: a render takes minutes on a tablet, so by the time a gate failure sends the retry, a
+5-minute entry has already expired and the whole doctrine is billed again.
+
 ## Expectations
 
 A case may carry an `expect` block: `"fails"` is the exact set of failure-message prefixes the
