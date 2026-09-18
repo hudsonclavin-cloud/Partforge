@@ -25,6 +25,7 @@ attribution text per table: `docs/data/PROVENANCE.md`.
 |---|---|---|---|
 | `airframes` | body tubes, couplers and centering rings by vendor and material: ID, OD, wall, part numbers, `part_role` (airframe / motor-mount tube / piston / switch band / coupler stiffener …), 10 tube families | 291 + 48 supplement | openrocket-database transcriptions; LOC and Giant Leap rows `recall`, Madcow/Blue Tube/PML/Estes `likely`; 11 known-bad rows kept and flagged |
 | `motors` | reload hardware sets: case diameter, LOADED length per grain count, loaded and propellant mass; supplement of MMT tube IDs, centering-ring bores, and reviewer recall on case ODs and closure architecture | 124 (103 current) + 119 supplement | ThrustCurve data `likely`; every closure/case-OD statement `recall` — "not fit to cut metal from until the club measures its own hardware" |
+| `fits` | ISO 286-1 limits and fits: 13 size steps to 500 mm, IT5–IT13, the shaft letters d, e, f, g, h, k, n, and seven named fits with what each is for. `dbFit()` turns a diameter and a fit into the two parts' limits and the clearance | 13 steps + 7 fits | `likely`: every value is reproduced by the standard's formula AND by an independently recalled published table; 5 values where the two disagreed are withheld |
 | `motor_perf` | certified performance of every F-and-up motor: peak and average thrust, total impulse, burn time, propellant and loaded mass, class, hardware set, certifying body, availability. Peak thrust is the load case for a retainer, thrust ring, centring ring or aft bulkhead | 1037 | 875 certified peaks `likely`; 162 derived from the published curve or withheld, all `recall`; 7 rows flagged `disputed` |
 | `orings_as568` | AS568 dash sizes −102…−475 with ID/W tolerances and the per-dash Parker ORD 5700 Table 4-2 gland diameters; face-seal chart 4-3 and radial table 4-2 bands in the supplement | 299 | 289 `likely` (three independent tables agree), 10 `recall` |
 | `fasteners_metric` | M2–M20 coarse: pitch, minor diameters, tap and clearance drills (metric and US), SHCS/CSK/button heads, nuts, washers, stress areas, ISO 898-1 grades, thread-engagement and edge-distance rules | 12 | `likely` |
@@ -36,7 +37,7 @@ attribution text per table: `docs/data/PROVENANCE.md`.
 | `avionics` | altimeter board envelopes and hole patterns (PerfectFlite, Missile Works, Featherweight, Eggtimer, Altus Metrum) and battery envelopes | 22 | outlines `likely`; NO hole pattern is verified — the sled template slots |
 
 `index.html` embeds a projection of all ten between `/* DB-DATA-BEGIN */` and `/* DB-DATA-END */`
-(about 580 KB: the numbers a designer cuts to, each row's confidence letter and disputed flag, the
+(about 590 KB: the numbers a designer cuts to, each row's confidence letter and disputed flag, the
 notes and licence text; the per-row source strings, disputed prose and reconciliation blocks stay
 in the files). Never edit that literal by hand. ⚙ Settings → *Data sources…* prints the attribution
 generated from it.
@@ -56,6 +57,7 @@ release) before the review passes edited them:
     node tools/db/parse-orc.mjs       # .orc XML -> tools/db/_build/airframes-raw.json (mm, g)
     node tools/db/derive-motors.mjs   # thrustcurve-db.json -> hardware sets
     node tools/db/derive-motor-perf.mjs # thrustcurve-db.json -> data/tables/motor_perf.json (deterministic; re-run it after any upstream bump)
+    node tools/db/derive-fits.mjs     # ISO 286-1 formulas + a recalled published table -> data/tables/fits.json (withholds anything the two disagree on)
     node tools/db/curate-airframes.mjs # raw -> fit dimensions, lengths collapsed
 
 Re-running them regenerates the pre-review shape; diff it against `tables/airframes.json` and

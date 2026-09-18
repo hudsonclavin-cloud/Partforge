@@ -22,7 +22,7 @@ fs.writeFileSync(path.join(build, 'flight-eng.js'), block('ENG',
 fs.writeFileSync(path.join(build, 'flight-cmm.js'), block('CMM',
   'export { buildMeshIndex, rayHits, pointInside, measureBore, measureHoles, measureExtent, measureOD, revolveProfile, measureRevolve };'));
 fs.writeFileSync(path.join(build, 'flight-db.js'), block('DB',
-  'export { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbHints, dbSummary, dbRows, dbCredits };'));
+  'export { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbHints, dbSummary, dbRows, dbCredits };'));
 fs.writeFileSync(path.join(build, 'flight-decl.js'), block('DECL',
   'export { parseFlight, provenanceSummary, partTier, tierEvidence, flightCounts, flightLint, flightContradictions, TOL_SRC, FLIGHT_HAZARD, FLIGHT_AXIS, FLIGHT_CAP };'));
 let failed = 0;

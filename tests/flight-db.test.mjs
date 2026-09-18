@@ -1,5 +1,5 @@
 // node tests/flight-db.test.mjs — the reference data and its resolvers, on the code that ships.
-import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbHints, dbSummary, dbRows, dbCredits } from './.build/flight-db.js';
+import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbHints, dbSummary, dbRows, dbCredits } from './.build/flight-db.js';
 
 let fails = 0, passes = 0;
 function check(name, got, expected, cmp){
@@ -76,6 +76,32 @@ ok('and a named motor narrows the hardware list to its size', hp, h => /75 mm mo
 ok('a bare size gets the bounding motor: 98 mm is N10000 at 11560 N', dbHints('a retainer for a 98 mm motor'), h => /hardest-pulling current 98 mm motors are Cesaroni N10000 11560 N peak/.test(h), (dbHints('a retainer for a 98 mm motor').split('\n- ').find(l => /Peak thrust/.test(l)) || '').slice(0, 200));
 ok('G12 fiberglass is not read as a class-G motor', dbHints('a G12 fiberglass coupler for a 98 mm motor mount'), h => !/Motor G12/.test(h), '');
 ok('an out-of-production motor says so', dbMotorPerfRows().filter(x => !x.current).length, n => n > 200, String(dbMotorPerfRows().filter(x => !x.current).length));
+
+console.log('== ISO 286 fits: the numbers a mating pair is cut to ==');
+{
+  const F = dbRows('fits');
+  ok('thirteen size steps to 500 mm', F.length, n => n === 13, String(F.length));
+  ok('the standard tolerance factor is monotonic in size', F, r => r.every((x, i) => i === 0 || x.i_um > r[i - 1].i_um), '');
+  ok('IT grades widen with grade number at every step', F, r => r.every(x => { const g = Object.keys(x.it_um).map(Number).sort((a, b) => a - b); return g.every((k, i) => i === 0 || x.it_um[k] > x.it_um[g[i - 1]]); }), '');
+  // the three fits anyone can look up, to three decimals
+  const a = dbFit(50, 'H', 7, 'g', 6);
+  ok('Ø50 H7/g6 is 50.000/50.025 over 49.975/49.991, clearance 0.009–0.050', a, f => f.hole[1].toFixed(3) === '50.025' && f.shaft[0].toFixed(3) === '49.975' && f.shaft[1].toFixed(3) === '49.991' && f.clearance[0].toFixed(3) === '0.009' && f.clearance[1].toFixed(3) === '0.050', JSON.stringify(a));
+  const b = dbFit(25, 'H', 7, 'h', 6);
+  ok('Ø25 H7/h6 clearance is 0 to 0.034', b, f => f.clearance[0].toFixed(3) === '0.000' && f.clearance[1].toFixed(3) === '0.034', JSON.stringify(b));
+  const c = dbFit(100, 'H', 8, 'f', 7);
+  ok('Ø100 H8/f7 clearance is 0.036 to 0.125', c, f => f.clearance[0].toFixed(3) === '0.036' && f.clearance[1].toFixed(3) === '0.125', JSON.stringify(c));
+  const d = dbFit(25, 'H', 7, 'n', 6);
+  ok('a transition fit can go interference: Ø25 H7/n6 starts tight', d, f => f.transition && f.clearance[0] < 0, JSON.stringify(d));
+  ok('off the table returns nothing rather than a guess', [dbFit(600, 'H', 7, 'g', 6), dbFit(50, 'H', 7, 'p', 6), dbFit(0, 'H', 7, 'h', 6)], r => r.every(x => x === null), '');
+  ok('the small-size values the two derivations disagreed on are withheld and listed', FLIGHT_DB_DATA.fits.disputed, d => Array.isArray(d) && d.length === 5 && d.every(x => x.step === '1-3'), JSON.stringify((FLIGHT_DB_DATA.fits.disputed || []).map(x => x.field)));
+  ok('the named fits carry what each is for', FLIGHT_DB_DATA.fits.fits, f => f.length === 7 && f.every(x => x.name && x.use.length > 20) && f.some(x => x.name === 'H7/g6'), '');
+  const hf = dbHints('an end cap that slides into a 101.60 mm tank bore, H7/g6');
+  ok('the hint computes the fit at the size in the request', hf, h => /H7\/g6 at Ø101\.6 mm/.test(h) && /hole 101\.600\/101\.635/.test(h) && /shaft 101\.566\/101\.588/.test(h) && /clearance 0\.012 to 0\.069/.test(h), hf.split('\n- ').find(l => /H7/.test(l)) || hf);
+  ok('and warns that a composite tube is not an IT grade', hf, h => /MACHINED-METAL fit/.test(h) && /measured diameter/.test(h), '');
+  const hp = dbHints('press fit a bushing into a 25 mm bore');
+  ok('"press fit" resolves to H7/n6 with real numbers', hp, h => /H7\/n6 at Ø25 mm/.test(h) && /interference/.test(h), hp);
+  ok('an interference letter the table does not carry is refused, not invented', dbHints('a 50 mm H7/p6 press fit'), h => /not in the fits table|Interference letters/.test(h), dbHints('a 50 mm H7/p6 press fit'));
+}
 
 console.log('== the hints the model gets ==');
 const h1 = dbHints('A bolt-on motor retainer for a 98 mm motor case in a 6 inch airframe, 8 M6 bolts, 20 kN peak thrust');

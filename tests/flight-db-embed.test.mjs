@@ -14,7 +14,7 @@ const near = (a, b, tol = 1e-6) => a == null && b == null || Math.abs(a - b) <= 
 
 console.log('== every table is embedded ==');
 const files = fs.readdirSync(path.join(root, 'data/tables')).filter(f => f.endsWith('.json')).sort();
-check('eleven source tables on disk', files.length === 11, `${files.length}: ${files.join(', ')}`);
+check('twelve source tables on disk', files.length === 12, `${files.length}: ${files.join(', ')}`);
 for(const f of files){
   const key = f.replace(/\.json$/, '');
   const t = read(f), emb = FLIGHT_DB_DATA[key];
@@ -84,7 +84,7 @@ console.log('== the compact projections expand back to the source numbers ==');
 }
 
 console.log('== the object tables ship whole, with the maps the hints read ==');
-for(const [key, extras] of [['fasteners_metric', ['grades', 'design_rules', 'field_sources', 'core_fields']], ['fasteners_un', []], ['npt', ['field_confidence']], ['rails', []], ['avionics', []]]){
+for(const [key, extras] of [['fasteners_metric', ['grades', 'design_rules', 'field_sources', 'core_fields']], ['fasteners_un', []], ['npt', ['field_confidence']], ['rails', []], ['avionics', []], ['fits', ['fits', 'disputed']]]){
   const src = read(key + '.json'), got = dbRows(key);
   // hoisted fields come back on the row, so compare field by field rather than by key order
   const same = (g, s) => { const ks = new Set([...Object.keys(g), ...Object.keys(s)]); for(const k of ks) if(JSON.stringify(g[k]) !== JSON.stringify(s[k])) return k; return null; };

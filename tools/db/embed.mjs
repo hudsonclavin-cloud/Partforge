@@ -84,14 +84,14 @@ const data = { meta: {} };
   data.stock = { columns: Object.fromEntries(F.filter(k => t.columns && t.columns[k]).map(k => [k, t.columns[k]])), rows: t.rows.map(r => { const x = strip(r, F); if(flag(r)) x.disputed = true; return x; }), notes: t.notes, license_note: t.license_note };
 }
 // object tables, in full: fasteners_metric, fasteners_un, npt, rails, avionics (+ the table-level maps the hints read)
-for(const key of ['fasteners_metric', 'fasteners_un', 'npt', 'rails', 'avionics']){
+for(const key of ['fasteners_metric', 'fasteners_un', 'npt', 'rails', 'avionics', 'fits']){
   const t = need(key);
   const rows = t.rows || [];
   const hoist = {};
   for(const field of ['source', 'confidence']){ const v = common(rows, field); if(v != null && rows.length > 2) hoist[field] = v; }
   const slim = Object.keys(hoist).length ? rows.map(r => { const o = { ...r }; for(const k of Object.keys(hoist)) delete o[k]; return o; }) : rows;
   data[key] = { columns: t.columns || {}, shared: Object.keys(hoist).length ? hoist : undefined, rows: slim, notes: t.notes || '', license_note: t.license_note || '' };
-  for(const extra of ['grades', 'design_rules', 'field_sources', 'core_fields', 'families', 'field_confidence', 'supplement']) if(t[extra] != null) data[key][extra] = t[extra];
+  for(const extra of ['grades', 'design_rules', 'field_sources', 'core_fields', 'families', 'field_confidence', 'supplement', 'fits', 'disputed']) if(t[extra] != null) data[key][extra] = t[extra];
 }
 // attribution, generated from the tables so the credits panel is never hand-typed
 for(const [k, t] of Object.entries(tables)) data.meta[k] = t.license_note || '';
