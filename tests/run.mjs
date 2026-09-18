@@ -26,7 +26,7 @@ fs.writeFileSync(path.join(build, 'flight-db.js'), block('DB',
 fs.writeFileSync(path.join(build, 'flight-decl.js'), block('DECL',
   'export { parseFlight, provenanceSummary, partTier, tierEvidence, flightCounts, flightLint, flightContradictions, TOL_SRC, FLIGHT_HAZARD, FLIGHT_AXIS, FLIGHT_CAP };'));
 let failed = 0;
-for(const t of ['flight-eng.test.mjs', 'flight-cmm.test.mjs', 'flight-decl.test.mjs', 'flight-db.test.mjs']){
+for(const t of ['flight-eng.test.mjs', 'flight-cmm.test.mjs', 'flight-decl.test.mjs', 'flight-db.test.mjs', 'flight-db-embed.test.mjs']){
   console.log(`\n===== ${t} =====`);
   const r = spawnSync(process.execPath, [path.join(here, t)], { stdio: 'inherit' });
   if(r.status !== 0) failed++;

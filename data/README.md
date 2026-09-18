@@ -43,7 +43,10 @@ generated from it.
 ## Regenerating
 
     node tools/db/embed.mjs           # data/tables/*.json -> index.html between the DB-DATA markers
-    node tests/run.mjs                # tests/flight-db.test.mjs checks the embedded data and the resolvers
+    node tests/run.mjs                # flight-db.test.mjs checks the resolvers and the hints;
+                                      # flight-db-embed.test.mjs re-derives the projection from
+                                      # these files and compares it row by row with what ships,
+                                      # so a stale literal or a hand edit fails the suite
 
 The two upstream-derived tables started from a deterministic pipeline (kept for the next upstream
 release) before the review passes edited them:
