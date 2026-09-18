@@ -75,6 +75,9 @@ ok('the hint gives the certified peak, not the average', hp, h => /Motor M1670 \
 ok('and a named motor narrows the hardware list to its size', hp, h => /75 mm motor hardware/.test(h) && !/24 mm motor hardware/.test(h), '');
 ok('a bare size gets the bounding motor: 98 mm is N10000 at 11560 N', dbHints('a retainer for a 98 mm motor'), h => /hardest-pulling current 98 mm motors are Cesaroni N10000 11560 N peak/.test(h), (dbHints('a retainer for a 98 mm motor').split('\n- ').find(l => /Peak thrust/.test(l)) || '').slice(0, 200));
 ok('G12 fiberglass is not read as a class-G motor', dbHints('a G12 fiberglass coupler for a 98 mm motor mount'), h => !/Motor G12/.test(h), '');
+ok('nor is H13 tool steel', dbHints('an H13 hardened insert in the thrust plate, 75 mm motor'), h => !/Motor H13/.test(h), '');
+ok('but a real motor survives the word fiberglass', dbHints('a motor retainer for a Cesaroni M1670 in a 75 mm mount, fiberglass airframe'), h => /Motor M1670/.test(h) && /2232 N \(certified\)/.test(h), '');
+ok('a motor size is the one next to a motor word, whatever the word order', dbHints('a centring ring for a 152 mm airframe and a 75 mm motor mount'), h => /Peak thrust to design 75 mm hardware/.test(h) && !/Peak thrust to design 152/.test(h), (dbHints('a centring ring for a 152 mm airframe and a 75 mm motor mount').split('\n- ').find(l => /Peak thrust/.test(l)) || 'no line').slice(0, 160));
 ok('an out-of-production motor says so', dbMotorPerfRows().filter(x => !x.current).length, n => n > 200, String(dbMotorPerfRows().filter(x => !x.current).length));
 
 console.log('== ISO 286 fits: the numbers a mating pair is cut to ==');
@@ -95,12 +98,14 @@ console.log('== ISO 286 fits: the numbers a mating pair is cut to ==');
   ok('off the table returns nothing rather than a guess', [dbFit(600, 'H', 7, 'g', 6), dbFit(50, 'H', 7, 'p', 6), dbFit(0, 'H', 7, 'h', 6)], r => r.every(x => x === null), '');
   ok('the small-size values the two derivations disagreed on are withheld and listed', FLIGHT_DB_DATA.fits.disputed, d => Array.isArray(d) && d.length === 5 && d.every(x => x.step === '1-3'), JSON.stringify((FLIGHT_DB_DATA.fits.disputed || []).map(x => x.field)));
   ok('the named fits carry what each is for', FLIGHT_DB_DATA.fits.fits, f => f.length === 7 && f.every(x => x.name && x.use.length > 20) && f.some(x => x.name === 'H7/g6'), '');
+  ok('every named fit is built from the letter it is named after', FLIGHT_DB_DATA.fits.fits, f => f.every(x => x.name === `${x.hole[0]}${x.hole[1]}/${x.shaft[0]}${x.shaft[1]}`), FLIGHT_DB_DATA.fits.fits.filter(x => x.name !== `${x.hole[0]}${x.hole[1]}/${x.shaft[0]}${x.shaft[1]}`).map(x => x.name).join(','));
+  ok("k clears the same two-derivation gate as every other letter and ships whole micrometres", dbRows('fits'), r => r.every(x => x.shaft_es_um.k === undefined || Number.isInteger(x.shaft_es_um.k)) && r.find(x => x.from_mm === 30).shaft_es_um.k === 2 && r.find(x => x.from_mm === 1).shaft_es_um.k === 0, JSON.stringify(dbRows('fits').map(x => x.shaft_es_um.k)));
   const hf = dbHints('an end cap that slides into a 101.60 mm tank bore, H7/g6');
   ok('the hint computes the fit at the size in the request', hf, h => /H7\/g6 at Ø101\.6 mm/.test(h) && /hole 101\.600\/101\.635/.test(h) && /shaft 101\.566\/101\.588/.test(h) && /clearance 0\.012 to 0\.069/.test(h), hf.split('\n- ').find(l => /H7/.test(l)) || hf);
   ok('and warns that a composite tube is not an IT grade', hf, h => /MACHINED-METAL fit/.test(h) && /measured diameter/.test(h), '');
   const hp = dbHints('press fit a bushing into a 25 mm bore');
   ok('"press fit" resolves to H7/n6 with real numbers', hp, h => /H7\/n6 at Ø25 mm/.test(h) && /interference/.test(h), hp);
-  ok('an interference letter the table does not carry is refused, not invented', dbHints('a 50 mm H7/p6 press fit'), h => /not in the fits table|Interference letters/.test(h), dbHints('a 50 mm H7/p6 press fit'));
+  ok('an interference letter the table does not carry is refused, not invented', dbHints('a 50 mm H7/p6 press fit'), h => /the letter p is not in this table/.test(h) && /delta rule/.test(h), dbHints('a 50 mm H7/p6 press fit'));
 }
 
 console.log('== material constants the checks could not do without ==');
@@ -117,8 +122,13 @@ console.log('== material constants the checks could not do without ==');
   ok('a 6061 bore closes 59 µm on a G10 plug over a 60 K drop', g, f => Math.abs(f.d_mm * 1000 + 58.5) < 1.5 && f.confidence === 'recall', JSON.stringify(g));
   ok('an unknown material returns nothing rather than a guess', dbFitThermal(50, '6061-T6', 'unobtainium', -60), f => f === null, '');
   const ht = dbHints('a 6061 plug that slides into a 101.60 mm G10 coupler, H7/g6');
-  ok('the hint warns when the pair cannot hold the fit across the flight', ht, h => /Temperature: /.test(h) && /cannot hold an IT fit across the flight/.test(h), ht.split('\n- ').find(l => /H7/.test(l)) || ht);
+  ok('the hint warns when the pair cannot hold the fit across the flight', ht, h => /Temperature: the G10-FR4 bore against the 6061-T6 part/.test(h) && /GAINS 59 µm/.test(h) && /cannot hold an IT fit across the flight/.test(h), ht.split('\n- ').find(l => /H7/.test(l)) || ht);
+  ok('the direction follows which part is the bore, not the order the materials are listed', dbHints('a titanium bushing pressed into a 25 mm 6061 housing, H7/n6'), h => /6061-T6 bore against the Ti-6Al-4V part/.test(h) && /LOSES/.test(h), dbHints('a titanium bushing pressed into a 25 mm 6061 housing, H7/n6').split('\n- ').find(l => /H7/.test(l)) || '');
   ok('and says so when both halves are the same alloy', dbHints('a 6061 plug in a 101.60 mm 6061 bore, H7/g6'), h => /temperature-neutral/.test(h), '');
+  ok('one material recognised is called UNCHECKED, never temperature-neutral', dbHints('a 6061 end cap, slip fit into the 101.6 mm Blue Tube coupler'), h => /thermal case is UNCHECKED/.test(h) && !/temperature-neutral/.test(h), dbHints('a 6061 end cap, slip fit into the 101.6 mm Blue Tube coupler').split('\n- ').find(l => /H7/.test(l)) || '');
+  ok('the fit is computed on the diameter written nearest it, not the first number in the request', dbHints('a bushing for a 6 inch airframe: press the 25 mm bore to H7/n6'), h => /H7\/n6 at Ø25 mm/.test(h) && !/H7\/n6 at Ø152/.test(h), dbHints('a bushing for a 6 inch airframe: press the 25 mm bore to H7/n6').split('\n- ').find(l => /H7/.test(l)) || '');
+  ok('a screw length is not mistaken for the fit diameter', dbHints('M6 x 16 mm cap screws hold the plate; the 25 mm bore is H7/g6'), h => /H7\/g6 at Ø25 mm/.test(h), dbHints('M6 x 16 mm cap screws hold the plate; the 25 mm bore is H7/g6').split('\n- ').find(l => /H7/.test(l)) || '');
+  ok("k's deviation is zero outside grades 4 to 7", dbFit(50, 'H', 9, 'k', 9), f => f.shaft[0].toFixed(4) === '50.0000' && f.shaft[1].toFixed(4) === '50.0620', JSON.stringify(dbFit(50, 'H', 9, 'k', 9).shaft));
 }
 
 console.log('== the hints the model gets ==');
@@ -131,7 +141,8 @@ const h3 = dbHints('A centering ring, 75 mm motor mount in a 6 inch airframe');
 ok('a mount + airframe request gets the rings that join them', h3, h => /Centering rings for a 75 mm mount/.test(h) && /ID 7[6-9]|ID 8[0-3]/.test(h), h3.slice(0, 500));
 ok('"5.5 in Blue Tube airframe with a 54mm MMT" does not read 54 as the airframe', dbHints('An av-bay bulkhead for a 5.5 in Blue Tube airframe with a 54mm MMT'), h => /5\.5 in airframe/.test(h) && /139\.7/.test(h) && !/54\.61/.test(h.split('\n')[1]), dbHints('An av-bay bulkhead for a 5.5 in Blue Tube airframe with a 54mm MMT').split('\n')[1]);
 ok('and the 98 mm hardware', h1, h => /98 mm motor hardware/.test(h) && /Pro98-3G 548 mm/.test(h), h1.slice(-400));
-ok('and says closure/case-only length are NOT verified, with the MMT tubes for the class', h1, h => /NOT verified in this data/.test(h) && /MMT tubes for this class/.test(h) && /BT-3\.9 ID 99\.06/.test(h) && /measure the club's actual case/.test(h), h1.slice(-900));
+ok('and says closure/case-only length are NOT verified, with the MMT tubes for the class', h1, h => /are NOT verified/.test(h) && /motor-mount tubes and ring bores/.test(h) && /BT-3\.9 ID 99\.06/.test(h) && /measure the club's actual case/i.test(h), h1.slice(-900));
+ok('one fact per line: no line is long enough to crowd the budget', h1.split('\n- ').slice(1), ls => ls.every(l => l.length <= 1200), ls => '');
 ok('a sleeve request gets the clearance rule', dbHints('an aluminium MMT sleeve for a 54 mm motor'), h => /MMT clearance rule \[likely\]/.test(h) && /54\.356/.test(h), '');
 ok('starts with the header the doctrine names', h1, h => h.startsWith('REFERENCE DATA for this request'), h1.slice(0, 60));
 ok('a hobby request gets nothing', dbHints('A hinged case for my multimeter'), h => h === '', JSON.stringify(dbHints('A hinged case for my multimeter')));

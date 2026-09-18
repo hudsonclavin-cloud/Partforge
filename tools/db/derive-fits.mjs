@@ -50,19 +50,19 @@ const IT_PUBLISHED = {
 };
 // es (upper deviation) of the shaft letters, um, as the published tables print them
 const DEV_PUBLISHED = {
-  '1-3':    { d: -20, e: -14, f: -6, g: -2, h: 0, n: 4 },
-  '3-6':    { d: -30, e: -20, f: -10, g: -4, h: 0, n: 8 },
-  '6-10':   { d: -40, e: -25, f: -13, g: -5, h: 0, n: 10 },
-  '10-18':  { d: -50, e: -32, f: -16, g: -6, h: 0, n: 12 },
-  '18-30':  { d: -65, e: -40, f: -20, g: -7, h: 0, n: 15 },
-  '30-50':  { d: -80, e: -50, f: -25, g: -9, h: 0, n: 17 },
-  '50-80':  { d: -100, e: -60, f: -30, g: -10, h: 0, n: 20 },
-  '80-120': { d: -120, e: -72, f: -36, g: -12, h: 0, n: 23 },
-  '120-180':{ d: -145, e: -85, f: -43, g: -14, h: 0, n: 27 },
-  '180-250':{ d: -170, e: -100, f: -50, g: -15, h: 0, n: 31 },
-  '250-315':{ d: -190, e: -110, f: -56, g: -17, h: 0, n: 34 },
-  '315-400':{ d: -210, e: -125, f: -62, g: -18, h: 0, n: 37 },
-  '400-500':{ d: -230, e: -135, f: -68, g: -20, h: 0, n: 40 },
+  '1-3':    { d: -20, e: -14, f: -6, g: -2, h: 0, k: 0, n: 4 },
+  '3-6':    { d: -30, e: -20, f: -10, g: -4, h: 0, k: 1, n: 8 },
+  '6-10':   { d: -40, e: -25, f: -13, g: -5, h: 0, k: 1, n: 10 },
+  '10-18':  { d: -50, e: -32, f: -16, g: -6, h: 0, k: 1, n: 12 },
+  '18-30':  { d: -65, e: -40, f: -20, g: -7, h: 0, k: 2, n: 15 },
+  '30-50':  { d: -80, e: -50, f: -25, g: -9, h: 0, k: 2, n: 17 },
+  '50-80':  { d: -100, e: -60, f: -30, g: -10, h: 0, k: 2, n: 20 },
+  '80-120': { d: -120, e: -72, f: -36, g: -12, h: 0, k: 3, n: 23 },
+  '120-180':{ d: -145, e: -85, f: -43, g: -14, h: 0, k: 3, n: 27 },
+  '180-250':{ d: -170, e: -100, f: -50, g: -15, h: 0, k: 4, n: 31 },
+  '250-315':{ d: -190, e: -110, f: -56, g: -17, h: 0, k: 4, n: 34 },
+  '315-400':{ d: -210, e: -125, f: -62, g: -18, h: 0, k: 4, n: 37 },
+  '400-500':{ d: -230, e: -135, f: -68, g: -20, h: 0, k: 5, n: 40 },
 };
 
 const disputed = [], rows = [];
@@ -79,8 +79,9 @@ for(const step of STEPS){
   }
   const dev = {}, devPub = DEV_PUBLISHED[key];
   for(const letter of Object.keys(SHAFT_DEV)){
-    if(letter === 'k') { dev.k = +(0.6 * Math.cbrt(D)).toFixed(1); continue; }   // grades 4-7 only; see notes
-    const formula = Math.round(SHAFT_DEV[letter](D));
+    // k gets no exemption: its formula value is cross-checked against the published ei like every
+    // other letter, and it ships as the whole micrometre the tables print.
+    const formula = Math.round(letter === 'k' ? SHAFT_DEV.k(D, 6) : SHAFT_DEV[letter](D));
     const published = devPub[letter];
     if(published == null) continue;
     if(Math.abs(formula - published) > Math.max(1, 0.08 * Math.abs(published))){
@@ -93,7 +94,7 @@ for(const step of STEPS){
     key: `iso286_${key}`, from_mm: step[0], to_mm: step[1], mean_mm: +D.toFixed(3), i_um: +i.toFixed(3),
     it_um: it, shaft_es_um: dev,
     confidence: 'likely',
-    source: 'ISO 286-1 (limits and deviations for standard tolerance grades and fundamental deviations). Every IT value here is reproduced to the standard rounding by IT = k·i with i = 0.45·∛D + 0.001·D on the step mean D, and every shaft deviation by its closed-form definition (d −16·D^0.44, e −11·D^0.41, f −5.5·D^0.41, g −2.5·D^0.34, h 0, n +5·D^0.34); the shipped figure is the published one, corroborated by that formula.',
+    source: 'ISO 286-1 (limits and deviations for standard tolerance grades and fundamental deviations). Every IT value here is reproduced to the standard rounding by IT = k·i with i = 0.45·∛D + 0.001·D on the step mean D, and every shaft deviation by its closed-form definition (d −16·D^0.44, e −11·D^0.41, f −5.5·D^0.41, g −2.5·D^0.34, h 0, k +0.6·∛D for grades 4–7, n +5·D^0.34); the shipped figure is the published one, corroborated by that formula.',
   });
 }
 // The fits a machine shop actually calls out, expressed on the rows above.
@@ -102,7 +103,7 @@ const FITS = [
   { name: 'H7/g6', kind: 'close running', use: 'a piston or plug that must slide under load, e.g. an O-ring-sealed end cap sliding into a tank bore', hole: ['H', 7], shaft: ['g', 6] },
   { name: 'H8/f7', kind: 'free running', use: 'a normal sliding fit where a little clearance is welcome: av-bay sled rails, a motor tube in a centring ring', hole: ['H', 8], shaft: ['f', 7] },
   { name: 'H9/d9', kind: 'loose running', use: 'wide clearance for paint, anodise, thermal growth or dirt: a coupler into a phenolic tube', hole: ['H', 9], shaft: ['d', 9] },
-  { name: 'H11/c11', kind: 'very loose', use: 'as-cut composite tubes and anything hand-fitted; the clearance no fit table can save you from measuring', hole: ['H', 11], shaft: ['d', 11] },
+  { name: 'H11/d11', kind: 'very loose', use: 'as-cut composite tubes and anything hand-fitted; the clearance no fit table can save you from measuring. The looser H11/c11 a shop might call out is NOT here: c has no closed-form deviation in this file, and a fit named for a letter it was not built from is worse than no fit at all', hole: ['H', 11], shaft: ['d', 11] },
   { name: 'H7/k6', kind: 'transition', use: 'a located part that should not move but must still be removable with light force', hole: ['H', 7], shaft: ['k', 6] },
   { name: 'H7/n6', kind: 'tight transition, light press', use: 'a bushing or bearing outer race pressed into an aluminium housing', hole: ['H', 7], shaft: ['n', 6] },
 ];
@@ -117,7 +118,7 @@ const table = {
     confidence: 'likely: two independent derivations agree', source: 'the formula and what corroborates it',
   },
   notes: `HOW TO USE. A fit is a hole letter and grade over a shaft letter and grade, e.g. H7/g6 on a 101.60 bore. The hole H7 runs 0 to +IT7; the shaft g6 runs es to es−IT6, where es is negative. Clearance is therefore (hole max − shaft min) down to (hole min − shaft max). Worked: Ø50 H7/g6 → H7 = ${IT_PUBLISHED['30-50'][7]} µm so the bore is 50.000/50.0${String(IT_PUBLISHED['30-50'][7]).padStart(2, '0')}; g6 es = ${DEV_PUBLISHED['30-50'].g} and IT6 = ${IT_PUBLISHED['30-50'][6]} so the shaft is 49.991/49.975; clearance 0.009 to 0.050 mm.
-LIMITS. (1) Size steps stop at 500 mm; nothing here applies above it. (2) Only the letters whose fundamental deviation is a single closed formula are here: d, e, f, g, h, k, n. The interference letters p, r, s, t and u need the standard's delta rule and are NOT in this table — a press fit taken from a half-remembered table is how a coupler cracks, so get p6 or s6 from the standard or a vendor chart and say where it came from. (3) k is +0.6·∛D for grades 4 to 7 only; at other grades its deviation is zero. (4) js is symmetric, ±IT/2, and needs no table. (5) THESE ARE FOR MACHINED METAL. A composite or phenolic tube is not round, not constant, and not to an IT grade: for anything mating with a body tube or coupler, measure the actual part at three clockings and design to the measurement with a stated clearance — the airframes table says the same thing. (6) Anodise adds roughly 0.005 to 0.025 mm per surface on a Type II coating and more on Type III; mask the fit or size for the coating. (7) The thermal case matters for a rocket: an aluminium part in a composite tube gains clearance as it cools at altitude and loses it in the sun on the pad.
+LIMITS. (1) Size steps stop at 500 mm; nothing here applies above it. (2) Only the letters whose fundamental deviation is a single closed formula are here: d, e, f, g, h, k, n — and k's value applies to grades 4 to 7 only; at any other grade its deviation is zero, which dbFit() enforces. The interference letters p, r, s, t and u need the standard's delta rule and are NOT in this table — a press fit taken from a half-remembered table is how a coupler cracks, so get p6 or s6 from the standard or a vendor chart and say where it came from. (3) k is +0.6·∛D for grades 4 to 7 only; at other grades its deviation is zero. (4) js is symmetric, ±IT/2, and needs no table. (5) THESE ARE FOR MACHINED METAL. A composite or phenolic tube is not round, not constant, and not to an IT grade: for anything mating with a body tube or coupler, measure the actual part at three clockings and design to the measurement with a stated clearance — the airframes table says the same thing. (6) Anodise adds roughly 0.005 to 0.025 mm per surface on a Type II coating and more on Type III; mask the fit or size for the coating. (7) The thermal case matters for a rocket: an aluminium part in a composite tube gains clearance as it cools at altitude and loses it in the sun on the pad.
 ${disputed.length ? `WITHHELD: ${disputed.length} value(s) where the formula and the published table disagreed; see 'disputed'.` : 'Every value in this table was reproduced by both derivations.'}`,
   fits: FITS,
   rows,

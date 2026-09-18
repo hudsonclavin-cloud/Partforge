@@ -18,8 +18,9 @@ const check = (n, ok, d) => { if(!ok) fail++; console.log(`${ok ? 'PASS' : 'FAIL
   const out = await page.evaluate(async () => {
     const pf = window.__pf;
     pf.settings.provider = 'anthropic'; pf.settings.key = 'sk-ant-test'; pf.settings.base = 'https://api.anthropic.com'; pf.settings.grade = 'flight';
+    pf.settings.search = true;                                    // the case that used to break: search on
     await pf.callClaude('a 98 mm motor retainer');
-    await pf.callClaude('6 inch airframe');                       // second turn: the read that pays for the write
+    await pf.callClaude('6 inch airframe', { search: false });    // the gate retry suppresses search
     document.getElementById('btnSettings').click();
     const s = document.getElementById('tokenStats').textContent;
     document.getElementById('dlgClose') ? document.getElementById('dlgClose').click() : null;
@@ -27,10 +28,15 @@ const check = (n, ok, d) => { if(!ok) fail++; console.log(`${ok ? 'PASS' : 'FAIL
   });
   check('the 1-hour cache marker is on the system block', bodies.every(b => b.system[0].cache_control && b.system[0].cache_control.ttl === '1h'), JSON.stringify(bodies.map(b => b.system[0].cache_control)));
   check('the system block is identical on both calls (nothing per-request leaks into it)', bodies[0].system[0].text === bodies[1].system[0].text, 'system text differs between turns — the cache would miss');
+  // The cached prefix is tools -> system -> messages. A retry that drops the tool block moves
+  // everything behind it, so the system entry misses and is written again at 2x.
+  const prefix = b => JSON.stringify([b.tools, b.system]);
+  check('the whole cached prefix (tools + system) is identical, not just the system block', prefix(bodies[0]) === prefix(bodies[1]), `tools ${JSON.stringify(bodies.map(b => (b.tools || []).length))}`);
   const hintMark = /hardest-pulling current 98 mm motors/;
   check('the looked-up hardware rides in the user turn, never in the cached system block', hintMark.test(JSON.stringify(bodies[0].messages)) && !hintMark.test(bodies[0].system[0].text), `messages ${hintMark.test(JSON.stringify(bodies[0].messages))}, system ${hintMark.test(bodies[0].system[0].text)}`);
   check('cache reads are counted and shown', /13\.6k read from cache at 10%/.test(out.stats), out.stats);
   check('the TTL stays at 1h when the provider accepts it', out.ttl === '1h', String(out.ttl));
+  check('search is suppressed by tool_choice, not by removing the tool', !bodies[0].tool_choice && bodies[1].tool_choice && bodies[1].tool_choice.type === 'none', JSON.stringify(bodies.map(b => b.tool_choice)));
   check('no page errors', errs.length === 0, errs.join('; '));
   await page.close();
 }
