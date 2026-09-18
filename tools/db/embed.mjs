@@ -49,6 +49,17 @@ const data = { meta: {} };
     },
     notes: t.notes, license_note: t.license_note };
 }
+// motor_perf — [name, designation, mfr, d_mm, class, avg_N, max_N, maxSrc c/e, imp_Ns, burn_s, prop_g, total_g, case, avail r/o, conf]
+{
+  const t = need('motor_perf');
+  const MS = { certified: 'c', 'sampled curve (estimate)': 'e' };   // anything else: no peak in the record at all
+  data.motor_perf = { compact: 'motor_perf', columns: '[name, designation, mfr, d_mm, class, avg_thrust_N, max_thrust_N, max_src c=certified/e=estimated from the sampled curve/n=none in the record, tot_impulse_Ns, burn_s, prop_g, total_g, case, availability r=regular/o=OOP, confidence c/l/r, disputed [[field, why], …]?]',
+    // the disputed element is only present on the handful of rows that have one — an `undefined`
+    // in an array literal serialises as null, which would cost 1 kB of padding across 1037 rows
+    rows: t.rows.map(r => { const row = [r.name, r.designation, r.mfr, r.d_mm, r.class, r.avg_thrust_N, r.max_thrust_N, MS[r.max_thrust_src] || 'n', r.tot_impulse_Ns, r.burn_s, r.prop_g, r.total_g, r.case, r.availability === 'regular' ? 'r' : 'o', conf(r)]; if((r.disputed || []).length) row.push(r.disputed.map(d => [d.field, d.value])); return row; }),
+    source: common(t.rows, 'source') || 'thrustcurve-db 4.0.1 (ISC; ThrustCurve.org data by John Coker)',
+    notes: t.notes, license_note: t.license_note };
+}
 // orings — [dash, id_in, id_tol_in, cs_in, cs_tol_in, conf, t42?] where t42 = Parker Table 4-2 inch [A_bore, B1_piston_groove, A1_rod_groove, B_rod, C_plug, D_throat] for 0.5 ≤ id ≤ 7.0 in
 {
   const t = need('orings_as568');

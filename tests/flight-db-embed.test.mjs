@@ -14,7 +14,7 @@ const near = (a, b, tol = 1e-6) => a == null && b == null || Math.abs(a - b) <= 
 
 console.log('== every table is embedded ==');
 const files = fs.readdirSync(path.join(root, 'data/tables')).filter(f => f.endsWith('.json')).sort();
-check('ten source tables on disk', files.length === 10, `${files.length}: ${files.join(', ')}`);
+check('eleven source tables on disk', files.length === 11, `${files.length}: ${files.join(', ')}`);
 for(const f of files){
   const key = f.replace(/\.json$/, '');
   const t = read(f), emb = FLIGHT_DB_DATA[key];
@@ -66,6 +66,21 @@ console.log('== the compact projections expand back to the source numbers ==');
     if(g.confidence !== s.confidence) bad.push(`${s.key} confidence`);
   }
   check(`all ${src.rows.length} stock rows keep their finished-size numbers`, !bad.length, bad.slice(0, 4).join('; '));
+}
+
+{
+  const src = read('motor_perf.json'), got = dbRows('motor_perf');
+  const bad = [];
+  for(const s of src.rows){
+    const g = got.find(x => x.designation === s.designation && x.mfr === s.mfr);
+    if(!g){ bad.push(`${s.key} missing`); continue; }
+    for(const f of ['d_mm', 'avg_thrust_N', 'max_thrust_N', 'tot_impulse_Ns', 'burn_s', 'prop_g', 'total_g']) if(s[f] != null && !near(g[f], s[f], 1e-9)) bad.push(`${s.key}.${f} ${g[f]} vs ${s[f]}`);
+    if(g.max_thrust_src !== s.max_thrust_src) bad.push(`${s.key} peak provenance`);
+    if(g.availability !== s.availability) bad.push(`${s.key} availability`);
+  }
+  check(`all ${src.rows.length} motor performance rows keep their certified numbers`, !bad.length, bad.slice(0, 4).join('; '));
+  const cert = src.rows.filter(r => r.max_thrust_src === 'certified').length;
+  check(`${cert} peaks are certified and the rest say they are estimates`, got.filter(x => x.max_certified).length === cert, '');
 }
 
 console.log('== the object tables ship whole, with the maps the hints read ==');

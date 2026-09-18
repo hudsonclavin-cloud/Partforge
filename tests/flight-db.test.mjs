@@ -1,5 +1,5 @@
 // node tests/flight-db.test.mjs — the reference data and its resolvers, on the code that ships.
-import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbAirframes, dbMotors, dbHints, dbSummary, dbRows, dbCredits } from './.build/flight-db.js';
+import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbHints, dbSummary, dbRows, dbCredits } from './.build/flight-db.js';
 
 let fails = 0, passes = 0;
 function check(name, got, expected, cmp){
@@ -52,6 +52,30 @@ check('a case name matches directly', r5.length === 1 && r5[0].len_mm, 443);
 ok('Pro75-5G', dbMotors('Pro75-5G'), r => r.length === 1 && r[0].len_mm === 757 && r[0].d_mm === 75, JSON.stringify(dbMotors('Pro75-5G')));
 ok('a vendor alone lists that vendor', dbMotors('Cesaroni'), r => r.length > 20 && r.every(x => x.mfr === 'Cesaroni'), '');
 ok('no motor words, no motors', dbMotors('a hinged box'), r => r.length === 0, '');
+
+console.log('== certified motor performance: the load case ==');
+const P = dbMotorPerfRows();
+ok('motor performance rows embedded (F and up)', P.length, n => n > 900, String(P.length));
+ok('every row has a class, a diameter and an impulse', P, r => r.every(x => /^[F-Q]$/.test(x.class) && x.d_mm > 0 && x.tot_impulse_Ns > 0), '');
+ok('peaks are labelled certified or estimated, never bare', P.filter(x => x.max_thrust_N), r => r.every(x => typeof x.max_certified === 'boolean') && r.filter(x => !x.max_certified).length > 50, `${P.filter(x => x.max_thrust_N && !x.max_certified).length} estimated`);
+ok('an estimated peak is never labelled likely', P.filter(x => x.max_thrust_N && !x.max_certified), r => r.every(x => x.confidence === 'recall'), '');
+// every class letter doubles the impulse band from A = 1.26–2.5 N·s, so F is 40–80 and N is 10.24–20.48 kN·s
+const BAND = c => { const i = 'ABCDEFGHIJKLMNO'.indexOf(c); return [1.25 * 2 ** i, 2.5 * 2 ** i]; };
+const offBand = P.filter(x => { const [lo, hi] = BAND(x.class); return !(x.tot_impulse_Ns > lo * 0.97 && x.tot_impulse_Ns <= hi * 1.03); });
+ok('the two motors whose class letter fights their certified impulse are flagged, not smoothed over', dbRows('motor_perf').filter(x => (x.disputed || []).some(d => d.field === 'class')).length, n => n === offBand.length && n === 2, `${offBand.length} off-band: ${offBand.map(x => x.mfr + ' ' + x.name).join(', ')}`);
+ok('no motor ever offers a peak below its own average — the five upstream rows that did are withheld', P.filter(x => x.max_thrust_N && x.avg_thrust_N), r => r.every(x => x.max_thrust_N >= x.avg_thrust_N * 0.999), P.filter(x => x.max_thrust_N && x.avg_thrust_N && x.max_thrust_N < x.avg_thrust_N * 0.999).slice(0, 4).map(x => `${x.name} ${x.max_thrust_N}<${x.avg_thrust_N}`).join(', '));
+ok('and those five say why the peak is missing', dbRows('motor_perf').filter(x => (x.disputed || []).some(d => d.field === 'max_thrust_N')), r => r.length === 5 && r.every(x => x.max_thrust_N == null && /BELOW the certified average/.test(x.disputed[0].value)), String(dbRows('motor_perf').filter(x => (x.disputed || []).some(d => d.field === 'max_thrust_N')).length));
+ok('a motor with no peak in the record says so rather than pretending to an estimate', dbRows('motor_perf').filter(x => x.max_thrust_N == null), r => r.length > 0 && r.every(x => x.max_thrust_src === null), String(dbRows('motor_perf').filter(x => x.max_thrust_N == null).length));
+const m1670 = dbMotorPerf('a retainer for a Cesaroni M1670');
+ok('M1670 resolves to the Cesaroni Pro75-5G reload', m1670, r => r.length === 1 && r[0].max_thrust_N === 2232 && r[0].case === 'Pro75-5G' && r[0].d_mm === 75, JSON.stringify(m1670.slice(0, 2)));
+ok('a full designation works too', dbMotorPerf('motor 6026M1670-P'), r => r.length === 1 && r[0].name === 'M1670', '');
+ok('a name several motors share returns all of them', dbMotorPerf('an 80 N motor, the G80'), r => r.length >= 5 && r.every(x => x.name === 'G80'), String(dbMotorPerf('an 80 N motor, the G80').length));
+const hp = dbHints('a bolt-on motor retainer for a Cesaroni M1670');
+ok('the hint gives the certified peak, not the average', hp, h => /Motor M1670 \(Cesaroni 6026M1670-P\)/.test(h) && /PEAK thrust 2232 N \(certified\)/.test(h) && /average 1668 N/.test(h) && /Design the retainer and thrust path to the PEAK/.test(h), hp.slice(-400));
+ok('and a named motor narrows the hardware list to its size', hp, h => /75 mm motor hardware/.test(h) && !/24 mm motor hardware/.test(h), '');
+ok('a bare size gets the bounding motor: 98 mm is N10000 at 11560 N', dbHints('a retainer for a 98 mm motor'), h => /hardest-pulling current 98 mm motors are Cesaroni N10000 11560 N peak/.test(h), (dbHints('a retainer for a 98 mm motor').split('\n- ').find(l => /Peak thrust/.test(l)) || '').slice(0, 200));
+ok('G12 fiberglass is not read as a class-G motor', dbHints('a G12 fiberglass coupler for a 98 mm motor mount'), h => !/Motor G12/.test(h), '');
+ok('an out-of-production motor says so', dbMotorPerfRows().filter(x => !x.current).length, n => n > 200, String(dbMotorPerfRows().filter(x => !x.current).length));
 
 console.log('== the hints the model gets ==');
 const h1 = dbHints('A bolt-on motor retainer for a 98 mm motor case in a 6 inch airframe, 8 M6 bolts, 20 kN peak thrust');
