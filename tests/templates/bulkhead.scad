@@ -8,7 +8,7 @@
 // NOTE: Stop ring in the coupler must cover the groove: land ID <= 125 mm, land OD = coupler ID; the 4 rods pass inside it on the 110 bolt circle
 // NOTE: 4 x 6.60 holes = 1/4 in all-thread clearance (6.35 + 0.25) on a 110.00 bolt circle (4.331 in) at 45/135/225/315 deg; 2 x 7.00 holes for a 1/4-20 U-bolt on 44.45 (1.750 in) centres along y; every through hole is INSIDE the seal, so put bonded sealing washers under the rod nuts and the U-bolt nuts or gas bypasses the O-ring
 // NOTE: 2 x 3.20 e-match lead feed-throughs at (+/-6, -40), potted with epoxy after wiring; 2 x #8-32 tapped holes (tap drill #29 = 3.45 mm, 10 deep, modelled at tap drill) on 25.4 centres at y = -50 for a 2-position barrier strip; change tb_pitch/tb_drill for your block
-// NOTE: Recovery shock 5 kN on the U-bolt is tension in the two 1/4-20 legs (122 MPa on the 20.5 mm2 stress area, SF > 3 on a grade-2 steel U-bolt) and tension in the 4 all-thread rods; declared as bolt_shear per the contract, see NOTES
+// NOTE: Recovery shock 5 kN on the U-bolt is tension in the two 1/4-20 legs (122 MPa on the 20.5 mm2 stress area) and tension in the 4 all-thread rods. Declared as bolt_shear per the contract, which checks 0.577*sy and is therefore conservative for a tension load. SPECIFY A STAINLESS A2-70 U-BOLT: a zinc-plated grade-2 steel one (sy 393 MPa) makes only SF 1.86 against that conservative basis, and this file used to pass only because an undeclared grade silently defaulted to 8.8
 // SPEC-BEGIN
 // {"name":"6 in av-bay ejection bulkhead","size_mm":[146.2,146.2,37.7],
 //  "parts":[{"name":"plate","role":"bulkhead disc with face-seal groove, OD chamfers and all through holes","size_mm":[146.2,146.2,12.7]},
@@ -34,7 +34,7 @@
 //            {"name":"groove ID wall NO-GO","module":"gauge_groove_nogo_id","expect":"blocked","why":"groove ID wall not below 126.52 (O-ring seats on this wall)"},
 //            {"name":"groove OD wall NO-GO","module":"gauge_groove_nogo_od","expect":"blocked","why":"groove OD wall not above 132.88"},
 //            {"name":"groove depth NO-GO","module":"gauge_groove_nogo_depth","expect":"blocked","why":"groove floor not deeper than 2.00 (squeeze stays above 22 %)"}],
-//  "loads":[{"check":"bolt_shear","name":"U-bolt recovery shock","size":"1/4-20","n":2,"force_N":5000,"plate_t_mm":12.7,"sf_min":2.0,"inputs_src":"default"},
+//  "loads":[{"check":"bolt_shear","name":"U-bolt recovery shock","size":"1/4-20","grade":"A2-70","n":2,"force_N":5000,"plate_t_mm":12.7,"sf_min":2.0,"inputs_src":"default"},
 //           {"check":"thread","name":"terminal block screws","size":"#8-32","engagement_mm":10,"internal_material":"6061-T6","sf_min":2.0,"inputs_src":"default"}],
 //  "mfg":{"stock":"152.4 mm (6.000 in) 6061-T6 round bar, 45 mm slice per bulkhead",
 //         "finish":"bare or type II clear anodize; seal land and groove 0.8 um Ra (32 uin) max with a circular lay",

@@ -21,6 +21,14 @@ fs.writeFileSync(path.join(build, 'flight-eng.js'), block('ENG',
   'export { massProperties, jacobiEigen3, isa, hoopStress, flutterVelocity, threadCheck, boltShear, parseThreadSize, tensileStressArea_mm2, fnFor, chordalDeviation, openscadFragments, FLIGHT_MATERIALS, FLIGHT_PROCESSES, ISA_LAYERS, ISA_BASE_P, METRIC_COARSE_PITCH, UN_MAJOR_IN, ENGAGEMENT_RULE };'));
 fs.writeFileSync(path.join(build, 'flight-cmm.js'), block('CMM',
   'export { buildMeshIndex, rayHits, pointInside, measureBore, measureHoles, measureExtent, measureOD, revolveProfile, measureRevolve };'));
+// The doctrine is a template literal inside flightSystemPrompt(), not a marked block: the tests
+// read it as text so they can check the prompt does not restate a number the tables carry.
+{
+  const a = html.indexOf('function flightSystemPrompt(){'), open_ = html.indexOf('return `', a) + 8;
+  const close = html.indexOf('`;', open_);
+  if(a < 0 || close < 0) throw new Error('flightSystemPrompt() not found in index.html');
+  fs.writeFileSync(path.join(build, 'flight-doctrine.js'), 'export const FLIGHT_SYSTEM_DOCTRINE = ' + JSON.stringify(html.slice(open_, close)) + ';\n');
+}
 fs.writeFileSync(path.join(build, 'flight-db.js'), block('DB',
   'export { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal, dbHints, dbSummary, dbRows, dbCredits };'));
 fs.writeFileSync(path.join(build, 'flight-decl.js'), block('DECL',

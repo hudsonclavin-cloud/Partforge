@@ -1,4 +1,5 @@
 // node tests/flight-db.test.mjs — the reference data and its resolvers, on the code that ships.
+import { FLIGHT_SYSTEM_DOCTRINE } from './.build/flight-doctrine.js';
 import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal, dbHints, dbSummary, dbRows, dbCredits } from './.build/flight-db.js';
 
 let fails = 0, passes = 0;
@@ -52,6 +53,20 @@ check('a case name matches directly', r5.length === 1 && r5[0].len_mm, 443);
 ok('Pro75-5G', dbMotors('Pro75-5G'), r => r.length === 1 && r[0].len_mm === 757 && r[0].d_mm === 75, JSON.stringify(dbMotors('Pro75-5G')));
 ok('a vendor alone lists that vendor', dbMotors('Cesaroni'), r => r.length > 20 && r.every(x => x.mfr === 'Cesaroni'), '');
 ok('no motor words, no motors', dbMotors('a hinged box'), r => r.length === 0, '');
+
+console.log('== the doctrine does not contradict the tables ==');
+{
+  // Numbers typed into the prompt drift from the tables that ship beside them. The inch
+  // clearances did: the doctrine called 6.76 mm the NORMAL hole for 1/4 in, where the table makes
+  // it the CLOSE one. Nothing in the doctrine may restate a fastener number the tables carry.
+  const doc = FLIGHT_SYSTEM_DOCTRINE;
+  const un = dbRows('fasteners_un');
+  const quarter = un.find(r => r.key === '1/4-20');
+  ok('the table is the one that ships', quarter, r => Math.abs(r.clearance_close_mm - 6.746) < 0.01 && Math.abs(r.clearance_normal_mm - 7.144) < 0.01, JSON.stringify([quarter.clearance_close_mm, quarter.clearance_normal_mm]));
+  ok('the doctrine no longer types inch clearance holes of its own', doc, d => !/#4 3\.26|#6 3\.80|1\/4 6\.76|5\/16 8\.43/.test(d), (doc.match(/1\/4 6\.76[^.]*/) || [''])[0]);
+  ok('and sends the model to the reference data for them instead', doc, d => /do NOT use a remembered clearance or tap drill/.test(d) && /ASME B18\.2\.8 close\/normal\/loose/.test(d), '');
+  ok('a recall row may not be cited as a source', doc, d => /A \[recall\] line is NOT a citation/.test(d) && /tol_src "user" or "default"/.test(d), '');
+}
 
 console.log('== certified motor performance: the load case ==');
 const P = dbMotorPerfRows();
