@@ -240,20 +240,28 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 407 assertions, no dependencies). Two files a real generation produced
+(`node tests/run.mjs`, 430 assertions, no dependencies). Two files a real generation produced
 during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
 are tested against what a model actually writes, not only against templates written to pass.
 
-**Reference data.** A request that names an airframe size, a motor, or (once the verified tables
-land) a thread, O-ring or NPT port gets the real hardware handed to the designer with the vendor and
-part number: 122 body tubes, 62 couplers and 107 centering rings from LOC, Madcow, Blue Tube, PML,
-Giant Leap and Estes (openrocket-database, Apache-2.0), and 100 current reload hardware sets from
-Cesaroni, AeroTech, Loki, AMW and Gorilla (ThrustCurve.org via thrustcurve-db, ISC). "6 inch
-airframe" becomes "6 of 9 share ID 152.4 (Blue Tube, Giant Leap, Madcow) … OD ranges 155.57–157.48;
-PML PT-6.0 is 152.58" instead of "assumed 152.40 — measure actual tube", and the doctrine requires the
-vendor and PN in a NOTE with `tol_src "source"`. What the data does not know — motor closures,
-Wildman — the hint says so. ⚙ Settings → *Look up real hardware…* runs the same lookup by hand.
-`data/README.md` has the sources, licences and the regeneration pipeline (`tools/db/`).
+**Reference data.** A request that names an airframe size, a motor, a thread, an O-ring dash
+number, an NPT port, a drill, a stock size, a launch rail or an altimeter gets the real numbers
+handed to the designer, each with its source and a confidence label: 122 body tubes, 62 couplers
+and 107 centering rings from LOC, Madcow, Blue Tube, PML, Giant Leap and Estes
+(openrocket-database, Apache-2.0); 103 current reload hardware sets from Cesaroni, AeroTech, Loki
+and AMW with the MMT tubes for each class (ThrustCurve.org via thrustcurve-db, ISC); and eight
+standards tables — 299 AS568 O-rings with the per-dash Parker ORD 5700 gland diameters, M2–M20
+and #2-56–1/2-20 fasteners, 1/16–1 in NPT, 282 twist drills, 192 6061 stock sizes with the
+finished size each can yield, rails and rail buttons, and altimeter board envelopes — each
+compiled, attacked by three independent reviewers and reconciled (`docs/data/PROVENANCE.md`).
+"6 inch airframe" becomes "6 of 8 share ID 152.4 (Blue Tube, Giant Leap, Madcow) … [likely] …
+[recall, disputed]" instead of "assumed 152.40 — measure actual tube"; "AS568-240 piston seal"
+becomes "ID 94.84 ±0.71 … RADIAL: bore A 101.6, groove bottom B1 95.96" — the dry run's end cap
+had written 88.27 and cut its radial groove to the face-seal depth. The doctrine requires the
+vendor, PN and label in a NOTE with `tol_src "source"`, and a [recall] value is never upgraded to
+a fact. What the data does not know — motor closures, Wildman — the hint says so. ⚙ Settings →
+*Look up real hardware…* runs the same lookup by hand; *Data sources…* prints the attribution.
+`data/README.md` has the tables, licences and the regeneration pipeline (`tools/db/`).
 
 Flight templates work with no API key. `?bench=1` in flight grade runs the flight bench:
 twelve things a space-shot club types, scored by the same gate plus the measurements —

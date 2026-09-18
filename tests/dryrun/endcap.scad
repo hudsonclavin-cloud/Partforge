@@ -4,7 +4,7 @@
 // NOTE: hazard=pressure — PRESSURE BOUNDARY at 60 bar MEOP. Tier B ICD. Hydrotest to 90 bar (1305 psi) with water before any gas service. A signed hydro record must accompany the part; do not fly without it.
 // NOTE: Tank bore (piston bore) assumed 101.60 mm = 4.000 in nominal. MEASURE actual tank ID and update tank_bore and shoulder_od before release.
 // NOTE: Shoulder OD 101.50 mm fits tank bore 101.60 mm with 0.10 mm diametral clearance for O-ring piston seal installation.
-// NOTE: O-ring AS568-240: ID 88.27 mm, CS 3.53 mm. Radial piston seal. Parker ORD 5700 Table 4-2, CS 3.53 mm, static lubricated piston gland: groove depth 2.59 mm from shoulder OD surface, groove width 4.75 mm min. Groove bottom OD = 101.50 - 2×2.59 = 96.32 mm.
+// NOTE: O-ring AS568-240: ID 94.84 mm (3.734 in), CS 3.53 mm. Radial piston seal. Parker ORD 5700 Table 4-2 for -240: bore A 101.60, groove bottom B1 95.96 (+0/-0.05), groove width G 4.75-4.88 mm. Groove depth from the 101.50 shoulder OD = (101.50 - 95.96)/2 = 2.77 mm (the face-seal depth 2.59 is NOT the radial gland).
 // NOTE: 1/4 NPT port per ANSI/ASME B1.20.1. Tap drill 7/16 in = 11.111 mm, modelled at nominal tap-drill diameter (straight cylinder — taper cut by the tap). Callout on drawing: 1/4 NPT ANSI/ASME B1.20.1.
 // NOTE: 8× M8 bolt circle Ø115 mm secures cap to tank flange. Flange OD 127.00 mm = 5.000 in (standard round bar). M8 clearance holes ISO 273 medium = 9.0 mm.
 // NOTE: Total axial thickness 25.40 mm = 1.000 in. Shoulder length 20.00 mm (flange step 5.40 mm + shoulder 20.00 mm = 25.40 mm total).
@@ -37,13 +37,13 @@
 //  "bores":[
 //    {"name":"lightening pocket bore","d_mm":80.000,"tol_mm":0.130,"pos_tol_mm":0.100,"at_mm":[0,0],"axis":"z","from_mm":0,"to_mm":8.000,"tol_src":"default"},
 //    {"name":"npt port tap drill","d_mm":11.110,"tol_mm":0.100,"pos_tol_mm":0.200,"at_mm":[0,0],"axis":"z","from_mm":28.400,"to_mm":13.900,"tol_src":"source","tol_ref":"ANSI/ASME B1.20.1 1/4 NPT tap drill = 7/16 in = 11.111 mm; depth 14.5 mm from outer face of boss"},
-//    {"name":"o-ring groove bottom diameter","d_mm":96.320,"tol_mm":0.050,"pos_tol_mm":0.050,"at_mm":[0,0],"axis":"z","from_mm":11.150,"to_mm":15.900,"tol_src":"source","tol_ref":"Parker ORD 5700 Table 4-2 piston CS 3.53 mm: groove depth 2.59 mm, groove bottom OD = 101.50 - 2*2.59 = 96.32 mm"}
+//    {"name":"o-ring groove bottom diameter","d_mm":95.960,"tol_mm":0.050,"pos_tol_mm":0.050,"at_mm":[0,0],"axis":"z","from_mm":11.150,"to_mm":15.900,"tol_src":"source","tol_ref":"Parker ORD 5700 Table 4-2 piston CS 3.53 mm: groove bottom B1 = 95.96 mm, groove bottom OD = 101.50 - 2*2.59 = 96.32 mm"}
 //  ],
 //  "holes":[
 //    {"name":"M8 bolt pattern clearance","d_mm":9.000,"tol_mm":0.100,"pos_tol_mm":0.150,"pattern":"circle","n":8,"bc_d_mm":115.000,"start_deg":22.5,"axis":"z","from_mm":0,"to_mm":25.400,"tol_src":"source","tol_ref":"ISO 273 medium clearance M8 = 9.0 mm"}
 //  ],
 //  "loads":[
-//    {"check":"hoop","name":"shoulder wall at O-ring groove root","P_MPa":6.00,"ri_mm":48.160,"t_mm":2.590,"sf_min":2.0,"inputs_src":"user","note":"ri = groove bottom radius = 96.32/2 = 48.16 mm; t = groove depth = 2.59 mm (thinnest wall); Lame hoop sigma = P*(ri^2+ro^2)/(ro^2-ri^2), ro=50.75 mm"},
+//    {"check":"hoop","name":"shoulder wall at O-ring groove root","P_MPa":6.00,"ri_mm":47.980,"t_mm":2.770,"sf_min":2.0,"inputs_src":"user","note":"ri = groove bottom radius = 95.96/2 = 47.98 mm; t = groove depth = 2.77 mm (thinnest wall); Lame hoop sigma = P*(ri^2+ro^2)/(ro^2-ri^2), ro=50.75 mm"},
 //    {"check":"hoop","name":"flange face plate at MEOP","P_MPa":6.00,"ri_mm":40.000,"t_mm":17.400,"sf_min":2.0,"inputs_src":"user","note":"face plate thickness = total_z - pocket_z = 25.4 - 8.0 = 17.4 mm; ri=40 mm conservative pressure span"},
 //    {"check":"thread","name":"M8 bolts into aluminium tank flange","size":"M8","engagement_mm":16.000,"internal_material":"6061-T6","inputs_src":"user","note":"16 mm engagement = 2x bolt diameter in tank flange; measure actual depth before assembly"},
 //    {"check":"bolt_shear","name":"M8 bolt pattern pressure retention","size":"M8","n":8,"force_N":48641,"plate_t_mm":25.400,"sf_min":2.0,"inputs_src":"user","note":"force_N = P * pi * r^2 = 6.00e6 Pa * pi * (0.05080 m)^2 = 48641 N total axial load on bolt pattern","grade":"8.8"}
@@ -75,11 +75,11 @@ npt_depth     = 14.500;  // 1/4 NPT tap drill depth from top of boss (mm)
 // Shoulder runs from z=flange_z to z=flange_z+shoulder_z = 5.4 to 25.4
 // Groove near edge (toward outer face): z = 5.4 + 5.75 = 11.15
 // Groove far  edge (toward inner face): z = 5.4 + 5.75 + 4.75 = 15.90
-groove_depth  = 2.590;   // radial groove depth from shoulder OD surface (mm) per Parker ORD 5700
-groove_w      = 4.750;   // groove width (mm) per Parker ORD 5700 Table 4-2
+groove_depth  = 2.770;   // radial groove depth from the 101.50 shoulder OD to Parker Table 4-2 B1 = 95.96 (mm)
+groove_w      = 4.750;   // groove width (mm) per Parker ORD 5700 Table 4-2 (G 4.75-4.88, no back-up ring)
 groove_z0     = flange_z + 5.750; // groove near edge z from inner face (mm) = 11.150
-// groove_bottom OD = shoulder_od - 2*groove_depth = 101.50 - 5.18 = 96.32 mm
-groove_bot_od = shoulder_od - 2 * groove_depth; // = 96.320 mm
+// groove_bottom OD = shoulder_od - 2*groove_depth = 101.50 - 5.54 = 95.96 mm (Parker Table 4-2 B1 for -240)
+groove_bot_od = shoulder_od - 2 * groove_depth; // = 95.960 mm
 
 // Bolt circle
 bolt_n        = 8;       // number of M8 bolts
@@ -145,7 +145,7 @@ module shoulder() {
     gz0 = groove_z0;               // near edge  = 11.150 mm
     gz1 = groove_z0 + groove_w;    // far  edge  = 15.900 mm
     sh_r  = shoulder_od / 2;       // 50.750 mm
-    gb_r  = groove_bot_od / 2;     // 48.160 mm
+    gb_r  = groove_bot_od / 2;     // 47.980 mm
 
     rotate_extrude($fn=fn_s)
         polygon([

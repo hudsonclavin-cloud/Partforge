@@ -181,3 +181,20 @@ What neither path tests is the thing that needs a model: whether the doctrine pr
 conforming file on the first try. For that, a fresh model given only the doctrine and a request
 — a colleague's free chat window works — is the honest proxy, and the Replay provider scores
 its answer.
+
+## What the reference data would have changed (Gen 23)
+
+The three reviewers who attacked the O-ring table found two more errors in case 2's end cap
+that the geometry checks could not see, because the numbers were internally consistent:
+
+- **AS568-240 is ID 3.734 in = 94.84 mm**, not 88.27 (the file's value is no dash size at all).
+- **The radial groove was cut to the face-seal depth.** 2.59 mm is the Parker chart 4-3 face-seal
+  depth for W .139; a piston seal in a 101.60 bore uses Table 4-2 for the dash: groove bottom
+  B1 95.96 (+0/−0.05), so the depth from the 101.50 shoulder is 2.77 mm, and the groove width is
+  4.75–4.88 with no back-up ring.
+
+`tests/dryrun/endcap.scad` now carries the corrected numbers (its geometry faults, the ones the
+fixture exists for, are unchanged and still earn the same four failures). The doctrine line on
+O-rings that carried the wrong face-seal widths is corrected from the same table, and the hint
+for a dash number now prints both glands, labelled, so the next end cap does not have to recall
+either. `docs/data/PROVENANCE.md` has the full list of what the reviewers contested.

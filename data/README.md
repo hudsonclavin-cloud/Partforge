@@ -12,26 +12,49 @@ O-ring dash numbers and NPT ports. Nothing is looked up for a hobby-grade reques
 
 ## Files
 
-| file | what | rows | source |
-|---|---|---|---|
-| `airframes.json` | body tubes, couplers and centering rings by vendor and material: ID, OD, wall, part numbers, stock lengths. LOC Precision, Madcow, Blue Tube (Always Ready Rocketry), Public Missiles, Giant Leap, and the Estes BT series | 291 | openrocket-database |
-| `motors.json` | reload hardware sets: case diameter, loaded length per grain count, loaded and propellant mass, impulse classes. Cesaroni Pro-X, AeroTech RMS, Loki, AMW, Gorilla | 124 (100 current) | ThrustCurve.org via thrustcurve-db |
-| `tables/*.json` | verified reference tables (fasteners, O-rings, NPT, drills, stock, rails, avionics; motor and airframe supplements) in the compile-workflow shape: every row carries `confidence` and `source` | — | see each file's `license_note` |
+Everything lives in `tables/<name>.json`, one file per table, all in the same shape: `table`,
+`license_note`, `columns` (what each field means and where it came from), `rows` (every row carries
+`key`, `confidence` — `certain` / `likely` / `recall` — and `source`; a `disputed` entry records
+what a reviewer contested and what was kept), `notes` (read before cutting), and the
+`reconciliation` trail. Each table was compiled by one model, attacked by three independent
+skeptics (spot-check, internal consistency, fitness for the parts PartForge makes), cross-checked
+against open-source transcriptions where any exist, and reconciled. Provenance, limits and the
+attribution text per table: `docs/data/PROVENANCE.md`.
 
-`index.html` embeds a slim copy of all of this between `/* DB-DATA-BEGIN */` and `/* DB-DATA-END */`
-(about 26 KB for the two derived tables). Never edit that literal by hand.
+| table | what | rows | confidence policy |
+|---|---|---|---|
+| `airframes` | body tubes, couplers and centering rings by vendor and material: ID, OD, wall, part numbers, `part_role` (airframe / motor-mount tube / piston / switch band / coupler stiffener …), 10 tube families | 291 + 48 supplement | openrocket-database transcriptions; LOC and Giant Leap rows `recall`, Madcow/Blue Tube/PML/Estes `likely`; 11 known-bad rows kept and flagged |
+| `motors` | reload hardware sets: case diameter, LOADED length per grain count, loaded and propellant mass; supplement of MMT tube IDs, centering-ring bores, and reviewer recall on case ODs and closure architecture | 124 (103 current) + 119 supplement | ThrustCurve data `likely`; every closure/case-OD statement `recall` — "not fit to cut metal from until the club measures its own hardware" |
+| `orings_as568` | AS568 dash sizes −102…−475 with ID/W tolerances and the per-dash Parker ORD 5700 Table 4-2 gland diameters; face-seal chart 4-3 and radial table 4-2 bands in the supplement | 299 | 289 `likely` (three independent tables agree), 10 `recall` |
+| `fasteners_metric` | M2–M20 coarse: pitch, minor diameters, tap and clearance drills (metric and US), SHCS/CSK/button heads, nuts, washers, stress areas, ISO 898-1 grades, thread-engagement and edge-distance rules | 12 | `likely` |
+| `fasteners_un` | #2-56 … 1/2-20 UNC/UNF: the same fields in inch, 75 % and 50 % tap drills, close/normal/loose clearance, related rocketry hardware | 16 | `likely`; cross-checked against cq_warehouse CSVs |
+| `npt` | 1/16 … 1 in NPT: every ASME B1.20.1 Table 1 dimension, tap drills (plain and reamed), engagement lengths, blind-port drill depths | 7 | Table 1 values `certain`, tap drills `likely` |
+| `drills` | fractional, number, letter and metric twist-drill diameters as the standard prints them (ASME rounds ties half-to-even, so mm is stored, never recomputed) | 282 | 204 `certain`, 78 `likely`/`recall` |
+| `stock` | 6061-T6 / 6082-T6 bar, plate, tube and pipe: nominal, mill tolerance band, the maximum FINISHED size and minimum finished bore the stock can yield, casing clearance, spec minimum properties, availability | 192 | tolerance numbers `recall` of ASTM B209/B210/B211/B221/B241 and EN 754/755/485 |
+| `rails` | 1010 / 1515 / 2020 / 3030 / Unistrut rails, launch rods, rail buttons and lugs | 18 | extrusion sizes `certain`, slot geometry `likely`, vendor buttons `recall` |
+| `avionics` | altimeter board envelopes and hole patterns (PerfectFlite, Missile Works, Featherweight, Eggtimer, Altus Metrum) and battery envelopes | 22 | outlines `likely`; NO hole pattern is verified — the sled template slots |
+
+`index.html` embeds a projection of all ten between `/* DB-DATA-BEGIN */` and `/* DB-DATA-END */`
+(about 480 KB: the numbers a designer cuts to, each row's confidence letter and disputed flag, the
+notes and licence text; the per-row source strings, disputed prose and reconciliation blocks stay
+in the files). Never edit that literal by hand. ⚙ Settings → *Data sources…* prints the attribution
+generated from it.
 
 ## Regenerating
 
-    sh tools/db/fetch.sh              # downloads the upstream files into tools/db/_src/ (git-ignored)
-    node tools/db/parse-orc.mjs       # .orc XML -> tools/db/_build/airframes-raw.json (mm, g)
-    node tools/db/derive-motors.mjs   # thrustcurve-db.json -> data/motors.json (hardware sets)
-    node tools/db/curate-airframes.mjs # raw -> data/airframes.json (fit dimensions, lengths collapsed)
-    node tools/db/embed.mjs           # data/ -> index.html between the DB-DATA markers
+    node tools/db/embed.mjs           # data/tables/*.json -> index.html between the DB-DATA markers
     node tests/run.mjs                # tests/flight-db.test.mjs checks the embedded data and the resolvers
 
-The parse and derive steps are deterministic — no judgment, no recall. Curation collapses length
-variants (a length is a stock choice, not a fit) and keeps the vendors a high-power club buys from.
+The two upstream-derived tables started from a deterministic pipeline (kept for the next upstream
+release) before the review passes edited them:
+
+    sh tools/db/fetch.sh              # downloads the upstream files into tools/db/_src/ (git-ignored)
+    node tools/db/parse-orc.mjs       # .orc XML -> tools/db/_build/airframes-raw.json (mm, g)
+    node tools/db/derive-motors.mjs   # thrustcurve-db.json -> hardware sets
+    node tools/db/curate-airframes.mjs # raw -> fit dimensions, lengths collapsed
+
+Re-running them regenerates the pre-review shape; diff it against `tables/airframes.json` and
+`tables/motors.json` and carry the changes across by hand, keeping every `disputed` entry.
 
 ## What the data does not know
 
@@ -67,11 +90,16 @@ which provides it for use in flight simulators and related tools. ISC notice:
 > in all copies. THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
 > REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS.
 
-**The verified tables** (`tables/*.json`) are dimension tables from public standards (ISO 273,
-ISO 4762, ISO 898-1, ASME B18.2.8, ASME B18.3, SAE AS568, ASME B1.20.1, …) compiled from recall by
-language models and adversarially cross-checked, not copied from any standard's text. Each row's
-`source` names the standard; each row's `confidence` says whether it was verified. They are not a
-substitute for the standard where the standard governs.
+**The standards tables** (`tables/*.json` other than airframes and motors) are dimension tables
+from public standards (ISO 261/273/724/4762/898-1, ASME B1.1/B1.20.1/B18.2.8/B18.3/B94.11M,
+SAE AS568, Parker ORD 5700, ASTM B209/B210/B211/B221/B241, EN 754/755/485, …) compiled from recall
+by language models, cross-checked against open-source transcriptions (gumyr/cq_warehouse,
+Apache-2.0; v2gundam/o-ring-fit; bckasper3/KasperCalc; BOSL2; the Altus Metrum manual, GPL
+documentation read for facts only) and adversarially reviewed, not copied from any standard's
+text. Dimensional values are facts; the standards documents remain their owners' copyright. Each
+row's `source` names the standard; each row's `confidence` says whether it was verified. They are
+not a substitute for the standard where the standard governs. The full attribution paragraph per
+table is its `license_note`, printed by ⚙ Settings → *Data sources…*.
 
 This repository itself has no LICENSE file yet. Both upstream licences are permissive and compatible
 with any choice; Apache-2.0 requires that its notice and attribution travel with the derived data,
