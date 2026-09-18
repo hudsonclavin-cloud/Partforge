@@ -4273,11 +4273,16 @@ const FLIGHT_DB_DATA = {
 };
 /* DB-DATA-END */
 const DB_KIND = { T: 'body tube', C: 'coupler', R: 'centering ring' };
-function dbAirframeRows(){ return ((FLIGHT_DB_DATA.airframes || {}).rows || []).map(r => ({ kind: DB_KIND[r[0]] || r[0], vendor: r[1], material: r[2], id_mm: r[3], od_mm: r[4], wall_mm: +((r[4] - r[3]) / 2).toFixed(3), nominal: r[5], pn: r[6], confidence: dbConf(r[7]), part_role: r[8] || '', disputed: r[9] === 'D' })); }
+/* The embedded literal never changes at runtime, so every expansion is memoised: dbHints() asks
+   for the same rows several times per request and the motor table alone is 1037 rows, which cost
+   70 ms per lookup on a tablet before this. */
+const DB_MEMO = new Map();
+const dbMemo = (k, build) => { if(!DB_MEMO.has(k)) DB_MEMO.set(k, build()); return DB_MEMO.get(k); };
+function dbAirframeRows(){ return dbMemo('airframes', () => ((FLIGHT_DB_DATA.airframes || {}).rows || []).map(r => ({ kind: DB_KIND[r[0]] || r[0], vendor: r[1], material: r[2], id_mm: r[3], od_mm: r[4], wall_mm: +((r[4] - r[3]) / 2).toFixed(3), nominal: r[5], pn: r[6], confidence: dbConf(r[7]), part_role: r[8] || '', disputed: r[9] === 'D' }))); }
 /* Certified motor performance: the peak thrust a retainer, thrust ring or centring ring is
    loaded by. [name, designation, mfr, d_mm, class, avg_N, max_N, maxSrc, imp_Ns, burn_s, prop_g,
    total_g, case, avail, conf] — see data/tables/motor_perf.json for the source record per row. */
-function dbMotorPerfRows(){ return ((FLIGHT_DB_DATA.motor_perf || {}).rows || []).map(r => ({ name: r[0], designation: r[1], mfr: r[2], d_mm: r[3], class: r[4], avg_thrust_N: r[5], max_thrust_N: r[6], max_certified: r[7] === 'c', max_thrust_known: r[7] !== 'n', tot_impulse_Ns: r[8], burn_s: r[9], prop_g: r[10], total_g: r[11], case: r[12], current: r[13] === 'r', confidence: dbConf(r[14]), disputed: (r[15] || []).map(([field, value]) => ({ field, value })) })); }
+function dbMotorPerfRows(){ return dbMemo('motor_perf', () => ((FLIGHT_DB_DATA.motor_perf || {}).rows || []).map(r => ({ name: r[0], designation: r[1], mfr: r[2], d_mm: r[3], class: r[4], avg_thrust_N: r[5], max_thrust_N: r[6], max_certified: r[7] === 'c', max_thrust_known: r[7] !== 'n', tot_impulse_Ns: r[8], burn_s: r[9], prop_g: r[10], total_g: r[11], case: r[12], current: r[13] === 'r', confidence: dbConf(r[14]), disputed: (r[15] || []).map(([field, value]) => ({ field, value })) }))); }
 /* A motor by common name ("M1670"), full designation ("6026M1670-P") or hardware set ("Pro75-5G").
    Several motors can share a common name (six G80s), so this returns all of them. */
 function dbMotorPerf(q){
@@ -4290,7 +4295,7 @@ function dbMotorPerf(q){
     return new RegExp('(^|[^a-z0-9])' + r.name.toLowerCase() + '([^a-z0-9]|$)').test(s);
   }).sort((a, b) => (b.current - a.current) || (b.max_thrust_N || 0) - (a.max_thrust_N || 0));
 }
-function dbMotorRows(){ return ((FLIGHT_DB_DATA.motors || {}).rows || []).map(r => ({ mfr: r[0], case: r[1], hardware_family: r[2], d_mm: r[3], len_mm: r[4], total_g_min: r[5], total_g_max: r[6], prop_g_max: r[7], classes: r[8], example: r[9], confidence: dbConf(r[10]), disputed: r[11] === 'D' })); }
+function dbMotorRows(){ return dbMemo('motors', () => ((FLIGHT_DB_DATA.motors || {}).rows || []).map(r => ({ mfr: r[0], case: r[1], hardware_family: r[2], d_mm: r[3], len_mm: r[4], total_g_min: r[5], total_g_max: r[6], prop_g_max: r[7], classes: r[8], example: r[9], confidence: dbConf(r[10]), disputed: r[11] === 'D' }))); }
 // A size in free text: "6 inch", "6in", '6"', "6-inch", "152 mm", "152.4mm". Returns mm or null.
 function dbSizeMm(s){
   let m = /(\d+(?:\.\d+)?)\s*(?:mm|millimet)/i.exec(s); if(m) return +m[1];
@@ -4348,6 +4353,9 @@ const dbTag = (r, extra) => `[${r.confidence || 'recall'}${r.disputed ? ', dispu
    workflow wrote, with the fields embed.mjs hoisted (shared source/confidence) put back. */
 function dbRows(k){
   const t = FLIGHT_DB_DATA[k]; if(!t || !Array.isArray(t.rows)) return null;
+  return dbMemo('rows:' + k, () => dbRowsBuild(k, t));
+}
+function dbRowsBuild(k, t){
   if(t.compact === 'orings') return t.rows.map(([dash, id_in, id_tol_in, cs_in, cs_tol_in, c, t42]) => {
     const T = ['A_bore', 'B1_piston_groove', 'A1_rod_groove', 'B_rod', 'C_plug', 'D_throat'];
     const tin = t42 ? Object.fromEntries(T.map((k, i) => [k, t42[i]])) : null;
