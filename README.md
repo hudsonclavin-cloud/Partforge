@@ -248,20 +248,27 @@ are tested against what a model actually writes, not only against templates writ
 number, an NPT port, a drill, a stock size, a launch rail or an altimeter gets the real numbers
 handed to the designer, each with its source and a confidence label: 122 body tubes, 62 couplers
 and 107 centering rings from LOC, Madcow, Blue Tube, PML, Giant Leap and Estes
-(openrocket-database, Apache-2.0); 103 current reload hardware sets from Cesaroni, AeroTech, Loki
-and AMW with the MMT tubes for each class (ThrustCurve.org via thrustcurve-db, ISC); and eight
-standards tables — 299 AS568 O-rings with the per-dash Parker ORD 5700 gland diameters, M2–M20
-and #2-56–1/2-20 fasteners, 1/16–1 in NPT, 282 twist drills, 192 6061 stock sizes with the
-finished size each can yield, rails and rail buttons, and altimeter board envelopes — each
-compiled, attacked by three independent reviewers and reconciled (`docs/data/PROVENANCE.md`).
+(openrocket-database, Apache-2.0); 103 current reload hardware sets with the motor-mount tubes for
+each class, and the certified performance of 1037 motors — the peak thrust a retainer is actually
+loaded by (ThrustCurve.org via thrustcurve-db, ISC); and eight standards tables — 299 AS568
+O-rings with the per-dash Parker ORD 5700 gland diameters, M2–M20 and #2-56–1/2-20 fasteners,
+1/16–1 in NPT, 282 twist drills, 192 6061 stock sizes with the finished size each can yield, rails
+and rail buttons, and altimeter board envelopes — each compiled, attacked by three independent
+reviewers and reconciled (`docs/data/PROVENANCE.md`).
+
 "6 inch airframe" becomes "6 of 8 share ID 152.4 (Blue Tube, Giant Leap, Madcow) … [likely] …
-[recall, disputed]" instead of "assumed 152.40 — measure actual tube"; "AS568-240 piston seal"
+[recall, disputed]" instead of "assumed 152.40 — measure actual tube". "AS568-240 piston seal"
 becomes "ID 94.84 ±0.71 … RADIAL: bore A 101.6, groove bottom B1 95.96" — the dry run's end cap
-had written 88.27 and cut its radial groove to the face-seal depth. The doctrine requires the
-vendor, PN and label in a NOTE with `tol_src "source"`, and a [recall] value is never upgraded to
-a fact. What the data does not know — motor closures, Wildman — the hint says so. ⚙ Settings →
-*Look up real hardware…* runs the same lookup by hand; *Data sources…* prints the attribution.
-`data/README.md` has the tables, licences and the regeneration pipeline (`tools/db/`).
+had written 88.27 and cut its radial groove to the face-seal depth. "A retainer for a 98 mm motor"
+carries its own load case: the hardest-pulling current 98 mm motor is a Cesaroni N10000 at 11560 N
+peak, where the first dry run had to be told 20 kN by hand. The doctrine requires the vendor, PN
+and label in a NOTE with `tol_src "source"`, design to the peak and never the average, and a
+[recall] value is never upgraded to a fact. Where the data is wrong it says so: five motors whose
+recorded peak sits below their own average have that peak withheld with the reason. What the data
+does not know — motor closures, Wildman — the hint says so, and the whole block is capped at 6 kB
+so it cannot crowd out the doctrine. ⚙ Settings → *Look up real hardware…* runs the same lookup by
+hand; *Data sources…* prints the attribution. `data/README.md` has the tables, licences and the
+regeneration pipeline (`tools/db/`).
 
 Flight templates work with no API key. `?bench=1` in flight grade runs the flight bench:
 twelve things a space-shot club types, scored by the same gate plus the measurements —
