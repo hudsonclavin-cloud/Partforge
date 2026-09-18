@@ -159,5 +159,28 @@ check('"main" and helper modules are not SPEC parts — never flagged', flightCo
 check('a SPEC part with no usable size is skipped', flightContradictions({ parts: [{ name: 'p' }, { name: 'q', size_mm: [0, 1, 2] }] }, crit([['a','p','z',5], ['b','q','z',5]])), [], deep);
 check('null spec, malformed flight: empty, never a throw', [flightContradictions(null, crit([])), flightContradictions(SPEC_CAP, { malformed: true }), flightContradictions(SPEC_CAP, null)], [[], [], []], deep);
 
+
+console.log('== the app templates and the test copies are the same files ==');
+{
+  // tests/templates/*.scad and the TEMPLATES_FLIGHT array inside index.html are two copies of the
+  // same seven parts. They drifted: a bolt-grade fix applied to the file on disk left the copy the
+  // app actually ships unchanged, and only a browser run caught it.
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const root = new URL('../', import.meta.url).pathname;
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const dir = path.join(root, 'tests', 'templates');
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.scad'));
+  const drift = [];
+  for(const f of files){
+    const src = fs.readFileSync(path.join(dir, f), 'utf8');
+    const loads = (src.match(/"loads":\[[^\n]*/) || [])[0];
+    if(!loads) continue;                                  // template declares no loads
+    if(!html.includes(loads.trim())) drift.push(f);
+  }
+  if(drift.length) console.log('      drifted: ' + drift.join(', '));
+  check(`all ${files.length} template files match the copy index.html ships`, drift.length, 0);
+}
+
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

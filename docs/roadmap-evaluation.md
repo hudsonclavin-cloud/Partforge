@@ -35,6 +35,13 @@ fixed the same day, before this file was committed, so read those entries as his
   *close* hole and 7.14 mm the normal one. Those numbers are deleted; the model is sent to the
   reference table, which ships them cross-checked. A test now fails if any of them reappears.
 
+- **The QR code was drawn by a stranger's server** (the open-source section's note on
+  `qrcode-generator`). The share link carries the whole part, base64 in the fragment, and it was
+  being sent to `api.qrserver.com` to have a code drawn. For an app whose promise is that nothing
+  leaves the browser, that was the worst line in the file. The code is now drawn on the device
+  from a library loaded into the page, the dialog says so, and a blocked library produces an
+  explanation rather than a silent fall back to the service.
+
 Everything else below is open.
 
 ## The ranking

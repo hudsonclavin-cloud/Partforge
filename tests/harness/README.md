@@ -33,6 +33,16 @@ decorated or duplicated. The TTL matters because the cache clock starts when the
 sent: a render takes minutes on a tablet, so by the time a gate failure sends the retry, a
 5-minute entry has already expired and the whole doctrine is billed again.
 
+## The QR code never leaves the device
+
+    node qr.mjs                                      # no network needed: the CDN is stubbed
+
+The share link carries the whole part — the .scad source, base64 in the fragment — and the QR
+code used to be drawn by api.qrserver.com, which meant posting the design to a company the user
+never chose. This checks that the code is drawn from a library loaded into the page, that the
+dialog says so, that a blocked library produces an explanation rather than a silent fallback,
+and that no request reaches a QR service on either path.
+
 ## Expectations
 
 A case may carry an `expect` block: `"fails"` is the exact set of failure-message prefixes the
