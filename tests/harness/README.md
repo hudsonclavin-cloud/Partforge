@@ -20,6 +20,18 @@ Run:
 render time, triangle count, size to 0.001 mm, the gate failures, the flight measurements, the report
 text and the manufacturing sheet.
 
+## The flight templates
+
+The seven flight templates live inside `index.html` (`TEMPLATES_FLIGHT`), not as files, so a cases
+file listing them is a **snapshot**. Re-dump it from the running app before every run, or a template
+you just edited will be scored from a stale copy — which is exactly what happened once here, and
+cost twenty minutes chasing a failure the app no longer had:
+
+    node -e "…window.__pf.TEMPLATES_FLIGHT…"   # see dump-flight-tpls.mjs in the scratchpad
+
+`tests/templates/*.scad` are the editable copies; `node tests/run.mjs` fails if any of them has
+drifted from the copy `index.html` ships.
+
 ## Prompt caching
 
     node cache.mjs                                   # no key needed: the API is intercepted
