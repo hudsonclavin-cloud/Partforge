@@ -70,6 +70,8 @@ ok('a hobby request gets nothing', dbHints('A hinged case for my multimeter'), h
 ok('an unmatched size is called an assumption', dbHints('a coupler for a 9.3 inch airframe'), h => /NO reference tube matched/.test(h), dbHints('a coupler for a 9.3 inch airframe'));
 const h2 = dbHints('A 6061 end cap for a 4 inch nitrous tank at 60 bar MEOP');
 ok('"4 inch tank" is not an airframe word — no tube hint', h2, h => !/real tubes/.test(h), h2);
+ok('bounded: the hint is capped and says what it dropped', dbHints('a 3 inch to 4 inch to 5.5 inch to 6 inch to 7.5 inch airframe transition coupler stack for a 98 mm motor with M6 and 1/4-20 bolts, AS568-240 and -347 seals, a 1/4 NPT port, 5 inch 6061 bar and a 1515 rail'), h => h.length <= 6400 && /omitted to stay inside the context budget/.test(h), String(dbHints('a 3 inch to 4 inch to 5.5 inch to 6 inch to 7.5 inch airframe transition coupler stack for a 98 mm motor with M6 and 1/4-20 bolts, AS568-240 and -347 seals, a 1/4 NPT port, 5 inch 6061 bar and a 1515 rail').length));
+ok('and a normal request is not truncated', dbHints('A bolt-on motor retainer for a 98 mm motor case in a 6 inch airframe, 8 M6 bolts'), h => !/omitted to stay inside/.test(h), '');
 ok('bounded: a request naming five sizes stays under 3 kB', dbHints('a 3 inch to 4 inch to 5.5 inch to 6 inch to 7.5 inch airframe transition coupler stack'), h => h.length < 3000, String(dbHints('a 3 inch to 4 inch to 5.5 inch to 6 inch to 7.5 inch airframe transition coupler stack').length));
 ok('summary names the sources', dbSummary(), s => /Apache/.test(s) && /ISC/.test(s) && /body tubes/.test(s), dbSummary());
 

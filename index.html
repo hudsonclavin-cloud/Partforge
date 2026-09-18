@@ -4489,7 +4489,14 @@ function dbHints(text){
     const bats = av.filter(r => r.kind === 'battery' && (/9\s?v/i.test(s) && /9 V/.test(r.name) || /cr123/i.test(s) && /CR123/.test(r.name) || /lipo/i.test(s) && /LiPo/.test(r.name) || /\baa\b/i.test(s) && /AA/.test(r.name))).slice(0, 3);
     for(const r of bats) out.push(`Battery ${r.name} ${dbTag(r)}: ${dbF(r.l_mm)} × ${dbF(r.w_mm)} × ${dbF(r.h_mm)} mm${r.lead_allow_mm ? ` + ${dbF(r.lead_allow_mm)} mm lead allowance` : ''}${r.mass_g ? `, ${dbF(r.mass_g)} g` : ''}${r.nominal_v ? `, ${r.nominal_v} V` : ''}.`);
   }
-  return out.length ? 'REFERENCE DATA for this request (use it; cite it; every value carries its confidence — never upgrade "recall" to a fact):\n- ' + out.join('\n- ') : '';
+  // Bounded: the hint rides in front of every flight request, so a chatty prompt must not crowd
+  // out the doctrine. Lines are in cut-the-metal order (tubes, motor hardware, threads, seals,
+  // ports, drills, stock, rails, avionics); the tail is dropped, never silently.
+  const CAP = 6000;
+  let kept = out, dropped = 0;
+  while(kept.length > 1 && kept.join('\n- ').length > CAP){ kept = kept.slice(0, -1); dropped++; }
+  if(dropped) kept.push(`${dropped} further reference line${dropped > 1 ? 's' : ''} omitted to stay inside the context budget — ask for the remaining sizes one at a time, or use Settings → Look up real hardware.`);
+  return kept.length ? 'REFERENCE DATA for this request (use it; cite it; every value carries its confidence — never upgrade "recall" to a fact):\n- ' + kept.join('\n- ') : '';
 }
 function dbSummary(){
   const a = dbAirframeRows(), mo = dbMotorRows();
