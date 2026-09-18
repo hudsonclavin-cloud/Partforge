@@ -297,3 +297,9 @@ The 3D library loads asynchronously so the UI is interactive in well under a sec
 as soon as the viewer is up rather than on your first Generate, so the wait usually
 happens while you are still typing — unless the browser reports Save-Data or a 2G
 connection, where it waits until you actually ask for a part.
+
+## License
+
+Apache License 2.0 — see `LICENSE`. The embedded reference data derives from
+openrocket-database (Apache-2.0) and thrustcurve-db (ISC); their required notices and
+licence text are in `NOTICE`, with full provenance in `data/README.md`.

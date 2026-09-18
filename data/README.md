@@ -110,6 +110,6 @@ row's `source` names the standard; each row's `confidence` says whether it was v
 not a substitute for the standard where the standard governs. The full attribution paragraph per
 table is its `license_note`, printed by ⚙ Settings → *Data sources…*.
 
-This repository itself has no LICENSE file yet. Both upstream licences are permissive and compatible
-with any choice; Apache-2.0 requires that its notice and attribution travel with the derived data,
-which this file provides.
+This repository is licensed under Apache-2.0 (see `LICENSE`); `NOTICE` carries the required
+attribution and licence text for openrocket-database and thrustcurve-db, consolidated from this
+file.

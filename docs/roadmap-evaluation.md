@@ -1,5 +1,14 @@
 # Roadmap evaluation — the 50 ideas, scoped and attacked
 
+> **Status update, after this evaluation:** the repo now has a `LICENSE` (Apache-2.0) and a
+> `NOTICE` file. Every "no LICENSE" / "repo with no LICENSE" line below — the scope note directly
+> under this one, and every rejection in the appendix that turned on GPL/AGPL/LGPL code having
+> nowhere permissive to land — describes the state at the time this evaluation ran, not the
+> current one. That resolves the licensing gate item 1 named as blocking "everything, legally,"
+> but it does **not** retroactively clear any specific GPL/AGPL/LGPL rejection below: Apache-2.0 is
+> still incompatible with copyleft code, so those dependencies remain rejected for the same reason,
+> just no longer for a repo with *no* license.
+
 One researcher scoped each of the 50 ideas. 8 then faced two independent skeptics — one checking the open-source and licence claims, one checking the engineering method and the effort — and 42 faced a single combined skeptic. A skeptic refuted something load-bearing in 34 of them, and where they did, the skeptic won unless the digest says otherwise.
 
 Effort is engineer-days for one developer who already knows this codebase, with tests and the doctrine text the model has to be taught included. Value is 1 to 5 for a university rocket club making machined flight parts: 5 means they would use it on every part, 1 means a curiosity. Nothing here was measured. These are estimates that survived an attack, and anything that could only be recalled is marked.

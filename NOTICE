@@ -1,0 +1,56 @@
+PartForge
+Copyright 2026 Hudson Clavin
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes derived dimensional data from the following third-party projects.
+Their license terms are reproduced below as required.
+
+------------------------------------------------------------------------------
+
+openrocket-database
+https://github.com/openrocket/openrocket-database
+Copyright 2014-2019 Dave Cook (NAR 21953) and contributors.
+Licensed under the Apache License, Version 2.0.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+data/tables/airframes.json and the airframes portion of the embedded reference data are derived
+from this project's .orc vendor files, curated by tools/db/curate-airframes.mjs.
+
+------------------------------------------------------------------------------
+
+thrustcurve-db
+https://github.com/broofa/thrustcurve-db
+Copyright (c) Robert Kieffer. Motor data compiled by John Coker for ThrustCurve.org
+(https://thrustcurve.org).
+Licensed under the ISC License.
+
+  Permission to use, copy, modify, and/or distribute this software for any purpose with or
+  without fee is hereby granted, provided that the above copyright notice and this permission
+  notice appear in all copies.
+
+  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO
+  THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT
+  SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR
+  ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF
+  CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
+  OR PERFORMANCE OF THIS SOFTWARE.
+
+data/tables/motors.json and data/tables/motor_perf.json are derived from this project's
+packaged motor data, via tools/db/derive-motors.mjs and tools/db/derive-motor-perf.mjs.
+
+------------------------------------------------------------------------------
+
+Full detail on every embedded table -- what was compiled, cross-checked, and against what --
+is in data/README.md and docs/data/PROVENANCE.md.
