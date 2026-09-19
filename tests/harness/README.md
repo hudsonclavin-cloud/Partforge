@@ -45,6 +45,17 @@ decorated or duplicated. The TTL matters because the cache clock starts when the
 sent: a render takes minutes on a tablet, so by the time a gate failure sends the retry, a
 5-minute entry has already expired and the whole doctrine is billed again.
 
+## The certified peak is a floor
+
+    node floor.mjs                                   # six cases on the in-app retainer template
+
+A loads entry that names its motor (`"motor":"N10000"`) is held to that motor's certified peak
+thrust: a declared `force_N` below it is refused with the reason, an unknown motor is refused,
+and a motor whose peak the data withholds is refused with the reason it was withheld. The
+reference data prints certified peaks so the designer stops guessing, but a certified number
+that is SMALLER than the user's conservative figure arrives with better provenance and would
+displace it — the table must only ever raise a load, never lower one.
+
 ## The QR code never leaves the device
 
     node qr.mjs                                      # no network needed: the CDN is stubbed

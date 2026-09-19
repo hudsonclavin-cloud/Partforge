@@ -94,6 +94,8 @@ ok('nor is H13 tool steel', dbHints('an H13 hardened insert in the thrust plate,
 ok('but a real motor survives the word fiberglass', dbHints('a motor retainer for a Cesaroni M1670 in a 75 mm mount, fiberglass airframe'), h => /Motor M1670/.test(h) && /2232 N \(certified\)/.test(h), '');
 ok('a motor size is the one next to a motor word, whatever the word order', dbHints('a centring ring for a 152 mm airframe and a 75 mm motor mount'), h => /Peak thrust to design 75 mm hardware/.test(h) && !/Peak thrust to design 152/.test(h), (dbHints('a centring ring for a 152 mm airframe and a 75 mm motor mount').split('\n- ').find(l => /Peak thrust/.test(l)) || 'no line').slice(0, 160));
 ok('an out-of-production motor says so', dbMotorPerfRows().filter(x => !x.current).length, n => n > 200, String(dbMotorPerfRows().filter(x => !x.current).length));
+ok('the peak-thrust line calls itself a floor, never a ceiling, and asks for the motor key', dbHints('a retainer for a 98 mm motor'), h => /a FLOOR for the load, never a ceiling/.test(h) && /never use it to lower a load the user gave/.test(h) && /"motor" on the loads entry/.test(h), (dbHints('a retainer for a 98 mm motor').split('\n- ').find(l => /Peak thrust/.test(l)) || '').slice(-300));
+ok('so does the named-motor line', dbHints('a retainer for a Cesaroni M1670'), h => /the peak is a floor, not a ceiling/.test(h) && /"motor":"M1670"/.test(h), '');
 
 console.log('== ISO 286 fits: the numbers a mating pair is cut to ==');
 {
