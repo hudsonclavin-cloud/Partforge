@@ -1,6 +1,6 @@
 // node tests/flight-db.test.mjs — the reference data and its resolvers, on the code that ships.
 import { FLIGHT_SYSTEM_DOCTRINE } from './.build/flight-doctrine.js';
-import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal, dbHints, dbSummary, dbRows, dbCredits } from './.build/flight-db.js';
+import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal, dbPickORing, dbPickDrill, dbPickStock, dbBoreMm, dbHints, dbSummary, dbRows, dbCredits } from './.build/flight-db.js';
 
 let fails = 0, passes = 0;
 function check(name, got, expected, cmp){
@@ -199,6 +199,60 @@ ok('the endcap fixture\'s groove is the radial one: bottom 95.96, not the face-s
   const ha = dbHints('an av-bay sled for a StratoLoggerCF and a 9V battery in a 54 mm coupler');
   ok('avionics: board envelope, hole pattern flagged unverified, battery envelope', ha, h => /PerfectFlite StratoLoggerCF/.test(h) && /PCB 50\.8 × 21\.34 mm/.test(h) && /HOLE PATTERN NOT VERIFIED/.test(h) && /Battery 9 V alkaline/.test(h), ha);
   ok('every hint line carries a confidence tag', [h1, ho, hs, hr, ha].flatMap(h => h.split('\n- ').slice(1)), ls => ls.every(l => /\[(certain|likely|recall)/.test(l) || /NO reference|no size in the stock table|clearance rule|vendor recall/.test(l)), [h1, ho, hs, hr, ha].flatMap(h => h.split('\n- ').slice(1)).filter(l => !/\[(certain|likely|recall)/.test(l)).join('\n'));
+
+  console.log('== the selectors: a number a machinist can cut to, not a recalled one ==');
+
+  // --- dbPickORing: the gland, not just the dash ---
+  const sealP = dbPickORing({ bore_mm: 101.6, kind: 'piston', pressure_bar: 60 });
+  const pick = sealP && sealP.candidates[0];
+  ok('piston seal at Ø101.6 / 60 bar picks -342 (W 5.33), not the thin -240', pick, c => c && c.dash === '-342' && c.cs_mm === 5.33, JSON.stringify(pick && [pick.dash, pick.cs_mm]));
+  ok('and the gland is DERIVED from Parker Table 4-2, not recalled: depth = (A - B1)/2', pick, c => Math.abs(c.groove_depth_mm - (c.gland_mm.A_bore - c.gland_mm.B1_piston_groove) / 2) < 1e-9, String(pick.groove_depth_mm));
+  ok('squeeze is CS - depth and lands in the 15-30 % static band', pick, c => Math.abs(c.squeeze_mm - (c.cs_mm - c.groove_depth_mm)) < 1e-9 && c.squeeze_pct >= 15 && c.squeeze_pct <= 30, `${pick.squeeze_mm} mm = ${pick.squeeze_pct} %`);
+  ok('at 60 bar on a 101.6 bore the doctrine wants W 5.33 and the pick meets it', sealP, p => p.wants_cs_mm === 5.33 && p.candidates[0].meets_doctrine === true, JSON.stringify([sealP.wants_cs_mm, pick.meets_doctrine]));
+  const sealThin = sealP.candidates.find(c => c.cs_mm === 3.53);
+  ok('the thinner dash tabulated at the same bore is offered but flagged against doctrine', sealThin, c => !!c && c.dash === '-240' && c.meets_doctrine === false, JSON.stringify(sealThin && [sealThin.dash, sealThin.meets_doctrine]));
+  ok('under 2 bar the doctrine drops to W 2.62, so the same bore is not over-specified', dbPickORing({ bore_mm: 101.6, kind: 'piston', pressure_bar: 1 }), p => p.wants_cs_mm === 2.62, String(dbPickORing({ bore_mm: 101.6, kind: 'piston', pressure_bar: 1 }).wants_cs_mm));
+  ok('a rod seal reads the B column, so it is matched on a different diameter', dbPickORing({ rod_mm: 101.6, kind: 'rod' }), p => p.kind === 'rod' && p.candidates.every(c => Math.abs(c.gland_mm.B_rod - 101.6) <= p.band_mm + 1e-9), JSON.stringify(dbPickORing({ rod_mm: 101.6, kind: 'rod' }).candidates.map(c => c.dash)));
+  ok('a diameter with no Table 4-2 gland returns an empty list rather than inventing one', dbPickORing({ bore_mm: 4, kind: 'piston' }), p => p.candidates.length === 0, JSON.stringify(dbPickORing({ bore_mm: 4, kind: 'piston' }).candidates.length));
+  ok('no diameter, no answer', dbPickORing({ kind: 'piston' }), p => p === null, JSON.stringify(dbPickORing({ kind: 'piston' })));
+  ok('every candidate keeps its row confidence and disputed flag', sealP, p => p.candidates.every(c => /^(certain|likely|recall)$/.test(c.confidence) && typeof c.disputed === 'boolean'), '');
+
+  // --- dbPickDrill: what is actually in the index ---
+  const dr = dbPickDrill(6.6);
+  ok('6.6 mm is an exact drill, and the pick says so', dr, r => r.exact && r.exact.mm === 6.6 && r.at_or_above.mm === 6.6, JSON.stringify(dr.exact && dr.exact.name));
+  const dq = dbPickDrill(6.35);   // 1/4 in
+  ok('a required hole always brackets: at_or_above >= target >= at_or_below', dq, r => r.at_or_above.mm >= 6.35 - 1e-9 && r.at_or_below.mm <= 6.35 + 1e-9, JSON.stringify([dq.at_or_below.name, dq.at_or_above.name]));
+  ok('next_above is never smaller, and is a different drill — letter E and 1/4 are the same 6.35', dq, r => !!r.next_above && r.next_above.mm >= r.at_or_above.mm && r.next_above.name !== r.at_or_above.name, JSON.stringify([dq.at_or_above.name, dq.next_above.name]));
+  ok('every returned drill carries the confidence of its row', dq, r => ['at_or_above', 'at_or_below', 'next_above'].every(k => !r[k] || /^(certain|likely|recall)$/.test(r[k].confidence)), '');
+  ok('a hole bigger than any drill in the table returns NO at_or_above rather than an undersized one', dbPickDrill(400), r => r.at_or_above === undefined && !!r.at_or_below, JSON.stringify(dbPickDrill(400).at_or_above));
+  ok('and nothing the picker returns is ever undersized against the target', [dbPickDrill(6.35), dbPickDrill(6.6), dbPickDrill(3.1)], a => a.every(r => !r.at_or_above || r.at_or_above.over_mm >= 0), '');
+  ok('a nonsense size is refused', dbPickDrill(0), r => r === null, JSON.stringify(dbPickDrill(0)));
+
+  // --- dbPickStock: the smallest bar that still cleans up ---
+  const st = dbPickStock({ kind: 'bar', finish_mm: 101.5 });
+  ok('every stock candidate can actually reach the finished size', st, p => p.candidates.length > 0 && p.candidates.every(c => c.max_finish_mm >= 101.5), JSON.stringify(st.candidates.map(c => c.max_finish_mm)));
+  ok('candidates come back smallest first and are capped at three', st, p => p.candidates.length <= 3 && p.candidates.every((c, i, a) => !i || a[i - 1].dim_mm <= c.dim_mm), JSON.stringify(st.candidates.map(c => c.dim_mm)));
+  ok('waste is the real overshoot, and the first candidate wastes the least', st, p => p.candidates.every(c => Math.abs(c.waste_mm - +(c.max_finish_mm - 101.5).toFixed(2)) < 1e-9) && p.candidates[0].waste_mm === Math.min(...p.candidates.map(c => c.waste_mm)), JSON.stringify(st.candidates.map(c => c.waste_mm)));
+  ok('the two 2.25 in rows are distinguished by FORM, not shown as duplicates', dbPickStock({ kind: 'bar', finish_mm: 54 }), p => p.candidates.filter(c => c.dim_in === 2.25).every(c => !!c.form), JSON.stringify(dbPickStock({ kind: 'bar', finish_mm: 54 }).candidates.map(c => [c.dim_in, c.form])));
+  const stb = dbPickStock({ kind: 'tube', finish_mm: 100, bore_mm: 90 });
+  ok('a tube pick also has to clear the bore asked for', stb, p => p.candidates.every(c => c.min_finish_id_mm > 0 && c.min_finish_id_mm <= 90), JSON.stringify(stb.candidates.map(c => c.min_finish_id_mm)));
+  ok('a size no stock can reach returns an empty list, not the nearest miss', dbPickStock({ kind: 'bar', finish_mm: 600 }), p => p.candidates.length === 0, JSON.stringify(dbPickStock({ kind: 'bar', finish_mm: 600 }).candidates.length));
+
+  // --- dbBoreMm: the number a seal is cut to ---
+  ok('"4 inch nitrous tank" is a bore, in mm', dbBoreMm('A 6061 end cap for a 4 inch nitrous tank'), b => b && Math.abs(b.mm - 101.6) < 1e-9 && b.text === '4 inch', JSON.stringify(dbBoreMm('A 6061 end cap for a 4 inch nitrous tank')));
+  ok('the vessel word may come first', dbBoreMm('a bulkhead for a 98 mm motor mount'), b => b && b.mm === 98, JSON.stringify(dbBoreMm('a bulkhead for a 98 mm motor mount')));
+  ok('a size with no vessel word next to it is NOT a bore', dbBoreMm('8 M6 bolts on a 98 mm circle'), b => b === null, JSON.stringify(dbBoreMm('8 M6 bolts on a 98 mm circle')));
+  ok('sizes outside 3-700 mm are refused rather than scaled', [dbBoreMm('a 1 mm bore'), dbBoreMm('a 900 mm tank')], a => a.every(x => x === null), JSON.stringify([dbBoreMm('a 1 mm bore'), dbBoreMm('a 900 mm tank')]));
+
+  // --- the hint branches the selectors feed ---
+  const hSeal = dbHints('A 6061 end cap for a 4 inch nitrous tank at 60 bar with an O-ring seal');
+  ok('an end cap at pressure gets a worked SEAL SELECTION line, not just the AS568 row', hSeal, h => /SEAL SELECTION for a Ø101\.6 mm bore/.test(h) && /-342 \(W 5\.33/.test(h) && /squeeze 1\.01 = 19%/.test(h), hSeal.split('\n').find(l => /SEAL SELECTION/.test(l)) || hSeal);
+  ok('and it says the bore was READ from the text, so an OD is not silently taken as a bore', hSeal, h => /read from "4 inch"/.test(h) && /if that is an outside diameter/.test(h), '');
+  const hTurn = dbHints('A 6061 bulkhead turned for a 98 mm motor mount, M6 eyebolt');
+  ok('a turned part gets the stock ladder, keyed to the Ø and tagged with its confidence', hTurn, h => /Stock for a turned part at Ø98 mm/.test(h) && /\[recall\]/.test(h) && /THIS IS KEYED TO THE Ø YOU NAMED/.test(h), hTurn.split('\n').find(l => /Stock for a turned/.test(l)) || '(no line)');
+  ok('a sled in a coupler is NOT a turned part: no stock ladder off the coupler ID', ha, h => !/Stock for a turned part/.test(h), ha.split('\n').find(l => /Stock for a turned/.test(l)) || '');
+  ok('the selector lines are inside the cap like every other hint', [hSeal, hTurn], a => a.every(h => h.length < 6200), JSON.stringify([hSeal.length, hTurn.length]));
+  ok('every selector hint line carries a confidence tag too', [hSeal, hTurn].flatMap(h => h.split('\n- ').slice(1)), ls => ls.every(l => /\[(certain|likely|recall)/.test(l) || /NO reference|no size in the stock table|clearance rule|vendor recall/.test(l)), [hSeal, hTurn].flatMap(h => h.split('\n- ').slice(1)).filter(l => !/\[(certain|likely|recall)/.test(l)).join('\n'));
 } else console.log('SKIP  verified tables not embedded in this build');
 
 console.log(`\n${passes} passed, ${fails} failed`);

@@ -4415,6 +4415,105 @@ function dbFitThermal(mm, holeMat, shaftMat, dT_K){
   return { d_mm, hole: a, shaft: b,
     confidence: [a.confidence, b.confidence].includes('recall') ? 'recall' : 'likely' };
 }
+/* ─── Selectors ────────────────────────────────────────────────────────────────
+   The tables answer "what is this number" when the designer already knows which row
+   to ask for. A build asks the other direction: I have a 101.60 mm bore, WHICH dash
+   seals it; I need a 6.6 mm clearance hole, WHICH drill cuts it; my part finishes at
+   Ø101.50, WHICH bar contains it. Those are lookups, and the dry run proves what
+   happens when the model answers them from memory instead — it wrote AS568-240 with
+   an 88.27 mm ID, a dash size that does not exist at that diameter. Each selector
+   returns candidates with the numbers that decide the cut, never a single answer:
+   a 101.60 bore takes a -240 at W .139 or a -342 at W .210 and the choice is a
+   pressure judgement, not a lookup. */
+
+/* The AS568 dash for a gland you are about to cut.
+   kind: 'piston' (a plug sliding into a bore — match the bore), 'rod' (a shaft through
+   a bore — match the rod), 'face_out' (face seal, pressure on the OD side: groove ID =
+   O-ring ID), 'face_in' (face seal, pressure on the ID side: groove OD = O-ring OD). */
+function dbPickORing(spec = {}){
+  const rows = dbRows('orings_as568') || [];
+  const gl = (FLIGHT_DB_DATA.orings_as568 || {}).gland || {};
+  const kind = spec.kind || 'piston';
+  const target = +(spec.bore_mm ?? spec.rod_mm ?? spec.groove_id_mm ?? spec.groove_od_mm ?? spec.mm);
+  if(!(target > 0)) return null;
+  const of = { piston: r => r.parker_t42_mm && r.parker_t42_mm.A_bore, rod: r => r.parker_t42_mm && r.parker_t42_mm.B_rod,
+               face_out: r => r.id_mm, face_in: r => r.od_mm }[kind];
+  if(!of) return null;
+  const band = spec.tol_mm != null ? +spec.tol_mm : Math.max(0.8, target * 0.015);
+  const cand = rows.map(r => ({ r, at: of(r) })).filter(x => x.at > 0 && Math.abs(x.at - target) <= band)
+    .map(({ r, at }) => {
+      const t = r.parker_t42_mm, depth = t ? +((t.A_bore - t.B1_piston_groove) / 2).toFixed(3) : null;
+      const sq = depth != null ? +(r.cs_mm_std - depth).toFixed(3) : null;
+      const band43 = (gl.face_seal_chart_4_3 || []).find(g => Math.abs(g.cs_mm - r.cs_mm_std) < 0.02);
+      const band42 = (gl.radial_static_table_4_2 || []).find(g => Math.abs(g.cs_mm - r.cs_mm_std) < 0.02);
+      return { dash: r.dash, delta_mm: +(at - target).toFixed(3), at_mm: at,
+        cs_mm: r.cs_mm_std, id_mm: r.id_mm, od_mm: r.od_mm, id_tol_mm: r.id_tol_mm,
+        gland_mm: t, groove_depth_mm: depth, squeeze_mm: sq,
+        squeeze_pct: sq != null && r.cs_mm_std ? Math.round(sq / r.cs_mm_std * 100) : null,
+        groove_width_mm: /^face/.test(kind) ? (band43 && band43.groove_width_G_liquids.mm) : (band42 && band42.groove_width_G_no_backup.mm),
+        confidence: r.confidence, disputed: !!r.disputed };
+    }).sort((a, b) => Math.abs(a.delta_mm) - Math.abs(b.delta_mm) || b.cs_mm - a.cs_mm);
+  // Cross-section is a pressure judgement, not a lookup: PartForge shop doctrine, not Parker.
+  const p = +spec.pressure_bar || 0;
+  const wantCs = p >= 2 && target > 75 ? 5.33 : p >= 2 ? 3.53 : 2.62;
+  for(const c of cand) c.meets_doctrine = c.cs_mm >= wantCs - 0.01;
+  return { kind, target_mm: target, band_mm: +band.toFixed(2), candidates: cand,
+    doctrine: (gl.selection_practice_partforge_doctrine || {}).value || '',
+    doctrine_confidence: (gl.selection_practice_partforge_doctrine || {}).confidence || 'recall',
+    rating: ((gl.pressure_and_extrusion || {}).table_4_2_rating || {}).value || '',
+    wants_cs_mm: wantCs };
+}
+
+/* The drill that cuts a hole of this size. Returns the nearest at or above (a clearance
+   hole must never come out undersize) and the nearest at or below, because the one below
+   is what you reach for when the hole is a tapped one and the chart is the other way up. */
+function dbPickDrill(mm, opts = {}){
+  const target = +mm;
+  if(!(target > 0)) return null;
+  let rows = dbRows('drills') || [];
+  if(opts.kinds) rows = rows.filter(r => opts.kinds.includes(r.kind));
+  if(!rows.length) return null;
+  const up = rows.filter(r => r.mm >= target - 1e-9).sort((a, b) => a.mm - b.mm);
+  const dn = rows.filter(r => r.mm <= target + 1e-9).sort((a, b) => b.mm - a.mm);
+  const one = r => r && { name: r.name, kind: r.kind, mm: r.mm, mm_text: r.mm_text, in_text: r.in_text,
+    over_mm: +(r.mm - target).toFixed(3), confidence: r.confidence };
+  return { target_mm: target, at_or_above: one(up[0]), next_above: one(up[1]),
+    at_or_below: one(dn[0]), exact: up[0] && Math.abs(up[0].mm - target) < 1e-9 ? one(up[0]) : null };
+}
+
+/* The stock that contains a finished part. finish_mm is the part's largest finished
+   diameter (bar, tube OD) or thickness (plate); bore_mm, for a tube, the smallest
+   finished bore. Sizes come back smallest first: the cheapest stock that still cleans up. */
+function dbPickStock(spec = {}){
+  const kind = spec.kind || 'bar';
+  const finish = +spec.finish_mm;
+  if(!(finish > 0)) return null;
+  const rows = (dbRows('stock') || []).filter(r => r.kind === kind && r.max_finish_mm > 0
+    && (!spec.material || r.material === spec.material)
+    && r.max_finish_mm >= finish - 1e-9
+    && (!(+spec.bore_mm > 0) || (r.min_finish_id_mm > 0 && r.min_finish_id_mm <= +spec.bore_mm + 1e-9)));
+  const out = rows.sort((a, b) => a.dim_mm - b.dim_mm || (a.confidence === 'recall') - (b.confidence === 'recall')).slice(0, 3)
+    .map(r => ({ key: r.key, material: r.material, form: r.form, dim_mm: r.dim_mm, dim_in: r.dim_in,
+      wall_mm: r.wall_mm, max_finish_mm: r.max_finish_mm, min_finish_id_mm: r.min_finish_id_mm,
+      tol_plus_mm: r.tol_plus_mm, tol_minus_mm: r.tol_minus_mm, tolerance_basis: r.tolerance_basis,
+      waste_mm: +(r.max_finish_mm - finish).toFixed(2), confidence: r.confidence,
+      availability: spec.eu ? r.availability_eu : r.availability_na }));
+  return { kind, finish_mm: finish, bore_mm: +spec.bore_mm || null, candidates: out };
+}
+
+/* A diameter the request gives as a BORE — "a 4 inch nitrous tank", "a 101.6 mm bore".
+   Deliberately separate from the airframe reader: a tank is not an airframe, and the
+   number a seal is cut to is the bore, not the tube a fin can is bonded to. */
+function dbBoreMm(s){
+  const VESSEL = 'bore|tank|cylinder|vessel|barrel|chamber|housing|receiver|sleeve|liner|coupler|bulkhead';
+  const re = new RegExp('(\\d+(?:\\.\\d+)?)\\s*(?:-\\s*)?(mm|in\\b|inch(?:es)?|")(?:(?!\\d)[^.]){0,26}?(?:' + VESSEL + ')', 'i');
+  const re2 = new RegExp('(?:' + VESSEL + ')(?:(?!\\d)[^.]){0,20}?(\\d+(?:\\.\\d+)?)\\s*(?:-\\s*)?(mm|in\\b|inch(?:es)?|")', 'i');
+  const m = re.exec(s) || re2.exec(s);
+  if(!m) return null;
+  const mm = /^mm/i.test(m[2]) ? +m[1] : +m[1] * 25.4;
+  return mm >= 3 && mm <= 700 ? { mm, text: m[1] + ' ' + m[2].replace('"', 'in') } : null;
+}
+
 /* The lines the model gets in its context for a request. Only what the request mentions; each
    table capped so a chatty request cannot flood the prompt. Empty string when nothing matched. */
 function dbHints(text){
@@ -4575,6 +4674,43 @@ function dbHints(text){
     if(rad) line += ` RADIAL piston/rod seal (Table 4-2, ${rad.confidence}): ${t42 ? `piston: bore A ${dbF(t42.A_bore)}, groove bottom B1 ${dbF(t42.B1_piston_groove)} (+0/−0.05), plug OD C ${dbF(t42.C_plug)} (+0/−0.03); rod: groove A1 ${dbF(t42.A1_rod_groove)}, rod B ${dbF(t42.B_rod)}, throat D ${dbF(t42.D_throat)} mm; ` : ''}gland depth ${rng(rad.gland_depth_F_table_4_2.mm)} mm incl. clearance E ${rng(rad.diametral_clearance_E.mm)}, groove width ${rng(rad.groove_width_G_no_backup.mm)} mm (no back-up ring), corner radius ${rng(rad.groove_radius_R.mm)}.`;
     out.push(line + ' Put the dash, squeeze and groove numbers in NOTE lines; declare the groove root as an od/bore critical dimension.');
   }
+  // ── Selection, not just lookup: the request states a bore and a seal, so pick the dash ──
+  const bore = dbBoreMm(s);
+  const sealWord = /o-?ring|gland|seal\b|sealing/i.test(s);
+  const dashNamed = /(?:AS568-?|dash\s*|-)\d{3}\b/i.test(s);
+  if(bore && sealWord && !dashNamed && (dbRows('orings_as568') || []).length){
+    const psi = (/(\d+(?:\.\d+)?)\s*psi/i.exec(s) || [])[1];
+    const bar = +(/(\d+(?:\.\d+)?)\s*bar/i.exec(s) || [])[1] || (psi ? +psi / 14.5038 : 0)
+      || (/tank|meop|pressur|vessel|hydro/i.test(s) ? 2 : 0);
+    const rod = /\brod\b|shaft|piston rod/i.test(s) && !/piston seal|plug/i.test(s);
+    const face = /face\s*seal|bulkhead|flange\s*seal|axial/i.test(s) && !/piston|radial|slid/i.test(s);
+    const kind = face ? 'face_scan' : rod ? 'rod' : 'piston';
+    if(kind === 'face_scan'){
+      /* A face seal's groove diameter is a design choice, not a consequence of the bore: you
+         cannot read the dash off a coupler size the way you can off a piston bore. So give the
+         band that could sit in this one, with the rule that decides which, and let the model
+         choose and cite rather than recall. */
+      const gl = (FLIGHT_DB_DATA.orings_as568 || {}).gland || {};
+      const wantCs = bar >= 2 && bore.mm > 75 ? 5.33 : bar >= 2 ? 3.53 : 2.62;
+      const band = (dbRows('orings_as568') || []).filter(r => r.id_mm >= bore.mm * 0.78 && r.id_mm <= bore.mm * 0.95 && r.cs_mm_std >= wantCs - 0.01)
+        .sort((a, b) => a.id_mm - b.id_mm);
+      const g43 = (gl.face_seal_chart_4_3 || []).find(x => Math.abs(x.cs_mm - wantCs) < 0.02);
+      if(band.length) out.push(`SEAL SELECTION, face seal in a Ø${dbF(bore.mm)} mm ${/coupler/i.test(s) ? 'coupler' : 'bore'}: the groove DIAMETER is your choice, so the dash cannot be read off the bore — pick the groove, then take the dash whose ID equals the groove ID when pressure comes from the OD side (ejection gas outside a bulkhead), or whose OD equals the groove OD when it comes from the ID side (a tank flange). At W ${wantCs.toFixed(2)} the dashes that fit inside this bore are ${band.slice(0, 6).map(r => `${r.dash} ID ${dbF(r.id_mm)}`).join(', ')}${band.length > 6 ? `, +${band.length - 6} more` : ''} [${band[0].confidence}].${g43 ? ` Groove for W ${wantCs.toFixed(2)}: depth ${dbF(g43.gland_depth_L.mm[0])}–${dbF(g43.gland_depth_L.mm[1])}, width ${dbF(g43.groove_width_G_liquids.mm[0])}–${dbF(g43.groove_width_G_liquids.mm[1])} for liquids and ${dbF(g43.groove_width_G_vacuum_gases.mm[0])}–${dbF(g43.groove_width_G_vacuum_gases.mm[1])} for gases, squeeze ${g43.squeeze.pct[0]}–${g43.squeeze.pct[1]}% [${g43.confidence}].` : ''} Do NOT recall the ID of a dash: the first dry run wrote "AS568-240, ID 88.27 mm", and -240 is 94.84.`);
+    }
+    const pick = kind === 'face_scan' ? null : dbPickORing({ [kind === 'rod' ? 'rod_mm' : 'bore_mm']: bore.mm, kind, pressure_bar: bar });
+    if(pick && pick.candidates.length){
+      const one = (c) => `${c.dash} (W ${c.cs_mm.toFixed(2)}, ID ${dbF(c.id_mm)}±${dbF(c.id_tol_mm)}${c.gland_mm ? `; bore A ${dbF(c.gland_mm.A_bore)}, groove bottom B1 ${dbF(c.gland_mm.B1_piston_groove)}, plug OD C ${dbF(c.gland_mm.C_plug)}, depth ${dbF(c.groove_depth_mm)}, squeeze ${dbF(c.squeeze_mm)} = ${c.squeeze_pct}%` : ''}${c.groove_width_mm ? `, groove width ${dbF(c.groove_width_mm[0])}–${dbF(c.groove_width_mm[1])}` : ''}) [${c.confidence}]${c.meets_doctrine ? '' : ' — CROSS-SECTION TOO THIN for this duty, see below'}`;
+      const ok = pick.candidates.filter(c => c.meets_doctrine), thin = pick.candidates.filter(c => !c.meets_doctrine);
+      out.push(`SEAL SELECTION for a Ø${dbF(bore.mm)} mm ${kind === 'rod' ? 'rod' : kind === 'face_in' ? 'face-seal groove OD' : 'bore'} (read from "${bore.text}" — if that is an outside diameter the bore is smaller and every dash below changes, so say which you meant): ${(ok.length ? ok : pick.candidates).slice(0, 2).map(one).join('; ')}${ok.length && thin.length ? `. Also tabulated at this size but thinner: ${thin.slice(0, 2).map(c => c.dash + ' W ' + c.cs_mm.toFixed(2)).join(', ')}.` : ''} Do NOT recall a dash size: the first dry run wrote "AS568-240, ID 88.27 mm", and -240 is 94.84. ${bar ? `At ${bar.toFixed(0)} bar` : 'For this duty'} the shop rule wants W ${pick.wants_cs_mm.toFixed(2)} or thicker [${pick.doctrine_confidence}]: ${pick.doctrine}. ${pick.rating.replace(/\s*$/, '')}. Declare the groove bottom as an od (external) or a bore (internal) over the groove band, and put the dash, squeeze and gland numbers in NOTE lines.`);
+    }
+  }
+  // drills: a hole the request sizes in millimetres or inches is cut by a real drill, not a wish
+  const dlSel = dbRows('drills') || [];
+  if(dlSel.length) for(const x of [...s.matchAll(/(\d+(?:\.\d+)?)\s*(mm|in\b|inch(?:es)?|")\s*(?:dia(?:meter)?\s*)?(?:clearance\s*|through\s*|pilot\s*|tap\s*)?(?:hole|drill|bore\b)/gi)].slice(0, 2)){
+    const mm = /^mm/i.test(x[2]) ? +x[1] : +x[1] * 25.4;
+    const d = dbPickDrill(mm);
+    if(d && d.at_or_above) out.push(`A Ø${dbF(mm)} mm hole: ${d.exact ? `${d.exact.name} is exact (${d.exact.mm_text} mm) [${d.exact.confidence}]` : `nearest drill at or above is ${d.at_or_above.name} = ${d.at_or_above.mm_text} mm (+${dbF(d.at_or_above.over_mm)}) [${d.at_or_above.confidence}], nearest below ${d.at_or_below ? `${d.at_or_below.name} = ${d.at_or_below.mm_text} mm` : 'none'}`}. A clearance hole takes the size at or above; name the drill in mfg so the shop does not have to guess which one you meant.`);
+  }
   // NPT
   const np = T('npt');
   for(const x of [...s.matchAll(/(\d\/\d{1,2}|\d)\s*(?:in|")?\s*NPT/gi)].slice(0, 2)){
@@ -4663,6 +4799,15 @@ function dbHints(text){
         }
       }
     }
+  }
+  // what to order: the smallest stock that still cleans up at the diameter the request states
+  // a part actually turned from solid. A coupler, a sled or a bracket is not one, even when a diameter is named right beside it.
+  const turned = /end\s*cap|bulkhead|retainer|centring ring|centering ring|flange|boss|plug|adapter|nozzle|ring\b|disc|hub/i.test(s)
+    && !/\bsled|bracket|tray|av[- ]?bay|switch band|fin can|fin\s|sheet\b/i.test(s);
+  const stockDia = bore ? bore.mm : null;
+  if(turned && stockDia && !/\b(bar|plate|tube|pipe)\b/i.test(s) && (dbRows('stock') || []).length){
+    const pick = dbPickStock({ kind: 'bar', finish_mm: stockDia });
+    if(pick && pick.candidates.length) out.push(`Stock for a turned part at Ø${dbF(stockDia)} mm (data/tables/stock.json): the smallest 6061 bar that still cleans up is ${pick.candidates.map(c => `${c.dim_in ? c.dim_in + ' in' : dbF(c.dim_mm) + ' mm'}${c.form ? ' ' + String(c.form).replace('_', '-') : ''} [${c.confidence || 'recall'}] (finishes to ${dbF(c.max_finish_mm)}, ${c.availability || 'availability unknown'})`).join('; ')}. THIS IS KEYED TO THE Ø YOU NAMED: a flange, a lip or a hex is larger than the bore, so redo the lookup on the part's LARGEST finished diameter and state the stock in mfg.stock. Design to the finished size, never the nominal.`);
   }
   // rails and buttons
   const ra = T('rails');
@@ -7420,7 +7565,8 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   setGate(g){ lastGate = g; if(lastAnalysis && currentCode) renderReport(lastAnalysis, currentCode); }, mainPlainUnion, topLevelIsOnlyMain, partsContainedJS, flightContradictions,
   get lastIntent(){ return lastIntent; }, benchCostText, updateBenchCost,
   callClaude, get cacheTtl(){ return cacheTtl; },
-  FLIGHT_DB_DATA, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal, dbHints, dbSummary, dbRows, dbCredits,
+  FLIGHT_DB_DATA, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal,
+  dbPickORing, dbPickDrill, dbPickStock, dbBoreMm, dbHints, dbSummary, dbRows, dbCredits,
   generate, aiTurn, retryPromptFor, get lastRetryPrompt(){ return lastRetryPrompt; }, get lastSent(){ return lastSent; }, get chat(){ return chat; },
   get specRoot(){ return specRoot; }, get partMesh(){ return partMesh; },
   get benchRunning(){ return benchRunning; },

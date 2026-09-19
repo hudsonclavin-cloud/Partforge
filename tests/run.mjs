@@ -30,7 +30,7 @@ fs.writeFileSync(path.join(build, 'flight-cmm.js'), block('CMM',
   fs.writeFileSync(path.join(build, 'flight-doctrine.js'), 'export const FLIGHT_SYSTEM_DOCTRINE = ' + JSON.stringify(html.slice(open_, close)) + ';\n');
 }
 fs.writeFileSync(path.join(build, 'flight-db.js'), block('DB',
-  'export { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal, dbHints, dbSummary, dbRows, dbCredits };'));
+  'export { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal, dbPickORing, dbPickDrill, dbPickStock, dbBoreMm, dbHints, dbSummary, dbRows, dbCredits };'));
 fs.writeFileSync(path.join(build, 'flight-decl.js'), block('DECL',
   'export { parseFlight, provenanceSummary, partTier, tierEvidence, flightCounts, flightLint, flightContradictions, TOL_SRC, FLIGHT_HAZARD, FLIGHT_AXIS, FLIGHT_CAP };'));
 let failed = 0;

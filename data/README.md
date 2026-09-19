@@ -5,6 +5,12 @@ Real hardware, so the designer stops guessing. The first dry run's motor retaine
 for hardware that has published dimensions. These tables put the published dimensions in front of
 the model, with the vendor and part number, so they land in the file as `tol_src: "source"`.
 
+Four selectors turn a row into a finished answer: `dbPickORing()` (dash + gland, groove depth
+derived from Parker Table 4-2, squeeze checked against the shop pressure rule), `dbPickDrill()`
+(nearest drill at or above and at or below a required hole), `dbPickStock()` (the smallest stock
+that still cleans up at a finished size, by form) and `dbBoreMm()` (reads a bore from the request
+and refuses a diameter with no vessel word beside it). `node tests/run.mjs` covers each.
+
 The app looks them up from the request text (`dbHints()` in `index.html`): an airframe size with an
 airframe word next to it ("6 inch airframe", "4in body tube"), a motor diameter or hardware name
 ("98 mm motor", "Pro98-3G", "RMS-75/5120"), and — once the verified tables land — thread sizes,

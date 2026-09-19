@@ -240,7 +240,7 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 588 assertions, no dependencies). Two files a real generation produced
+(`node tests/run.mjs`, 621 assertions, no dependencies). Two files a real generation produced
 during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
 are tested against what a model actually writes, not only against templates written to pass.
 
@@ -269,6 +269,30 @@ does not know — motor closures, Wildman — the hint says so, and the whole bl
 so it cannot crowd out the doctrine. ⚙ Settings → *Look up real hardware…* runs the same lookup by
 hand; *Data sources…* prints the attribution. `data/README.md` has the tables, licences and the
 regeneration pipeline (`tools/db/`).
+
+**The lookups are worked, not quoted.** A table row is still a number the designer has to
+turn into a part, and that step is where the first dry run went wrong: it recalled a dash size,
+then cut its groove to the wrong chart's depth. So four selectors do the arithmetic in code and
+hand the designer the finished answer:
+
+- `dbPickORing({bore_mm, kind, pressure_bar})` — from a bore, a rod or a groove diameter to a dash
+  size *and its whole gland*: groove bottom, depth derived as `(A − B1)/2` from the per-dash
+  Parker Table 4-2 numbers, squeeze in mm and per cent, groove width. Cross-section is a pressure
+  judgement rather than a lookup, so the shop rule is stated as PartForge doctrine and labelled
+  `[recall]`: Ø101.6 at 60 bar wants W 5.33, which picks −342 (squeeze 1.01 mm = 19 %) and prints
+  −240 beside it flagged as too thin. A diameter with no tabulated gland returns nothing rather
+  than an invented one.
+- `dbPickDrill(mm)` — the nearest drill at or above the hole (a clearance hole may never come out
+  undersize) and the nearest at or below, across fractional, number, letter and metric, each with
+  its own confidence. A hole larger than any drill in the table returns no answer above it.
+- `dbPickStock({kind, finish_mm, bore_mm})` — the three smallest 6061 sizes that still clean up at
+  the FINISHED diameter, with the waste, the availability and the form, because cold-finished and
+  extruded 2-1/4 in bar are the same nominal and 1.5 mm apart in what they can hold.
+- `dbBoreMm(text)` — reads a bore out of the request ("a 4 inch nitrous tank" → 101.6 mm) and
+  refuses a size with no vessel word next to it, so a bolt circle is never read as a bore.
+
+Each selector's line says which words it read the diameter from, and that an outside diameter is
+not a bore — the one substitution that changes every number below it.
 
 Flight templates work with no API key. `?bench=1` in flight grade runs the flight bench:
 twelve things a space-shot club types, scored by the same gate plus the measurements —
