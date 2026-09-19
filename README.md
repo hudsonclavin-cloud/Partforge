@@ -11,6 +11,291 @@ engineering checks and a manufacturing sheet.
 
 No backend. No build step. One HTML file.
 
+## User manual
+
+### Opening it
+
+Go to **https://hudsonclavin-cloud.github.io/Partforge/**. The URL is case-sensitive:
+`/Partforge/`. There is nothing to install and no account.
+
+The 3D viewer loads first, so the page is usable almost immediately. The geometry engine is a
+separate ~14 MB download that happens once and is then cached by the browser; it starts as soon
+as you focus the prompt box or touch a template, so the wait normally overlaps with your typing.
+Until something is on screen the viewport reads *"Describe a part, attach a photo, or pick a
+template — first render downloads the geometry engine (~14 MB), then it's cached."* If you have
+been here before it reads *"Welcome back"* and your last part is waiting in the code drawer
+behind **Run ▸**.
+
+### The screen
+
+Header: the logo, a subtitle that states the current mode, **? Help** and **⚙ Settings**.
+
+Left column, top to bottom:
+
+- **Describe the part** — the prompt box, thumbnails of any attached photos, suggestion chips,
+  **📷** (attach photos), **🎤** (dictate, shown only if your browser has speech recognition),
+  **Generate part** and **Refine**.
+- **Quick questions** — appears only when the model asks something.
+- **Quick templates** — marked *no API key needed*.
+- **Parameters** — appears once a part has rendered.
+- **Print readiness** (**Shop readiness** in flight grade) — the report.
+- **Bench** — hidden unless you add `?bench=1`.
+- **Library** — saved parts and this session's history.
+
+Right side: the viewport, with **⚙ Assembly** (only for multi-part designs), **⚠ Inspect**,
+**🔗 Share**, **⬇ STL** and **⋯** along the top. Below it a collapsed code drawer with
+**Source** and **Log** tabs, a copy button and **Run ▸**.
+
+### First part, no API key
+
+Press a chip under **Quick templates**. It compiles immediately; no key, no network call beyond
+the engine download. Hobby grade ships ten: Hinged box ⚙, Box + snap lid, L-bracket, Wall hook,
+Phone stand, Tube adapter, Spacer / washer, Cable clip, Divided tray, Fit coupon 🎯. Flight grade
+ships seven: Nose cone ✈, Centering ring, Av-bay bulkhead, Fin + TTW tab, Motor retainer,
+Coupler tube, Av sled (SLS).
+
+Loading a template clears the current conversation. **Hinged box ⚙** then **⚙ Assembly** is the
+quickest way to see what the tool does. **Fit coupon 🎯** is the calibration part: print it, find
+the hole that fits its peg snugly, and put the offset into *Fit offset* in Settings.
+
+### Generating with AI
+
+Type into the prompt box and press **Generate part**, or `Ctrl`/`Cmd`+`Enter`, or `G`. With no
+key configured you get *"Add your Anthropic API key in ⚙ Settings, or use a template."*
+
+With *Before designing* set to **Ask clarifying questions first** (the default), the first reply
+is usually up to four questions, each with option chips and a free-text box. Answer them and
+press **Answer → build**, or press **Skip** to build on stated assumptions. If the model keeps
+asking after you have answered, it is told twice to stop; after that you get *"The model kept
+asking questions instead of designing. Try again, or set 'Just build' in ⚙ Settings."*
+
+If the generated code fails to compile, the error is fed back automatically, up to twice —
+the overlay reads *"Fixing a compile error — auto-repair attempt 1 of 2"*.
+
+**Refine** sends the code currently in the drawer, including any edits you made by hand, with
+your follow-up. **📷** attaches photos; they are scaled to 1280 px on the long side and sent as
+JPEG, and they are cleared after the turn that used them.
+
+### Parameters
+
+Numeric parameters found in the generated code appear as a box plus a slider. **Apply ↻**
+re-renders (so does `Enter` in a box); **↺** puts back the generated values; ticking **auto**
+re-renders about a second after you stop dragging.
+
+### ⚙ Settings
+
+Your API key is used directly from this browser, stored only on this device, and sent only to
+the provider you pick. Keys, models and base URLs are stored per provider, so switching does not
+lose the other one. **Save** commits; **Close** discards.
+
+- **AI provider** — *Anthropic (Claude)*, *OpenAI-compatible* (OpenRouter, a local model server
+  or your own proxy, with an **API base URL** box), or *Replay* (no key: paste model replies
+  separated by a line containing only `---`, and Generate runs the real checks and retry
+  decision against them).
+- **Model** — free text with a suggestion list: `claude-sonnet-5` (the default),
+  `claude-opus-5`, `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`.
+- **Judge model** — used only for the intent score. Blank means the same model as the designer.
+- **Before designing** — *Ask clarifying questions first* or *Just build — never ask*.
+- **Let the designer search the web** — on by default, Anthropic only (the box is disabled for
+  other providers), about 1¢ a search.
+- **"does it read as what you asked for"** — off by default. One extra vision call after each
+  generation. Advisory: it never rejects or retries a part.
+- **Check the finished geometry and retry if it fails** — on by default. Turning it off removes
+  the gate and the retries.
+- **Design grade** — *Hobby* or *Flight*, below.
+- **Flight rows** (flight grade only) — **Material** and **Process** pickers, with the selected
+  material's density, yield, UTS and E printed underneath; **Curve tolerance (mm)**, default
+  0.01, accepted between 0.002 and 0.1, being the largest chordal deviation allowed on a curved
+  surface of the exported mesh; **Envelope X×Y×Z mm**, blank for no size limit, which replaces
+  the print-bed checks with a stock or machine envelope. Two buttons sit below:
+  **Look up real hardware…** prompts for a phrase ("6 inch airframe, 98 mm motor") and prints
+  exactly what the designer would be handed; **Data sources…** prints the attribution for the
+  embedded tables.
+- **Printer rows** (hobby grade only) — **Your printer**, 36 machines across Bambu Lab, Prusa,
+  Creality, Elegoo, Anycubic, Qidi, Flashforge and Sovol; picking one fills the bed size and
+  tells the designer what the machine can do. Editing the bed by hand deselects the printer.
+  Then **Bed (X × Y × Z mm)**, default 220 × 220 × 250; **Nozzle**, default 0.4;
+  **Material** (PLA, PETG, TPU, ABS, ASA, PC, PA-CF); **Filament $/kg**, default 20; and
+  **Fit offset (mm)** from the calibration coupon, default 0.
+- **Part color** — viewer only.
+
+At the foot of the dialog, once you have spent anything, a line gives this session's input and
+output tokens and how much was read from the prompt cache.
+
+Changing the grade clears the conversation and swaps the templates and the suggestion chips,
+because the designer is working from a different doctrine.
+
+### Design grade: Hobby and Flight
+
+**Hobby** is FDM on a consumer printer: the report is *Print readiness*, sizes are shown to one
+decimal, the part is checked against your bed, and the report estimates material, filament
+length, layer count, print time, overhangs and footprint.
+
+**Flight** is for machined and engineering parts. The designer gets an aerospace doctrine
+instead; the file must carry a `FLIGHT` declaration as well as its SPEC; the finished mesh is
+measured against that declaration; declared engineering checks are recomputed; mass, CG and
+inertia come out at the material's density. The report becomes *Shop readiness*, sizes go to
+three decimals, the bed checks give way to the optional envelope, and the report gains a
+**Part class** row (tier A, B or C, naming the document that class earns), a
+**Tolerance provenance** count of cited / user / tool-default numbers, and the
+**Flight declaration** line. The long version is under *Flight grade* further down this page.
+
+Templates in both grades render with no API key. The gate, the flight measurements and the
+documents they produce run on generated parts, not on a template you loaded from the chip row:
+loading a template renders it and reports its size, volume and mesh checks, but leaves the
+Geometry gate, Part class and manufacturing-sheet rows empty until something is generated.
+
+### Reading the report
+
+Rows that are always there: **Size (X·Y·Z)**, whether it sits on Z=0 (with a **Drop to plate**
+button if it does not), **Single connected object**, **Watertight**, **Solid volume** and
+**Triangles**.
+
+**Single connected object** is the floating-piece check: *N FLOATING — will print in mid-air* is
+a fail, *N separate pieces on the plate* is a warning, and on a mesh over 120,000 triangles the
+row reads *SKIPPED (huge mesh)*. The watertight check is skipped over 150,000 triangles.
+
+With the gate on you also get **Geometry gate** (PASSED, or the failures listed), and where the
+file declares a SPEC a **Spec check** line counting parts, joints, rules, layout relations and
+shape profiles, with a colour chip per declared part — the same colours **🧩 Parts** paints in
+the viewer. **Sized to the bed limit?** warns when a dimension lands exactly on your bed limit
+and you never asked for that size. If the intent judge is on, **Reads as requested** adds a score
+out of ten, and a clean geometry check paired with a low score is called out explicitly.
+
+Under the rows: lint warnings, then the `PART`, `PRINT` and `NOTE` lines out of the code.
+
+Report buttons: **✎** renames the part, **⧉** copies a plain-text print checklist,
+**🧩 Parts** colours the declared parts, **✨ Look & fix** shows the model three renders of its
+own work and takes one revision back (that revision is scored by the same gate, with no retry
+loop), and **🔍 Review** asks for a written design review. The last two need an API key and say
+so in a toast if you do not have one.
+
+### When a check fails
+
+A failure quotes the model's own declaration back at it. A joint failure reads:
+
+    left_arm() does not intersect torso() — their intersection is empty, so they are not
+    joined. Your SPEC promised 2 mm of overlap. Move left_arm into torso so the two solids
+    share volume.
+
+A flight measurement failure reads the same way, quoting the declared number and the measured
+one.
+
+The loop then regenerates: two retries, plus one more per declared part, capped at six, stopping
+the moment the checks pass. The overlay shows which failure it is working on and the round
+number. The best candidate is always shown — nothing is withheld — and a run that ends still
+failing states its trend, as in *"kept the best of 4 attempts — 2 checks still failing (was 5)"*,
+so a converging run looks different from a stuck one.
+
+When the gate has failures, **⧉ what the model would be told next** copies the exact retry
+prompt plus the current file, so you can run the next round by hand in any chat window. On the
+Replay provider a **▸ paste the reply** button appears beside it to feed the answer back.
+
+### Exporting
+
+**⬇ STL** in the viewer row (or `S`) saves a binary STL of what is on screen. Everything else is
+under **⋯**:
+
+- **⬇ 3MF (with units)**
+- **⬇ OpenSCAD source** — the `.scad` file. This is also the STEP path: open it in FreeCAD's
+  OpenSCAD workbench.
+- **📋 Manufacturing sheet (.md)**, or **📐 Interface control drawing (.md)** for a tier B or C
+  part, and **📊 Measurement report (.json)**. These three appear only after a flight-grade part
+  has been measured, which is to say after a generation or a **✨ Look & fix** — not for a
+  template you loaded from the chip row.
+- **⬇ STL: <part>** per module, for an assembly.
+- **⬇ Project file (.json)** and **⬆ Open project file…**
+- **📸 Screenshot (PNG)**
+- **🔳 QR code for this part** — drawn on your device from a library fetched once; the part is
+  never sent anywhere to be drawn. A part whose link exceeds roughly 2,900 characters is too big
+  for a QR code and the dialog says so.
+
+**🔗 Share** copies a link carrying the whole `.scad` source, base64, in the URL fragment.
+Opening such a link rebuilds the part straight away.
+
+### The viewer
+
+**⚠ Inspect** paints overhangs red and the first layer green. **⚙ Assembly** appears for
+multi-part designs and gives an explode slider and a driver per joint, with **▶** to animate;
+the button then reads **⬒ Plate** to go back.
+
+Under **⋯ → View**: Fit view (double-clicking also fits), Front / Top / Right / Isometric,
+Orthographic, Dimension overlay, Measure two points, Section view, Wireframe, Turntable spin,
+Light background, and a credit-card-sized plate for scale (85.6 mm).
+
+Under **⋯ → Mesh tools (export-level edits)**: Mirror (X), Rotate 90° on plate, Drop to plate,
+Scale…, and Auto-orient (min overhang). These edit the mesh, not the code, and the viewport
+shows *"mesh edited — STL export reflects edits"* while they are in effect. Orientation advice
+is only computed for meshes of 60,000 triangles or fewer.
+
+The code drawer's **Source** tab is editable: change the OpenSCAD and press **Run ▸**. The
+**Log** tab holds the engine's output for the last compile.
+
+Press `?` for the Help dialog, which lists the keyboard shortcuts (also under **Keyboard**
+below). Shortcuts are ignored while a text field or a dialog has focus.
+
+### URL parameters
+
+`?bench=1` is the only one, and it shows the **Bench** card: the fixed prompt set for the
+current grade, twenty prompts in hobby and twelve in flight. **Run raw** measures the generator
+alone, **Run gated** lets the gate retry, **First 5 only** is the short version, **Stop** aborts.
+**Judge intent** is on by default and adds a separate, non-deterministic column; **Judge samples
+per case** takes 1 to 5. A line above the buttons states what the run will cost at the current
+settings. Results give the pass rate, how many rendered at all, how many passed the gate, how
+many declared a checkable spec, and the judge average; previous runs are kept in this browser.
+
+The other link form is `#c=…`, which a **🔗 Share** link produces — it carries the part itself,
+not a reference to one.
+
+### Limits
+
+- A mesh is not a STEP file. STL and 3MF are tessellations, within the curve tolerance you set.
+  Machine to the sheet, not to the mesh.
+- `text()` renders nothing here: no fonts are available in the browser engine.
+- `import()` cannot read external files.
+- `minkowski()` works but is very slow, and `$fn` above 128 makes renders long. Both are called
+  out as lint warnings under the report.
+- The connectivity and watertight checks are skipped on very large meshes (over 120,000 and
+  150,000 triangles), and orientation advice above 60,000.
+- The intent judge is advisory. It never rejects or retries a part, and the geometry checks
+  cannot tell you whether the result is the thing you asked for.
+- Web search is Anthropic-only. Browsers block direct calls to OpenAI and Google.
+
+### Troubleshooting
+
+**"Add your Anthropic API key in ⚙ Settings, or use a template."** — no key for the selected
+provider. Templates still work.
+
+**"Couldn't reach …"** followed by a note about CORS — the request never got a response. Only
+Anthropic permits direct browser calls; for anything else use an OpenAI-compatible gateway, a
+local model server or your own proxy.
+
+**API 401** — *"Invalid API key. Check it in ⚙ Settings."* **API 404** mentioning the model adds
+*"— pick a different model in ⚙ Settings."* **API 429** is *"Rate limited — wait a moment and
+try again."*
+
+**"The reply hit the output limit and was cut off mid-file."** — ask for a simpler part, or
+fewer parts at once. **"The model replied without code."** — rephrase and press Generate again.
+**"The provider returned an empty reply. Check the model name in ⚙ Settings."** usually means
+the model id is wrong for that gateway.
+
+**A ⚠ message over the viewport** is a render failure; the text includes the engine's last
+`ERROR` and `WARNING` lines, and the full output is in the code drawer's **Log** tab.
+*"Render produced no geometry."* means the file compiled to nothing.
+
+**A render that will not finish** — the overlay counts seconds, and past ninety it adds
+*"complex CSG can take a while; Cancel is safe"*. **✕ Cancel render** stops it.
+
+**"3D viewer failed to load — check connection and reload"** in the dimensions strip means
+three.js did not arrive from the CDN. Nothing will display until it does; a reload is the fix.
+
+**The QR dialog reporting it could not load the QR library** has the same cause — that library
+is fetched on first use. Use **🔗 Share** instead.
+
+**Settings that do not stick** — the app falls back to in-memory storage when the browser
+refuses local storage, as in a private window with site data blocked. Nothing breaks, but
+nothing is remembered after a reload.
+
 ## How it works
 
 prompt / photo -> Claude (clarify -> design) -> parametric OpenSCAD
@@ -302,7 +587,10 @@ plate and tank cap catch a declared load check with the wrong inputs.
 ## Keyboard
 
 G generate · R refine · A assembly · I inspect · M measure · X section ·
-D dimensions · W wireframe · T turntable · F fit · 1-4 views · S save STL
+D dimensions · W wireframe · T turntable · F fit · 1-4 views · S save STL ·
+? help · Esc leave measure / close the ⋯ menu
+
+Ignored while a text field has focus, and while a dialog is open except for Esc.
 
 ## Deploying an update
 

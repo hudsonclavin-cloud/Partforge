@@ -7503,7 +7503,7 @@ function updateLlmHint(){
   $('llmHint').textContent = (settings.key || P().replay)
     ? `${P().label.split(' ')[0]} · ${settings.model || 'set a model'} · ${settings.clarify==='ask'?'asks first':'just builds'}${P().search ? ` · search ${settings.search?'on':'off'}` : ''} · ${where}` + (P().replay ? ` · ${settings.replay.length} repl${settings.replay.length === 1 ? 'y' : 'ies'} queued` : '')
     : (isFlight()
-      ? 'FLIGHT grade. AI generation needs an API key (⚙ Settings). The flight templates work without one — load one, then open its drawing under ⋯ (a manufacturing sheet, or an interface control drawing for a composite or pressure part).'
+      ? 'FLIGHT grade. AI generation needs an API key (⚙ Settings). The flight templates render without one — load one to see the part, its size and its mesh checks. The drawings (a manufacturing sheet, or an interface control drawing for a composite or pressure part) come out of the measurement pass, which runs on a generated part, so those need a key.'
       : 'AI generation needs an Anthropic API key (⚙ Settings). Templates work without one — try “Hinged box ⚙” then its Assembly view, or print the “Fit coupon 🎯”.');
   $('btnRefine').disabled = !((settings.key || P().replay) && currentCode);
   const sub = document.querySelector('header .sub');
