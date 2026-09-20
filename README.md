@@ -532,7 +532,7 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 621 assertions, no dependencies). Two files a real generation produced
+(`node tests/run.mjs`, 644 assertions, no dependencies). Two files a real generation produced
 during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
 are tested against what a model actually writes, not only against templates written to pass.
 
@@ -590,6 +590,9 @@ hand the designer the finished answer:
 
 Each selector's line says which words it read the diameter from, and that an outside diameter is
 not a bore — the one substitution that changes every number below it.
+
+`docs/STATUS.md` is the stopping-point record: what is verified and by which check, what is
+open with its measured numbers, and what the documentation deliberately does not claim.
 
 Flight templates work with no API key. `?bench=1` in flight grade runs the flight bench:
 twelve things a space-shot club types, scored by the same gate plus the measurements —

@@ -1,0 +1,4 @@
+# a stray `npm i` at the root; the harness keeps its own under tests/harness/ (see tests/.gitignore)
+node_modules/
+package.json
+package-lock.json
