@@ -11772,9 +11772,9 @@
    },
    "pressure_and_extrusion": {
     "table_4_2_rating": {
-     "value": "Table 4-2 glands with clearance E and no back-up rings are rated to 103.5 bar (1500 psi) static",
+     "value": "Design Table 4-2 is headed for industrial static seals to 103.5 bar (1500 psi), and its footnote says the tabulated groove width G does not permit back-up rings and that back-up rings are to be used above 103.5 bar. This is a table heading and an investigation trigger, not a certification: capability depends on the total OPERATING diametral clearance (bore dilation and bolt stretch under pressure included), compound hardness, temperature and whether pressure is steady, pulsating or vibrating. Silicone and fluorosilicone: halve the maximum diametral clearance (Table 4-2 note).",
      "confidence": "likely",
-     "source": "Parker ORD 5700 Table 4-2 title as transcribed in KasperCalc"
+     "source": "Parker ORD 5700 Table 4-2 title and footnotes as transcribed in KasperCalc ORing-HighPressureIndustrial.html and reported independently at manuals.plus; the 'investigate back-ups above 103.5 bar' trigger also reported from Parker O-Ring Division FAQ.pdf. The printed handbook was not read."
     },
     "tank_end_cap_case": {
      "value": "A 60 bar (870 psi) N2O tank end cap, 70 A NBR or FKM, W .139, radial piston seal held to Table 4-2 clearance E .003-.006 in total diametral (0.08-0.15 mm) is inside the 1500 psi Table 4-2 envelope with ~1.7x margin and needs no back-up ring; if the bore/plug clearance is opened to 0.10 mm diametral (endcap.scad) it is still within E max .006 in = 0.15 mm",
@@ -11785,6 +11785,16 @@
      "value": "Parker Figure 3-2 (basis 100,000 pressure cycles at 71 C, total diametral clearance): 70 Shore A roughly .010 in at ~800 psi, .005 in at ~1500 psi, .002 in at ~3000 psi; 80 A roughly .010 in at ~1500 psi, .005 in at ~3000 psi; 90 A roughly .010 in at ~3000 psi, .005 in at ~5000 psi. Above the curve add one back-up ring (width G1) on the low-pressure side, two (G2) if pressure alternates direction, or step up to 90 A.",
      "confidence": "recall",
      "source": "Parker ORD 5700 Figure 3-2, from memory; read the printed curve before relying on any single point"
+    },
+    "backup_rings_above_103_5_bar": {
+     "value": "above 103.5 bar (1500 psi) Table 4-2's groove does not apply: use back-up rings with the wider groove (G1 one ring on the low-pressure side, G2 two rings if pressure alternates direction)",
+     "confidence": "likely",
+     "source": "Parker ORD 5700 Table 4-2 footnote (two transcriptions) and Parker O-Ring Division FAQ (reported)"
+    },
+    "figure_3_2_check_above_55_2_bar": {
+     "value": "above 55.2 bar (800 psi) Parker refers the designer to Figure 3-2: hold the total operating diametral clearance for the chosen durometer inside the curve, or step up to 90 A, or add a back-up ring - the fix for a gap that is too wide is hardness or a back-up, not a heavier cross-section",
+     "confidence": "recall",
+     "source": "A Parker Table 4-2 extract reported (via search summary, not read) to refer the designer to Figure 3-2 above 800 psi; the 800 psi figure is single-source"
     }
    },
    "installation_and_finish": {
@@ -11810,14 +11820,19 @@
     "source": "Parker ORD 5700 section 2 (compound selection) and general vendor compatibility charts, from memory; not a substitute for the supplier chart"
    },
    "selection_practice_partforge_doctrine": {
-    "value": "W .103 for couplers/bulkheads under 2 bar; W .139 minimum for a pressure-vessel end cap; W .210 for anything above 75 mm bore under real pressure; hobby vendors stock -1xx and -2xx up to about -284, 3xx above -360 and all 4xx are special order",
+    "value": "PartForge shop practice, NOT Parker: W .103 (2.62 mm) for couplers and bulkheads under 2 bar; W .139 (3.53 mm) as the default for any pressure-vessel end cap or radial seal at 2 bar and above, at every bore the table covers. Step up to W .210 (5.33 mm) only when the shop cannot hold the groove-bottom tolerance Table 4-2 asks for (B1 +0/-.002 in), the sealing face is rough or reused, or the ring is hand-assembled repeatedly in the field - tolerance and handling reasons, never because the bore is large and never because the pressure is high. Hobby vendors stock -1xx and -2xx up to about -284; 3xx above -360 and all 4xx are special order.",
     "confidence": "recall",
-    "source": "PartForge shop doctrine (sport-rocketry practice), NOT Parker; do not cite Parker for these"
+    "source": "PartForge shop doctrine (sport-rocketry practice); do not cite Parker for these thresholds. The earlier form of this note (\"W .210 for anything above 75 mm bore under real pressure\") was withdrawn on 2026-09-20: see cross_section_facts and reconciliation.later_passes."
    },
    "w_070_family": {
     "value": "AS568 -004..-050 (W .070 in / 1.78 mm, ID .070 to 5.239 in) exist and are what the PartForge doctrine 1.78 mm face-seal figures refer to (feedthroughs, charge wells, vent ports). Out of this table's scope: 45 sizes, plus the odd -001..-003 (W .040/.050/.060). Face and radial gland values for W .070 ARE included above.",
     "confidence": "likely",
     "source": "Apple Rubber AS568 chart and KasperCalc AS568D table (both list -001..-050)"
+   },
+   "cross_section_facts": {
+    "value": "Parker ORD 5700 gives NO rule for choosing a cross-section from bore size or pressure: Tables 4-1/4-2/4-3 are entered with W already chosen and tabulate the gland for each W. In this table's own rows every W spans nearly the whole diameter range - W .103 to -178 (9.737 in ID), W .139 to -284 (17.955 in ID), W .210 from -309 (0.412 in ID) - and only the -4xx family (W .275) has a large-diameter floor, at -425 (4.475 in ID). Table 4-2 allows the SAME diametral clearance E, .003-.006 in (0.08-0.15 mm), for W .139 and W .210 (radial_static_table_4_2), so stepping from a -2xx to a -3xx on the same bore buys no extrusion margin; only W .275 gains .001 in. What a heavier section buys is absolute squeeze - squeeze is a percentage of W - i.e. tolerance to groove-depth error, flatness, scratches and debris, and easier handling; three vendor design guides were reported to agree on that (Gallagher Seals, Global O-Ring, Hi-Tech Seals) but none was read in this project, so that last clause is recall.",
+    "confidence": "likely",
+    "source": "The ID coverage and the identical E band are read from this table's reconciled rows and its radial_static_table_4_2 bands (three transcriptions agree); the absence of a selection rule is the structure of Parker's tables (KasperCalc transcription of Table 4-2 and Chart 4-3; the printed handbook was not read). The vendor-guide clause is recall."
    }
   },
   "project_issues": [
@@ -11884,6 +11899,13 @@
    "Added (from the missing lists): per-row ID tolerance, W tolerance column, usage formulas for the face-seal and radial cases, Table 4-2 1500 psi rating and the 60 bar end-cap case, Figure 3-2 extrusion limits (recall), lead-in chamfer / finish / groove-bottom tolerance, W .070 family note, rocketry media guidance (recall), doctrine selection practice labelled as PartForge not Parker.",
    "Parker Table 4-2 per-dash diameters: 293 of 299 transcribed rows pass the row arithmetic exactly; three transcription digit slips corrected from the other cells of their own row (-130 A 1.818->1.812, -348 A1 4.717->4.715, -449 D 10.000->10.004) and three 0.001 in D-throat deviations kept as transcribed with a note (-103, -141, -341); each carries parker_t42_note.",
    "Not supplied: -0xx rows (out of the stated scope; noted), printed-chart confirmation of Chart 4-1 L and squeeze and of Figure 3-2 (network to Parker blocked; marked recall)."
+  ],
+  "later_passes": [
+   {
+    "date": "2026-09-20",
+    "scope": "supplement.gland_parker_ord5700 selection practice and pressure notes; no row changed",
+    "finding": "The selection note 'W .210 for anything above 75 mm bore under real pressure' had no basis in Parker and was contradicted by this table: radial_static_table_4_2 gives the same clearance E for W .139 and W .210, and every W is tabulated across the bore range. Split into selection_practice_partforge_doctrine (shop practice, recall) and cross_section_facts (from the rows, likely). table_4_2_rating reworded from 'rated to' to 'headed for, with an investigate-back-ups trigger'. Two pressure advisories added with their own labels. The printed ORD 5700 was NOT read (egress blocked); nothing reached only through a search summary was labelled above recall."
+   }
   ]
  }
 }

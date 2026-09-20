@@ -562,11 +562,16 @@ hand the designer the finished answer:
 
 - `dbPickORing({bore_mm, kind, pressure_bar})` — from a bore, a rod or a groove diameter to a dash
   size *and its whole gland*: groove bottom, depth derived as `(A − B1)/2` from the per-dash
-  Parker Table 4-2 numbers, squeeze in mm and per cent, groove width. Cross-section is a pressure
-  judgement rather than a lookup, so the shop rule is stated as PartForge doctrine and labelled
-  `[recall]`: Ø101.6 at 60 bar wants W 5.33, which picks −342 (squeeze 1.01 mm = 19 %) and prints
-  −240 beside it flagged as too thin. A diameter with no tabulated gland returns nothing rather
-  than an invented one.
+  Parker Table 4-2 numbers, squeeze in mm and per cent, groove width. Cross-section is chosen by
+  pressure class only — W .139 from 2 bar up, W .103 below — and that is stated as shop practice
+  and labelled `[recall]`, because Parker gives no such rule. What the table does say is labelled
+  `[likely]` and printed beside it: Table 4-2 allows the same clearance E for W .139 and W .210,
+  so a heavier ring buys no extrusion margin, only absolute squeeze. Ø101.6 at 60 bar therefore
+  picks −240 (squeeze 0.71 mm = 20 %) and lists −342 as the heavier alternative with its deeper
+  groove; above 55.2 bar the line adds Parker's Figure 3-2 clearance check, above 103.5 bar the
+  back-up-ring rule. An earlier form of this rule stepped up to W .210 above a 75 mm bore under
+  pressure; it was withdrawn when the table showed the justification did not exist. A diameter
+  with no tabulated gland returns nothing rather than an invented one.
 - `dbPickDrill(mm)` — the nearest drill at or above the hole (a clearance hole may never come out
   undersize) and the nearest at or below, across fractional, number, letter and metric, each with
   its own confidence. A hole larger than any drill in the table returns no answer above it.
