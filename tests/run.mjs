@@ -20,7 +20,7 @@ fs.mkdirSync(build, { recursive: true });
 fs.writeFileSync(path.join(build, 'flight-eng.js'), block('ENG',
   'export { massProperties, jacobiEigen3, isa, hoopStress, flutterVelocity, threadCheck, boltShear, parseThreadSize, tensileStressArea_mm2, fnFor, chordalDeviation, openscadFragments, FLIGHT_MATERIALS, FLIGHT_PROCESSES, ISA_LAYERS, ISA_BASE_P, METRIC_COARSE_PITCH, UN_MAJOR_IN, ENGAGEMENT_RULE };'));
 fs.writeFileSync(path.join(build, 'flight-cmm.js'), block('CMM',
-  'export { buildMeshIndex, rayHits, pointInside, measureBore, measureHoles, measureExtent, measureOD, revolveProfile, measureRevolve };'));
+  'export { buildMeshIndex, rayHits, pointInside, meshOverlap, measureBore, measureHoles, measureExtent, measureOD, revolveProfile, measureRevolve };'));
 // The doctrine is a template literal inside flightSystemPrompt(), not a marked block: the tests
 // read it as text so they can check the prompt does not restate a number the tables carry.
 {

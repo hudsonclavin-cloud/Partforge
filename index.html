@@ -1374,7 +1374,7 @@ MODE 2 — SINGLE PART. One fenced code block of complete, valid OpenSCAD. No pr
    - bores: an on-axis or off-axis round bore, measured by rays cast outward from the declared centre at stations between from_mm and to_mm. from_mm is the OPEN end (where a plug gauge enters); to_mm the far end — for a blind hole the program also measures its depth. tol_mm is the diameter tolerance; pos_tol_mm the position tolerance (defaults to tol_mm). tol_mm must be ≥ 2 × tess_tol_mm. from_mm is an outer face of the part, or the floor of a larger bore that opens onto it — never a plane inside solid material, and never a groove on the OUTSIDE of the part (that is an od). An internal groove — a widening inside a bore — is a bores entry over the groove's band.
    - holes: a pattern of bores of one size: "circle" (n holes on a bolt circle of diameter bc_d_mm about the axis, counter-clockwise from start_deg; optional "centre_mm":[u,v]), "list" (explicit at_mm pairs) or "single". Same axis/from/to convention. Every hole in the pattern is measured individually; a missing, misplaced, undersize or oversize hole names itself in the failure.
    - revolve: a nose-cone profile the program recomputes from the equation and compares at 24 stations. type ∈ conical | tangent_ogive | vonkarman | lvhaack | haack (with "C") | parabolic (with "K") | power (with "n") | elliptical. tip_at_mm is the axis coordinate of the tip; direction −1 means the base lies toward smaller axis values. tol_mm defaults to 0.10.
-   - gauges: for features that are not round (slots, keyways, hex pockets, thread minor diameters) write a module named gauge_<something> that is the GO or NO-GO gauge solid in its checking position; "expect":"clear" means the gauge must not intersect the part (it fits), "interfere" means it must (the feature is not oversize). The program renders intersection(){ gauge(); main(); }.
+   - gauges: for features that are not round (slots, keyways, hex pockets, thread minor diameters) write a module named gauge_<something> that is the GO or NO-GO gauge solid in its checking position; "expect":"clear" means the gauge must not intersect the part (it fits), "interfere" means it must (the feature is not oversize). The program compiles the gauge solid and measures its overlap with the part mesh (an overlap thinner than 0.02 mm is a touch, not an interference); a module that itself writes intersection(){ main(); ... } is judged by the volume it renders.
    - loads: engineering checks the program recomputes with the material's properties (an entry may carry its own "material" id when the checked part is not the file's material — a G10 fin declared from an aluminium fin can). "hoop": Lamé thick-wall stress for internal pressure (P_MPa at MEOP, inner radius ri_mm, wall t_mm; safety factor on yield vs sf_min). "flutter": NACA TN 4197 fin flutter velocity from planform and thickness with the atmosphere at alt_m, compared with v_max_m_s (sf_min is Vf/v_max). "thread": tensile stress area and thread-strip engagement for size (M3..M16, #4-40..1/2-13) into internal_material. "bolt_shear": per-bolt shear and hole bearing for n bolts carrying force_N through a plate plate_t_mm thick; add "grade":"8.8"|"10.9"|"12.9" (default 8.8) and "shear_plane":"shank" when the plain shank, not the thread, sits in the joint. Give REAL inputs from the request or your stated assumptions — the program does the arithmetic, and a check you declare with wrong inputs fails. If a check is physically meaningful for the part (a pressure wall, a fin, a load-carrying bolt pattern), declare it; do not declare checks that do not apply.
    - mfg: the manufacturing sheet: stock, finish, heat treatment, deburr, an inspection list naming the instrument for each declared dimension, and notes (test requirements, assembly torque, thread locker).
    A FLIGHT block with no critical, od, bores, holes, revolve or gauges entries is rejected: every dimension a shop will measure must be declared, and every declared entry is checked.
@@ -3104,6 +3104,14 @@ function prefetchSpecProbes(code){
     if(exprs && exprs.length) batchProbe(code, exprs);
   } catch(e){ /* a prefetch is an optimisation; never let it break a generation */ }
 }
+/* The source text of one module's body, braces balanced; '' when it is not defined. */
+function moduleBody(code, name){
+  const m = new RegExp('^\\s*module\\s+' + name + '\\s*\\([^)]*\\)\\s*\\{', 'm').exec(code);
+  if(!m) return '';
+  let depth = 1, i = m.index + m[0].length;
+  for(; i < code.length && depth; i++){ const c = code[i]; if(c === '{') depth++; else if(c === '}') depth--; }
+  return code.slice(m.index + m[0].length, i - 1);
+}
 /* specCheck runs the SPEC checks, then the FLIGHT checks, on every exit path — a file
    that dropped its SPEC block still gets measured against its FLIGHT declaration. */
 async function specCheck(code, g, onStatus){
@@ -3554,6 +3562,139 @@ function pointInside(index, p) {
     if (crossings & 1) votes++;
   }
   return votes >= 2;
+}
+
+// Does solid G overlap solid P by more than eps, and by how much?  The gauge check used to
+// compile intersection(){ gauge(); main(); } — a CGAL intersection with the whole part, 8 s
+// each on a 6k-triangle bulkhead, four gauges → 33 s — while the gauge alone compiles in
+// 0.1 s.  The part is already a mesh with a ray index, so the question is answered here:
+// a vertex of either solid pushed eps inward along its vertex normal that lands inside the
+// other is an overlap, and so is an edge of either that enters the other and runs more
+// than eps inside it.  A bare touch (coplanar faces, a tangent edge) is neither.
+// depth is the overlap thickness at the deepest inside vertex (the shortest way out of the
+// overlap along that vertex's facet normals), or, when only edges cross, the longest run of
+// an edge inside the other solid; size is the extent of the overlap evidence, and points
+// lists that evidence as [x, y, z, chord, 'v' | 'e'].
+function meshOverlap(P, G, eps) {
+  eps = eps || 0.02;
+  const iP = cmmIndex(P), iG = cmmIndex(G);
+  const bP = iP.bbox, bG = iG.bbox;
+  const none = { touches: false, size: [0, 0, 0], depth: 0, n: 0 };
+  for (let k = 0; k < 3; k++) if (bG.min[k] > bP.max[k] + eps || bG.max[k] < bP.min[k] - eps) return none;
+  const pts = [];
+  let vDepth = 0, eDepth = 0;   // thickness at the deepest vertex; longest run of a crossing edge
+  const inBox = (b, p, pad) => p[0] >= b.min[0] - pad && p[0] <= b.max[0] + pad && p[1] >= b.min[1] - pad && p[1] <= b.max[1] + pad && p[2] >= b.min[2] - pad && p[2] <= b.max[2] + pad;
+  const segTouchesBox = (a, b, box, pad) => {
+    for (let k = 0; k < 3; k++) if (Math.max(a[k], b[k]) < box.min[k] - pad || Math.min(a[k], b[k]) > box.max[k] + pad) return false;
+    return true;
+  };
+  // Per vertex: the outward normal (area-weighted over the facets that share it, from the
+  // winding — the STL's own normal can be zero on a sliver) and the distinct facet normals.
+  // A vertex pushed inward along one FACET normal that is tangential to a contact plane
+  // stays on that plane, and a point on a plane has no parity; along the vertex normal a
+  // corner moves diagonally into the solid.
+  const vertexData = (A) => {
+    const acc = new Map(), key = (x, y, z) => Math.round(x * 1e4) + ',' + Math.round(y * 1e4) + ',' + Math.round(z * 1e4);
+    for (let t = 0; t < A.tris; t++) {
+      const p = A.pos, o = t * 9;
+      const ux = p[o+3]-p[o], uy = p[o+4]-p[o+1], uz = p[o+5]-p[o+2], vx = p[o+6]-p[o], vy = p[o+7]-p[o+1], vz = p[o+8]-p[o+2];
+      const nx = uy*vz - uz*vy, ny = uz*vx - ux*vz, nz = ux*vy - uy*vx;      // |n| = 2 × area
+      const l = Math.hypot(nx, ny, nz);
+      if (l < 1e-12) continue;
+      const fk = Math.round(nx/l*1e3) + ',' + Math.round(ny/l*1e3) + ',' + Math.round(nz/l*1e3);
+      for (let k = 0; k < 3; k++) {
+        const kk = key(p[o+k*3], p[o+k*3+1], p[o+k*3+2]);
+        let a = acc.get(kk);
+        if (!a) { a = { s: [0, 0, 0], f: new Map() }; acc.set(kk, a); }
+        a.s[0] += nx; a.s[1] += ny; a.s[2] += nz;
+        if (!a.f.has(fk)) a.f.set(fk, [nx/l, ny/l, nz/l]);
+      }
+    }
+    return (x, y, z) => {
+      const a = acc.get(key(x, y, z)); if (!a) return null;
+      const l = Math.hypot(a.s[0], a.s[1], a.s[2]); if (l < 1e-12) return null;
+      return { n: [a.s[0]/l, a.s[1]/l, a.s[2]/l], facets: [...a.f.values()] };
+    };
+  };
+  // Overlap chord at a vertex v of A that lies inside B: along each adjacent facet's inward
+  // normal, the ray from q (v pushed eps inside A) leaves the overlap where it first leaves
+  // either solid; the shortest such chord, with the push added back, is the local thickness
+  // of the overlap — 1 mm for a 1 mm lap, the gauge's own thickness for a gauge buried in
+  // the part. Cast from q, not v: v sits on A's surface and often exactly on a face of B,
+  // where a ray along that face is undefined.
+  const chordAt = (iA, iB, q, vd) => {
+    let best = Infinity;
+    for (const f of vd.facets) {
+      const d = [-f[0], -f[1], -f[2]];
+      const hb = cmmFirstHit(iB, q, d, best), ha = cmmFirstHit(iA, q, d, best);
+      const t = Math.min(hb ? hb.t : Infinity, ha ? ha.t : Infinity);
+      if (!isFinite(t)) continue;
+      const tv = t + eps * (vd.n[0]*f[0] + vd.n[1]*f[1] + vd.n[2]*f[2]);   // v = q + n·eps
+      if (tv < best) best = tv;
+    }
+    return best;
+  };
+  // vertices of A pushed eps inward along the vertex normal, tested against B
+  const verts = (A, iA, iB, bB) => {
+    const vd = vertexData(A);
+    const seen = new Set();
+    for (let t = 0; t < A.tris; t++) {
+      for (let k = 0; k < 3; k++) {
+        const x = A.pos[t*9+k*3], y = A.pos[t*9+k*3+1], z = A.pos[t*9+k*3+2];
+        const kk = x + ',' + y + ',' + z;
+        if (seen.has(kk)) continue; seen.add(kk);
+        const d = vd(x, y, z);
+        if (!d) continue;
+        const q = [x - d.n[0]*eps, y - d.n[1]*eps, z - d.n[2]*eps];
+        if (!inBox(bB, q, 0) || !pointInside(iB, q)) continue;
+        const dv = chordAt(iA, iB, q, d);
+        if (!(dv > eps)) continue;                                  // a graze, not an overlap
+        vDepth = Math.max(vDepth, dv);
+        pts.push([x, y, z, dv, 'v']);
+      }
+    }
+  };
+  // n·d for triangle tri of an index, unnormalised (|n| = 2 × area, d as given)
+  const triDot = (idx, tri, d) => {
+    const p = idx.pos, o = tri * 9;
+    const ux = p[o+3]-p[o], uy = p[o+4]-p[o+1], uz = p[o+5]-p[o+2], vx = p[o+6]-p[o], vy = p[o+7]-p[o+1], vz = p[o+8]-p[o+2];
+    const nx = uy*vz - uz*vy, ny = uz*vx - ux*vz, nz = ux*vy - uy*vx, l = Math.hypot(nx, ny, nz) || 1;
+    return (nx*d[0] + ny*d[1] + nz*d[2]) / l;
+  };
+  // edges of A that ENTER B and run more than eps inside it before leaving
+  const edges = (A, iB, bB) => {
+    for (let t = 0; t < A.tris; t++) {
+      for (let k = 0; k < 3; k++) {
+        const m = (k + 1) % 3;
+        const a = [A.pos[t*9+k*3], A.pos[t*9+k*3+1], A.pos[t*9+k*3+2]];
+        const b = [A.pos[t*9+m*3], A.pos[t*9+m*3+1], A.pos[t*9+m*3+2]];
+        if (!segTouchesBox(a, b, bB, eps)) continue;
+        const d = [b[0]-a[0], b[1]-a[1], b[2]-a[2]], len = Math.hypot(d[0], d[1], d[2]);
+        if (len < 2 * eps) continue;
+        const hits = rayHits(iB, a, d, { maxT: len - eps });
+        // entering from outside, past the start, and not grazing: an edge lying in one of B's
+        // face planes reports a "hit" where it crosses that face's diagonal split
+        const h = hits.find(x => x.entering && x.t > eps && Math.abs(triDot(iB, x.tri, d)) > 1e-3 * len);
+        if (!h) continue;
+        const out = hits.find(x => x.t > h.t + 1e-6 && !x.entering);
+        const chord = (out ? out.t : len) - h.t;
+        if (!(chord > eps)) continue;
+        const tm = h.t + chord / 2;                                 // the chord really runs inside B
+        if (!pointInside(iB, [a[0] + d[0]/len*tm, a[1] + d[1]/len*tm, a[2] + d[2]/len*tm])) continue;
+        eDepth = Math.max(eDepth, chord);
+        pts.push([h.point[0], h.point[1], h.point[2], chord, 'e']);
+      }
+    }
+  };
+  verts(G, iG, iP, bP); edges(G, iP, bP);
+  verts(P, iP, iG, bG); edges(P, iG, bG);
+  if (!pts.length) return none;
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (const p of pts) for (let k = 0; k < 3; k++) { if (p[k] < lo[k]) lo[k] = p[k]; if (p[k] > hi[k]) hi[k] = p[k]; }
+  // A vertex chord is the local thickness of the overlap; an edge chord is a run along one
+  // line and can be diagonal, so it stands in for depth only when no vertex is inside (a thin
+  // plate or a rod through the other solid).
+  return { touches: true, size: [hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]], depth: vDepth > 0 ? vDepth : eDepth, n: pts.length, points: pts };
 }
 
 // ------------------------------------------------------------------ small helpers
@@ -5035,7 +5176,9 @@ async function flightCheck(code, g, mesh, onStatus){
     row.ok = !!row.r.ok; rows.revolve.push(row);
     if(!row.ok) g.fails.push(`Revolved profile "${e.name}": you declared a ${e.type} profile, L ${e.L_mm} mm, R ${f3(e.R_mm)} mm, tip at ${e.axis}=${e.tip_at_mm}; measured ${row.r.note || 'no match'}. The profile must follow the equation to ±${e.tol_mm} mm — check the degree/radian conversion and the sampling.`);
   }
-  // --- custom gauges: the one thing still compiled, one batch for all of them
+  // --- custom gauges: the gauge solids are compiled alone, one batch for all of them, and
+  //     the overlap with the part is measured on the mesh (meshOverlap); a CGAL intersection
+  //     with the whole part cost 8 s per gauge. Without a mesh the intersection is compiled.
   const defined = new Set([...code.matchAll(/^\s*module\s+([A-Za-z_]\w*)\s*\(/gm)].map(m => m[1]));
   const gjobs = f.gauges.map(e => ({ e, row: { ...e, ok:false, note:'' } }));
   for(const j of gjobs) rows.gauges.push(j.row);
@@ -5043,14 +5186,27 @@ async function flightCheck(code, g, mesh, onStatus){
   for(const j of gjobs) if(!defined.has(j.e.module)){ j.row.note = 'no module'; g.fails.push(`Gauge "${j.e.name}" names module ${j.e.module}(), which does not exist. Write the gauge solid as that module, in its checking position.`); }
   if(runnable.length){
     onStatus && onStatus(`${runnable.length} gauge${runnable.length > 1 ? 's' : ''}`);
-    const probed = await batchProbe(code, runnable.map(j => `intersection(){ ${j.e.module}(); main(); }`));
+    // Two gauge styles are in the wild: the gauge SOLID in its checking position (the doctrine's
+    // form), and a module that already writes intersection(){ main(); solid } — the fin
+    // template's LE wedges do that. The second compiles to the overlap itself, so its result
+    // is judged by volume as before; the first is compiled alone and overlapped on the mesh.
+    const onMesh = !!(mesh && mesh.tris);
+    const selfCut = runnable.map(j => /\bmain\s*\(/.test(moduleBody(code, j.e.module)));
+    const probed = await batchProbe(code, runnable.map((j, i) => onMesh && !selfCut[i] ? `${j.e.module}()` : `intersection(){ ${j.e.module}(); main(); }`));
     runnable.forEach((j, i) => {
       const m = probed[i];
       if(!m){ j.row.note = 'probe error'; return; }
-      const size = m.tris ? meshBBox(m) : [0, 0, 0], thick = Math.min(...size);
-      const touches = m.tris > 0 && thick > 0.02;
+      let size, touches, extra = '';
+      if(onMesh && !selfCut[i]){
+        if(!m.tris){ j.row.note = 'gauge renders nothing'; g.fails.push(`Gauge "${j.e.name}": ${j.e.module}() renders no geometry, so it checks nothing. Write the gauge as a solid in its checking position.`); return; }
+        const ov = meshOverlap(mesh, m);
+        touches = ov.touches; size = ov.size; extra = touches ? `, penetration up to ${ov.depth.toFixed(3)} mm` : '';
+      } else {
+        size = m.tris ? meshBBox(m) : [0, 0, 0];
+        touches = m.tris > 0 && Math.min(...size) > 0.02;
+      }
       j.row.ok = j.e.expect === 'clear' ? !touches : touches;
-      j.row.note = touches ? `intersects (${size.map(v => v.toFixed(2)).join('×')} mm)` : 'clear';
+      j.row.note = touches ? `intersects (${size.map(v => v.toFixed(2)).join('×')} mm${extra})` : 'clear';
       if(!j.row.ok) g.fails.push(j.e.expect === 'clear'
         ? `Gauge "${j.e.name}" (${j.e.why || 'must fit'}): ${j.e.module}() intersects the part in a ${size.map(v => v.toFixed(2)).join(' × ')} mm volume, but you declared it must clear. The feature it checks is undersize or misplaced.`
         : `Gauge "${j.e.name}" (${j.e.why || 'must not fit'}): ${j.e.module}() does not touch the part, but you declared it must interfere. The feature it checks is oversize.`);
@@ -7188,6 +7344,9 @@ function renderTemplates(){
     c.onclick = () => {
       if(busy) return;
       chat = []; qaAsked = false; hideQuestions(); $('history').innerHTML=''; pushHistory('user', 'Template: '+t.name);
+      // In flight grade the part will probably be measured next (⋯ → Measure): start the SPEC
+      // probe batch now, beside the render, the way aiTurn does, so it is not paid serially then.
+      if(isFlight()) prefetchSpecProbes(t.code);
       runCode(t.code).catch(err => { if(String(err.message)!=='cancelled') showRenderError(err); });
     };
     tWrap.appendChild(c);
@@ -7257,6 +7416,7 @@ async function measureOnDemand(){
   try {
     if(!a.conn) a.conn = connectivity(currentMesh);
     const head = '<span class="big">Measuring the part against its declaration</span>';
+    prefetchSpecProbes(code);                  // a no-op when the template load already started it
     setOverlay(true, head + 'geometry checks', {cancel:false});
     const g = gateCheck(currentMesh, a, code, a.conn);
     await specCheck(code, g, s => setOverlay(true, head + escapeHtml(s), {cancel:false}));
@@ -7626,7 +7786,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   massProperties, buildMeshIndex, measureBore, measureHoles, measureOD, measureRevolve, revolveProfile, pointInside, isa, hoopStress, flutterVelocity, threadCheck, boltShear, fnFor, chordalDeviation, openscadFragments,
   setGate(g){ lastGate = g; if(lastAnalysis && currentCode) renderReport(lastAnalysis, currentCode); }, mainPlainUnion, topLevelIsOnlyMain, partsContainedJS, flightContradictions,
   get lastIntent(){ return lastIntent; }, benchCostText, updateBenchCost,
-  callClaude, get cacheTtl(){ return cacheTtl; }, measureOnDemand, rebuildMoreMenu, get lastGate(){ return lastGate; }, renderTemplates, updateLlmHint,
+  callClaude, get cacheTtl(){ return cacheTtl; }, measureOnDemand, rebuildMoreMenu, get lastGate(){ return lastGate; }, renderTemplates, updateLlmHint, specProbeExprs,
   FLIGHT_DB_DATA, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal,
   dbPickORing, dbPickDrill, dbPickStock, dbBoreMm, dbHints, dbSummary, dbRows, dbCredits,
   generate, aiTurn, retryPromptFor, get lastRetryPrompt(){ return lastRetryPrompt; }, get lastSent(){ return lastSent; }, get chat(){ return chat; },

@@ -95,3 +95,19 @@ measurement report are behind `lastGate.flight` — so a keyless user who follow
 checks that the ⋯ menu offers **Measure against the FLIGHT declaration** and no drawing, runs
 it, and checks the drawing and the report are then present, the report card shows the flight
 rows, a second call is a no-op, and a hobby template loaded the same way gets neither.
+
+## Where the gate's time goes
+
+    node probe.mjs probes.json                       # main(), each helper module, each gauge alone and intersected
+
+Gate time on the flight templates bore no relation to mesh size: the retainer measured in
+25 ms and the retainer fixture in 77 s at the same triangle count. Timing each compile
+separately showed why — a gauge solid compiles in ~0.1 s, `intersection(){ gauge(); main(); }`
+in 8–27 s, because `main()` is the whole part rendered again through CGAL, once per gauge.
+The gauge check now compiles the gauge alone and measures the overlap on the mesh
+(`meshOverlap`, unit-tested in `tests/flight-cmm.test.mjs`). What remains is the SPEC part
+batch — the part modules rendered once more for the containment and joint checks — which
+the app starts beside the viewer render (`prefetchSpecProbes`) so it is not paid serially;
+the harness pays it serially, so its gate numbers are the pessimistic ones. Measured on the
+bulkhead's five SPEC probes: one union grid 8.5 s, five concurrent pool renders 9.7 s, serial
+11.1 s — the grid stays.

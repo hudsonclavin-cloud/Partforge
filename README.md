@@ -459,9 +459,14 @@ What changes:
   centre offset from where it was declared, roundness and depth; a hole pattern is measured
   hole by hole, so a missing, misplaced, undersize or oversize hole names itself; an outside
   diameter is probed inward; a nose-cone profile is recomputed from its equation and compared
-  at 24 stations. Extents use the part probes the SPEC check already runs. None of it is
-  compiled — a first design used compiled gauge pins and each cost a CGAL intersection with the
-  whole part (4–5 s); the ray version measures a 50k-triangle cone in 150 ms. A failure
+  at 24 stations. Extents use the part probes the SPEC check already runs. A custom go/no-go
+  gauge is compiled alone (about 0.1 s) and its overlap with the part is measured on the mesh
+  — a vertex of either solid pushed 0.02 mm inward that lands inside the other, or an edge
+  that enters the other and runs more than 0.02 mm inside it — with the overlap's thickness
+  reported; the CGAL `intersection(){ gauge(); main(); }` it replaces cost 8–27 s per gauge
+  on the shipped templates, because it re-rendered the whole part each time, and it passed a
+  gauge that rendered nothing. Nothing else is compiled: a first design used compiled gauge
+  pins for bores too, and the ray version measures a 50k-triangle cone in 150 ms. A failure
   quotes the declaration back: *"Bore 'motor bore': you declared Ø98.600 ±0.05 at (0, 0);
   measured Ø98.412 (min 98.380 / max 98.440), centre off 0.150 mm"* — and the retry loop
   and contract floor apply exactly as in hobby grade (a retry may not declare less).

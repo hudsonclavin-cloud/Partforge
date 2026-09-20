@@ -4,7 +4,7 @@ import { gunzipSync } from 'node:zlib';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { buildMeshIndex, rayHits, pointInside, measureBore, measureHoles, measureExtent, measureOD,
+import { buildMeshIndex, rayHits, pointInside, meshOverlap, measureBore, measureHoles, measureExtent, measureOD,
          revolveProfile, measureRevolve } from './.build/flight-cmm.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -262,6 +262,72 @@ for (const [k, v] of Object.entries(times)) console.log(`   ${v.toFixed(1).padSt
 for (const k of ['measureBore Ø54.10', 'measureHoles 8×Ø6.40', 'measureBore blind Ø5', 'measureOD ring Ø149.5', 'measureBore offset Ø54.30', 'measureHoles 8×Ø6.40 (one missing)'])
   check(`timing ${k} < 200 ms`, times[k] < 200, true);
 check('timing measureRevolve vonkarman < 2000 ms', times['measureRevolve vonkarman'] < 2000, true);
+
+
+// ---------------------------------------------------------------------------
+// meshOverlap — the gauge check without a CGAL intersection
+// ---------------------------------------------------------------------------
+console.log('== meshOverlap: does the gauge solid overlap the part, and by how much ==');
+{
+function quad(out, a, b, c, d, normalHint) {
+  // two triangles; flip order if (b-a)x(c-a) points against normalHint
+  const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+  const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+  const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const flip = nx * normalHint[0] + ny * normalHint[1] + nz * normalHint[2] < 0;
+  const tri = (p, q, r) => { out.push(...p, ...q, ...r); };
+  if (flip) { tri(a, c, b); tri(a, d, c); } else { tri(a, b, c); tri(a, c, d); }
+}
+function boxMesh(cx, cy, cz, sx, sy, sz) {
+  const hx = sx / 2, hy = sy / 2, hz = sz / 2, out = [];
+  const P = (x, y, z) => [cx + x, cy + y, cz + z];
+  quad(out, P(hx, -hy, -hz), P(hx, hy, -hz), P(hx, hy, hz), P(hx, -hy, hz), [1, 0, 0]);
+  quad(out, P(-hx, -hy, -hz), P(-hx, hy, -hz), P(-hx, hy, hz), P(-hx, -hy, hz), [-1, 0, 0]);
+  quad(out, P(-hx, hy, -hz), P(hx, hy, -hz), P(hx, hy, hz), P(-hx, hy, hz), [0, 1, 0]);
+  quad(out, P(-hx, -hy, -hz), P(hx, -hy, -hz), P(hx, -hy, hz), P(-hx, -hy, hz), [0, -1, 0]);
+  quad(out, P(-hx, -hy, hz), P(hx, -hy, hz), P(hx, hy, hz), P(-hx, hy, hz), [0, 0, 1]);
+  quad(out, P(-hx, -hy, -hz), P(hx, -hy, -hz), P(hx, hy, -hz), P(-hx, hy, -hz), [0, 0, -1]);
+  return { pos: new Float32Array(out), tris: out.length / 9 };
+}
+function cylinderMesh(r, h, N) {
+  const out = [];
+  for (let i = 0; i < N; i++) {
+    const t0 = 2 * Math.PI * i / N, t1 = 2 * Math.PI * (i + 1) / N;
+    const p0 = [r * Math.cos(t0), r * Math.sin(t0)], p1 = [r * Math.cos(t1), r * Math.sin(t1)];
+    const tm = (t0 + t1) / 2;
+    quad(out, [p0[0], p0[1], 0], [p1[0], p1[1], 0], [p1[0], p1[1], h], [p0[0], p0[1], h], [Math.cos(tm), Math.sin(tm), 0]);
+    // caps as fans from the axis
+    const tri = (a, b, c, n) => quad(out, a, b, c, c, n); // degenerate 2nd tri (zero area) is harmless
+    tri([0, 0, h], [p0[0], p0[1], h], [p1[0], p1[1], h], [0, 0, 1]);
+    tri([0, 0, 0], [p0[0], p0[1], 0], [p1[0], p1[1], 0], [0, 0, -1]);
+  }
+  return { pos: Float64Array.from(out), tris: out.length / 9 };
+}
+
+  const P = boxMesh(0, 0, 0, 10, 10, 10);                         // the part: ±5 on every axis
+  const t0 = performance.now();
+  check('disjoint solids do not touch', meshOverlap(P, boxMesh(20, 0, 0, 10, 10, 10)).touches, false);
+  check('face-to-face contact is a touch, not an overlap', meshOverlap(P, boxMesh(10, 0, 0, 10, 10, 10)).touches, false);
+  const o1 = meshOverlap(P, boxMesh(9, 0, 0, 10, 10, 10));         // spans x 4..14: 1 mm into the part
+  check('a 1 mm overlap is found', o1.touches, true);
+  check('and its depth is measured as 1 mm', o1.depth, 1.0, near(0.03));
+  check('and its extent is 1 × 10 × 10', o1.size, [1, 10, 10], (g, e) => g.every((v, i) => Math.abs(v - e[i]) < 0.05));
+  const inside = meshOverlap(P, boxMesh(0, 0, 0, 4, 4, 4));         // a NO-GO gauge buried in the part
+  check('a gauge wholly inside the part overlaps', inside.touches, true);
+  check('and the overlap chord is the gauge\'s own 4 mm thickness (what a CGAL intersection bbox gave)', inside.depth, 4.0, near(0.03));
+  check('a thin plate through the block, its own vertices all outside, is found by the crossed edges', meshOverlap(P, boxMesh(0, 0, 0, 40, 40, 0.5)).touches, true);
+  const rod = cylinderMesh(1, 40, 24);                              // z 0..40 on the axis
+  check('a rod through a block, its ends outside, is found the same way', meshOverlap(boxMesh(0, 0, 20, 10, 10, 10), rod).touches, true);
+  const p41 = meshOverlap(P, boxMesh(9.959, 0, 0, 10, 10, 10));     // the bulkhead depth-gauge case: 0.041 mm in
+  check('a 0.041 mm penetration is found', p41.touches, true);
+  check('and reported as 0.041 mm', p41.depth, 0.041, near(0.004));
+  check('a 0.010 mm penetration is under the 0.02 mm threshold and is not', meshOverlap(P, boxMesh(9.99, 0, 0, 10, 10, 10)).touches, false);
+  check('the answer does not depend on which solid is called the part', meshOverlap(boxMesh(9, 0, 0, 10, 10, 10), P).touches, true);
+  check('a mesh without normals is handled (the builders here carry none)', typeof o1.n, 'number');
+  const ms = performance.now() - t0;
+  check('all of that took well under a second', ms < 1000, true);
+  console.log(`   [meshOverlap ×13: ${ms.toFixed(1)} ms]`);
+}
 
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);
