@@ -84,3 +84,14 @@ retries), its `request` is submitted through the real Generate path, and the har
 the failing checks and the exact prompt a retry would send — the artifact a dry run that runs
 out of credits cannot produce. With an out directory it also writes the report, the retry
 prompt and the first user turn (context line + request) per case.
+
+## A template earns its drawing
+
+    node template-drawing.mjs [retainer]             # loads the template through the chip, like a user
+
+`runCode` clears `lastGate`, the chips call `runCode` directly, and the drawing, ICD and
+measurement report are behind `lastGate.flight` — so a keyless user who followed the hint
+("load one, then open its drawing under ⋯") found nothing there. The probe clicks the real chip,
+checks that the ⋯ menu offers **Measure against the FLIGHT declaration** and no drawing, runs
+it, and checks the drawing and the report are then present, the report card shows the flight
+rows, a second call is a no-op, and a hobby template loaded the same way gets neither.

@@ -7242,11 +7242,46 @@ function menuItem(label, fn, cap){
   b.onclick = () => { moreMenu.style.display='none'; fn(); };
   moreMenu.appendChild(b);
 }
+/* The flight documents come out of the measurement pass. A generation runs it inside the
+   gate; a template loaded from the chip row never did - runCode clears lastGate and nothing
+   refilled it - so the ⋯ menu had no drawing to offer a keyless user while the hint promised
+   one. The pass is local arithmetic and engine time, no key involved, so run it on demand.
+   Same sequence as aiTurn: gateCheck, then specCheck (SPEC probes + FLIGHT measurements),
+   then the report and the menu are rebuilt from the result. */
+async function measureOnDemand(){
+  if(lastGate) return lastGate;
+  if(!currentMesh || !currentCode || !lastAnalysis){ toast('Render a part first'); return null; }
+  if(busy){ toast('Wait for the current render to finish'); return null; }
+  setBusy(true);
+  const a = lastAnalysis, code = currentCode;
+  try {
+    if(!a.conn) a.conn = connectivity(currentMesh);
+    const head = '<span class="big">Measuring the part against its declaration</span>';
+    setOverlay(true, head + 'geometry checks', {cancel:false});
+    const g = gateCheck(currentMesh, a, code, a.conn);
+    await specCheck(code, g, s => setOverlay(true, head + escapeHtml(s), {cancel:false}));
+    if(currentCode !== code) return null;      // superseded by a newer render while measuring
+    lastGate = g;
+    lastRetryPrompt = g.fails.length ? retryPromptFor(g, a) : null;
+    renderReport(a, code);
+    rebuildMoreMenu();
+    toast(g.flight ? (g.fails.length ? `Measured — ${g.fails.length} check${g.fails.length > 1 ? 's' : ''} failing; the drawing is under ⋯` : 'Measured — the drawing is under ⋯') : 'Measured — this file has no FLIGHT declaration, so there is no drawing to make');
+    return g;
+  } finally {
+    setBusy(false);
+    if(currentMesh) setOverlay(false);
+  }
+}
 function rebuildMoreMenu(){
   moreMenu.innerHTML = '';
   menuItem(null, null, 'Export');
   menuItem('⬇ 3MF (with units)', () => { if(currentMesh) download(slug()+'.3mf', to3MF(currentMesh)); else toast('Render a part first'); });
   menuItem('⬇ OpenSCAD source', () => { if(currentCode) download(slug()+'.scad', new Blob([currentCode], {type:'text/plain'})); });
+  if(isFlight() && currentMesh && !lastGate){
+    // menuItem's third argument is a section caption, not a tooltip: the caption is its own line
+    menuItem(null, null, 'Not measured yet — a template from the chip row gets its drawing after this');
+    menuItem('📏 Measure against the FLIGHT declaration', () => { measureOnDemand(); });
+  }
   if(lastGate && lastGate.flight){
     const tierA = !(lastGate.tier && lastGate.tier.tier !== 'A');
     menuItem(tierA ? '📋 Manufacturing sheet (.md)' : `📐 Interface control drawing (.md) — tier ${lastGate.tier.tier}`,
@@ -7530,7 +7565,7 @@ function updateLlmHint(){
   $('llmHint').textContent = (settings.key || P().replay)
     ? `${P().label.split(' ')[0]} · ${settings.model || 'set a model'} · ${settings.clarify==='ask'?'asks first':'just builds'}${P().search ? ` · search ${settings.search?'on':'off'}` : ''} · ${where}` + (P().replay ? ` · ${settings.replay.length} repl${settings.replay.length === 1 ? 'y' : 'ies'} queued` : '')
     : (isFlight()
-      ? 'FLIGHT grade. AI generation needs an API key (⚙ Settings). The flight templates render without one — load one to see the part, its size and its mesh checks. The drawings (a manufacturing sheet, or an interface control drawing for a composite or pressure part) come out of the measurement pass, which runs on a generated part, so those need a key.'
+      ? 'FLIGHT grade. AI generation needs an API key (⚙ Settings). The flight templates work without one — load one, then ⋯ → Measure against the FLIGHT declaration, and its drawing appears under ⋯ (a manufacturing sheet, or an interface control drawing for a composite or pressure part).'
       : 'AI generation needs an Anthropic API key (⚙ Settings). Templates work without one — try “Hinged box ⚙” then its Assembly view, or print the “Fit coupon 🎯”.');
   $('btnRefine').disabled = !((settings.key || P().replay) && currentCode);
   const sub = document.querySelector('header .sub');
@@ -7591,7 +7626,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   massProperties, buildMeshIndex, measureBore, measureHoles, measureOD, measureRevolve, revolveProfile, pointInside, isa, hoopStress, flutterVelocity, threadCheck, boltShear, fnFor, chordalDeviation, openscadFragments,
   setGate(g){ lastGate = g; if(lastAnalysis && currentCode) renderReport(lastAnalysis, currentCode); }, mainPlainUnion, topLevelIsOnlyMain, partsContainedJS, flightContradictions,
   get lastIntent(){ return lastIntent; }, benchCostText, updateBenchCost,
-  callClaude, get cacheTtl(){ return cacheTtl; },
+  callClaude, get cacheTtl(){ return cacheTtl; }, measureOnDemand, rebuildMoreMenu, get lastGate(){ return lastGate; }, renderTemplates, updateLlmHint,
   FLIGHT_DB_DATA, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal,
   dbPickORing, dbPickDrill, dbPickStock, dbBoreMm, dbHints, dbSummary, dbRows, dbCredits,
   generate, aiTurn, retryPromptFor, get lastRetryPrompt(){ return lastRetryPrompt; }, get lastSent(){ return lastSent; }, get chat(){ return chat; },

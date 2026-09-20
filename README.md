@@ -140,10 +140,12 @@ three decimals, the bed checks give way to the optional envelope, and the report
 **Tolerance provenance** count of cited / user / tool-default numbers, and the
 **Flight declaration** line. The long version is under *Flight grade* further down this page.
 
-Templates in both grades render with no API key. The gate, the flight measurements and the
-documents they produce run on generated parts, not on a template you loaded from the chip row:
-loading a template renders it and reports its size, volume and mesh checks, but leaves the
-Geometry gate, Part class and manufacturing-sheet rows empty until something is generated.
+Templates in both grades render with no API key. A generation is measured as part of the gate;
+a template loaded from the chip row is not, so it renders and reports its size, volume and mesh
+checks and leaves the Geometry gate and Part class rows empty. In flight grade the **⋯** menu
+then offers **📏 Measure against the FLIGHT declaration**: it runs the same gate and measurement
+pass on the loaded part, fills those rows, and puts the drawing and the measurement report under
+**⋯**. No key is involved; it is engine time and arithmetic.
 
 ### Reading the report
 
@@ -200,9 +202,9 @@ under **⋯**:
 - **⬇ OpenSCAD source** — the `.scad` file. This is also the STEP path: open it in FreeCAD's
   OpenSCAD workbench.
 - **📋 Manufacturing sheet (.md)**, or **📐 Interface control drawing (.md)** for a tier B or C
-  part, and **📊 Measurement report (.json)**. These three appear only after a flight-grade part
-  has been measured, which is to say after a generation or a **✨ Look & fix** — not for a
-  template you loaded from the chip row.
+  part, and **📊 Measurement report (.json)**. These three appear once a flight-grade part has
+  been measured: after a generation or a **✨ Look & fix**, or, for a template loaded from the
+  chip row, after **📏 Measure against the FLIGHT declaration** in this same menu.
 - **⬇ STL: <part>** per module, for an assembly.
 - **⬇ Project file (.json)** and **⬆ Open project file…**
 - **📸 Screenshot (PNG)**
