@@ -14,7 +14,7 @@ const near = (a, b, tol = 1e-6) => a == null && b == null || Math.abs(a - b) <= 
 
 console.log('== every table is embedded ==');
 const files = fs.readdirSync(path.join(root, 'data/tables')).filter(f => f.endsWith('.json')).sort();
-check('thirteen source tables on disk', files.length === 13, `${files.length}: ${files.join(', ')}`);
+check('fourteen source tables on disk', files.length === 14, `${files.length}: ${files.join(', ')}`);
 for(const f of files){
   const key = f.replace(/\.json$/, '');
   const t = read(f), emb = FLIGHT_DB_DATA[key];

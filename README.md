@@ -532,7 +532,7 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 644 assertions, no dependencies). Two files a real generation produced
+(`node tests/run.mjs`, 669 assertions, no dependencies). Two files a real generation produced
 during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
 are tested against what a model actually writes, not only against templates written to pass.
 
@@ -590,6 +590,27 @@ hand the designer the finished answer:
 
 Each selector's line says which words it read the diameter from, and that an outside diameter is
 not a bore — the one substitution that changes every number below it.
+
+**A declared safety factor can name an authority.** The load checks fall back to factors this
+tool proposed — 2.0 for hoop and bolt shear, 1.5 for flutter — which is why a check computed
+from them reports COMPUTED rather than PASS. `data/tables/design_factors_nasa.json` carries the
+published alternative, read out of two NASA Technical Standards that are marked for unlimited
+public release: NASA-STD-5001B Table 1 (metallic, ultimate 1.4 with yield 1.25 protoflight or
+yield 1.0 prototype; the 1.05 proof factor is propellant tanks and SRM cases only) and
+NASA-STD-5020B (joint-slip friction no greater than 0.20 for clean uncoated metal and 0.10 for
+everything else — an anodised part is the 0.10 row; preload uncertainty ±25 % lubricated, ±35 %
+as-received; and no friction credit at all in an ultimate-strength assessment, which is why the
+bolt-shear check credits none). Every row carries the requirement sentence it was read from, so
+the reading can be checked without the PDF, and its clause tag so it can be looked up.
+
+These are **spaceflight criteria, and an amateur high-power rocket is not spaceflight hardware**
+— every row says so, and so does the hint. Declaring 1.4 is choosing a published factor over one
+this tool invented; it is not conformance, and PartForge never claims conformance to a NASA
+standard or any NASA endorsement. What the tool still does **not** check is preload, joint
+separation and joint slip; the doctrine now says that out loud rather than leaving it implied.
+The NASA 3D model libraries were evaluated for this and rejected: they are display meshes with
+no dimensions, tolerances or materials, and feeding one to a shop-readiness declaration would
+manufacture citations with nothing behind them.
 
 `docs/STATUS.md` is the stopping-point record: what is verified and by which check, what is
 open with its measured numbers, and what the documentation deliberately does not claim.

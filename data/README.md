@@ -41,9 +41,10 @@ attribution text per table: `docs/data/PROVENANCE.md`.
 | `drills` | fractional, number, letter and metric twist-drill diameters as the standard prints them (ASME rounds ties half-to-even, so mm is stored, never recomputed) | 282 | 204 `certain`, 78 `likely`/`recall` |
 | `stock` | 6061-T6 / 6082-T6 bar, plate, tube and pipe: nominal, mill tolerance band, the maximum FINISHED size and minimum finished bore the stock can yield, casing clearance, spec minimum properties, availability | 192 | tolerance numbers `recall` of ASTM B209/B210/B211/B221/B241 and EN 754/755/485 |
 | `rails` | 1010 / 1515 / 2020 / 3030 / Unistrut rails, launch rods, rail buttons and lugs | 18 | extrusion sizes `certain`, slot geometry `likely`, vendor buttons `recall` |
+| `design_factors_nasa` | factors of safety (NASA-STD-5001B Table 1: metallic prototype and protoflight, beryllium, proof, fatigue service life) and threaded-fastener rules (NASA-STD-5020B: joint-slip friction, preload uncertainty, no friction credit at ultimate, protrusion, engagement rationale), each row carrying the requirement sentence it was read from | 12 | `certain` — read from the published PDF text, which is NOT a claim the number suits your vehicle: every row is spaceflight criteria and says so |
 | `avionics` | altimeter board envelopes and hole patterns (PerfectFlite, Missile Works, Featherweight, Eggtimer, Altus Metrum) and battery envelopes | 22 | outlines `likely`; NO hole pattern is verified — the sled template slots |
 
-`index.html` embeds a projection of all ten between `/* DB-DATA-BEGIN */` and `/* DB-DATA-END */`
+`index.html` embeds a projection of all fourteen between `/* DB-DATA-BEGIN */` and `/* DB-DATA-END */`
 (about 600 KB: the numbers a designer cuts to, each row's confidence letter and disputed flag, the
 notes and licence text; the per-row source strings, disputed prose and reconciliation blocks stay
 in the files). Never edit that literal by hand. ⚙ Settings → *Data sources…* prints the attribution
@@ -66,6 +67,7 @@ release) before the review passes edited them:
     node tools/db/derive-motor-perf.mjs # thrustcurve-db.json -> data/tables/motor_perf.json (deterministic; re-run it after any upstream bump)
     node tools/db/derive-fits.mjs     # ISO 286-1 formulas + a recalled published table -> data/tables/fits.json (withholds anything the two disagree on)
     node tools/db/build-materials-thermal.mjs # curated nu/CTE table; refuses to write a value outside the physical band
+    node tools/db/build-design-factors-nasa.mjs # NASA-STD-5001B / 5020B factors and fastener rules, each with its clause and quote
     node tools/db/curate-airframes.mjs # raw -> fit dimensions, lengths collapsed
 
 Re-running them regenerates the pre-review shape; diff it against `tables/airframes.json` and

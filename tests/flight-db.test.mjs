@@ -1,6 +1,6 @@
 // node tests/flight-db.test.mjs — the reference data and its resolvers, on the code that ships.
 import { FLIGHT_SYSTEM_DOCTRINE } from './.build/flight-doctrine.js';
-import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal, dbPickORing, dbPickDrill, dbPickStock, dbBoreMm, dbHints, dbSummary, dbRows, dbCredits } from './.build/flight-db.js';
+import { FLIGHT_DB_DATA, dbAirframeRows, dbMotorRows, dbMotorPerfRows, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal, dbDesignFactors, dbPickORing, dbPickDrill, dbPickStock, dbBoreMm, dbHints, dbSummary, dbRows, dbCredits } from './.build/flight-db.js';
 
 let fails = 0, passes = 0;
 function check(name, got, expected, cmp){
@@ -261,6 +261,43 @@ ok('the endcap fixture\'s groove is the radial one: bottom 95.96, not the face-s
   ok('a sled in a coupler is NOT a turned part: no stock ladder off the coupler ID', ha, h => !/Stock for a turned part/.test(h), ha.split('\n').find(l => /Stock for a turned/.test(l)) || '');
   ok('the selector lines are inside the cap like every other hint', [hSeal, hTurn], a => a.every(h => h.length < 6200), JSON.stringify([hSeal.length, hTurn.length]));
   ok('every selector hint line carries a confidence tag too', [hSeal, hTurn].flatMap(h => h.split('\n- ').slice(1)), ls => ls.every(l => /\[(certain|likely|recall)/.test(l) || /NO reference|no size in the stock table|clearance rule|vendor recall/.test(l)), [hSeal, hTurn].flatMap(h => h.split('\n- ').slice(1)).filter(l => !/\[(certain|likely|recall)/.test(l)).join('\n'));
+
+  console.log('== NASA design factors: a number with a document, a revision and a clause on it ==');
+  if(FLIGHT_DB_DATA.design_factors_nasa){
+    const df = dbDesignFactors();
+    const rowsAll = dbRows('design_factors_nasa');
+    ok('the table is embedded and every row is read from a document, not recalled', rowsAll, r => r.length === 12 && r.every(x => x.confidence === 'certain'), JSON.stringify(rowsAll.map(x => x.confidence)));
+    ok('every row carries the requirement sentence it was read from, so the reading is checkable without the PDF', rowsAll, r => r.every(x => x.quote && x.quote.length > 40), JSON.stringify(rowsAll.filter(x => !x.quote || x.quote.length <= 40).map(x => x.key)));
+    ok('and every row says it is spaceflight criteria, because an amateur rocket is not spaceflight hardware', rowsAll, r => r.every(x => /not spaceflight hardware/.test(x.scope)), '');
+    ok('every row names document, revision and clause', rowsAll, r => r.every(x => /NASA-STD-50(01B|20B)/.test(x.source) && x.clause), JSON.stringify(rowsAll.filter(x => !x.clause).map(x => x.key)));
+
+    // Table 1, the two rows a club could confuse. Protoflight yield is 1.25, NOT 1.0.
+    const pf = df.factors.find(r => r.verification_approach === 'protoflight');
+    const pt = df.factors.find(r => r.verification_approach === 'prototype');
+    ok('NASA-STD-5001B Table 1 prototype: ultimate 1.4, yield 1.0, qual 1.4', pt, r => r.ultimate_design_factor === 1.4 && r.yield_design_factor === 1.0 && r.qualification_test_factor === 1.4, JSON.stringify(pt && [pt.ultimate_design_factor, pt.yield_design_factor, pt.qualification_test_factor]));
+    ok('and protoflight: ultimate 1.4 but yield 1.25 and qual 1.2 — the row that fits a club flying the article it built', pf, r => r.ultimate_design_factor === 1.4 && r.yield_design_factor === 1.25 && r.qualification_test_factor === 1.2, JSON.stringify(pf && [pf.ultimate_design_factor, pf.yield_design_factor, pf.qualification_test_factor]));
+    ok('the table is cross-checked by the standard\'s own prose: for prototype, ultimate equals the qualification test factor', pt, r => r.ultimate_design_factor === r.qualification_test_factor && /same as the required qualification test factors/.test(r.cross_check), pt.cross_check || '');
+    ok('the 1.05 proof factor is scoped to propellant tanks and SRM cases, not to a bulkhead', df.row('proof_test_factor_tanks_srm'), r => r.proof_test_factor === 1.05 && /tanks and solid rocket motor cases only/i.test(r.applies_to), '');
+    ok('asking for an approach returns that row and only that one as the pick', dbDesignFactors({ approach: 'protoflight' }), d => d.pick.verification_approach === 'protoflight' && dbDesignFactors({ approach: 'nonsense' }).pick === null, '');
+
+    // TFSR 14 — the friction rows, and which one a real anodised part is on
+    ok('TFSR 14 friction: 0.20 only for uncoated clean metal, 0.10 for everything else', df, d => d.friction(false).coefficient_of_friction_max === 0.20 && d.friction(true).coefficient_of_friction_max === 0.10, JSON.stringify([df.friction(false).coefficient_of_friction_max, df.friction(true).coefficient_of_friction_max]));
+    ok('and the 0.10 row explicitly covers conversion coating, so an anodised 6061 part is NOT the 0.20 row', df.friction(true), r => /conversion coating/.test(r.quote) && /anodised/i.test(r.note), '');
+    ok('preload uncertainty is 25 % lubricated and 35 % as-received, torque control only', df, d => d.preload_uncertainty(true).preload_uncertainty === 0.25 && d.preload_uncertainty(false).preload_uncertainty === 0.35, '');
+    ok('the no-friction-for-ultimate rule is carried, and names what PartForge already does', df.row('ultimate_strength_no_friction_credit'), r => /without reliance on friction/.test(r.quote) && /bolt_shear/.test(r.note), '');
+
+    // the hint
+    const hF = dbHints('a 6061 bulkhead, what factor of safety should I declare?');
+    ok('a request that argues about a factor of safety gets both rows, cited', hF, h => /FACTORS OF SAFETY with a citation/.test(h) && /protoflight/.test(h) && /ultimate 1\.4, yield 1\.25/.test(h) && /NASA-STD-5001B Table 1/.test(h), hF.split('\n').find(l => /FACTORS OF SAFETY/.test(l)) || hF);
+    ok('and it says, in the hint itself, that these are spaceflight criteria a club is not bound by', hF, h => /THESE ARE SPACEFLIGHT CRITERIA/.test(h) && /not required to meet them/.test(h), '');
+    ok('and that a factor on a wrong load is a wrong answer with a citation on it', hF, h => /wrong answer with a citation on it/.test(h), '');
+    const hJ = dbHints('M6 bolted joint preload and torque for an anodised retainer');
+    ok('a joint/preload request also gets TFSR 14 and the preload band', hJ, h => /BOLTED JOINT rules/.test(h) && /no greater than 0\.2 for uncoated/.test(h) && /±25 % lubricated, ±35 %/.test(h), hJ.split('\n').find(l => /BOLTED JOINT/.test(l)) || hJ);
+    ok('and it states plainly that PartForge does NOT check preload, separation or slip', hJ, h => /does NOT check preload, joint separation or joint slip/.test(h), '');
+    ok('a request about neither gets neither line', dbHints('an 8 mm hole in a 6061 plate'), h => !/FACTORS OF SAFETY|BOLTED JOINT rules/.test(h), '');
+    ok('every new line carries a confidence tag and stays under the per-line cap (the joint request matches both branches)', [hF, hJ].flatMap(h => h.split('\n- ').slice(1)).filter(l => /FACTORS OF SAFETY|BOLTED JOINT/.test(l)), ls => ls.length === 3 && ls.every(l => /\[certain\]/.test(l) && l.length <= 1200), JSON.stringify([hF, hJ].flatMap(h => h.split('\n- ').slice(1)).filter(l => /FACTORS OF SAFETY|BOLTED JOINT/.test(l)).map(l => l.length)));
+  } else console.log('SKIP  design_factors_nasa not embedded in this build');
+
 } else console.log('SKIP  verified tables not embedded in this build');
 
 console.log(`\n${passes} passed, ${fails} failed`);

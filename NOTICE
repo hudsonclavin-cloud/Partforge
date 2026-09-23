@@ -52,5 +52,34 @@ packaged motor data, via tools/db/derive-motors.mjs and tools/db/derive-motor-pe
 
 ------------------------------------------------------------------------------
 
+NASA Technical Standards
+
+data/tables/design_factors_nasa.json and the flight-grade doctrine quote requirement
+text, factors of safety and fastener rules from the following United States Government
+works, each marked "APPROVED FOR PUBLIC RELEASE - DISTRIBUTION IS UNLIMITED". As works
+of the U.S. Government they are not subject to copyright protection in the United States
+(17 U.S.C. 105). NASA is acknowledged as the source.
+
+  NASA-STD-5001B w/Change 3, "Structural Design and Test Factors of Safety for
+    Spaceflight Hardware", change 3 dated 2022-10-24.
+    https://standards.nasa.gov/standard/NASA/NASA-STD-5001
+  NASA-STD-5020B, "Requirements for Threaded Fastening Systems in Spaceflight
+    Hardware", approved 2021-08-06, revalidated 2026-01-05.
+    https://standards.nasa.gov/standard/NASA/NASA-STD-5020
+
+PartForge is not endorsed by, affiliated with, or certified by NASA. Nothing produced by
+this tool is qualified to, or certified against, any NASA Technical Standard: a citation
+records where a design rule came from, never conformance to it. These are spaceflight
+criteria, and an amateur high-power rocket is not spaceflight hardware.
+
+The NASA Insignia, the NASA Logotype, the NASA Seal and NASA program identifiers are NOT
+in the public domain and are protected by law (14 CFR Part 1221). They are not used in
+this project.
+
+Where these standards normatively reference ASME, SAE, ASTM or ISO, a value that
+originates with one of those bodies is cited to that body, not to NASA.
+
+------------------------------------------------------------------------------
+
 Full detail on every embedded table -- what was compiled, cross-checked, and against what --
 is in data/README.md and docs/data/PROVENANCE.md.

@@ -83,8 +83,8 @@ const data = { meta: {} };
   const F = ['key', 'kind', 'material', 'form', 'dim_in', 'dim_mm', 'wall_in', 'wall_mm', 'tol_plus_mm', 'tol_minus_mm', 'tolerance_basis', 'dim_min_mm', 'dim_max_mm', 'max_finish_mm', 'min_finish_id_mm', 'id_min_mm', 'id_max_mm', 'clears_casing_mm', 'spec_min_uts_mpa', 'spec_min_yield_mpa', 'availability_na', 'availability_eu', 'confidence'];
   data.stock = { columns: Object.fromEntries(F.filter(k => t.columns && t.columns[k]).map(k => [k, t.columns[k]])), rows: t.rows.map(r => { const x = strip(r, F); if(flag(r)) x.disputed = true; return x; }), notes: t.notes, license_note: t.license_note };
 }
-// object tables, in full: fasteners_metric, fasteners_un, npt, rails, avionics (+ the table-level maps the hints read)
-for(const key of ['fasteners_metric', 'fasteners_un', 'npt', 'rails', 'avionics', 'fits', 'materials_thermal']){
+// object tables, in full: fasteners_metric, fasteners_un, npt, rails, avionics, design_factors_nasa (+ the table-level maps the hints read)
+for(const key of ['fasteners_metric', 'fasteners_un', 'npt', 'rails', 'avionics', 'fits', 'materials_thermal', 'design_factors_nasa']){
   const t = need(key);
   const rows = t.rows || [];
   const hoist = {};
