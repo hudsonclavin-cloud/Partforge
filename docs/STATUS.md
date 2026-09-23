@@ -1,6 +1,6 @@
 # Status — a stopping point
 
-Written at Gen 27 (2026-09-20) so that whoever picks this up next, cold, knows what is
+Written at Gen 27, extended at Gen 29 (2026-09-23) so that whoever picks this up next, cold, knows what is
 verified, by what, and what is open with its numbers. The commit log (`git log --oneline`,
 one `Gen N:` line per iteration) is the history; this is the state.
 
@@ -8,7 +8,7 @@ one `Gen N:` line per iteration) is the history; this is the state.
 
 | claim | proof | how to re-run |
 |---|---|---|
-| The engineering, measurement, declaration and reference-data modules do what the README says | 644 Node assertions, no dependencies, extracted from the marked blocks of `index.html` | `node tests/run.mjs` |
+| The engineering, measurement, declaration and reference-data modules do what the README says | 724 Node assertions, no dependencies, extracted from the marked blocks of `index.html` | `node tests/run.mjs` |
 | The embedded reference data is exactly `data/tables/*.json` projected by `tools/db/embed.mjs` | `tests/flight-db-embed.test.mjs` re-derives the projection row by row | same |
 | The seven flight templates compile and pass their own declarations; the three dry-run fixtures earn exactly the failures they are kept for (endcap 4, retainer 1, retainer-fixed 0) | headless Chromium, real engine | `tests/harness/README.md` → `run.mjs` |
 | The 1-hour prompt cache holds: the system block is byte-identical between turns, the looked-up hardware rides in the user turn, a rejected TTL is retried once without decorating the turn twice | `tests/harness/cache.mjs` | same |
@@ -17,6 +17,9 @@ one `Gen N:` line per iteration) is the history; this is the state.
 | A flight template loaded from the chip row can be measured without a key and then has its drawing under ⋯ | `tests/harness/template-drawing.mjs` | same |
 | The gauge check reaches the same verdict on every shipped gauge as the CGAL intersection it replaced, in 0.1 s per gauge instead of 8–27 s | harness before/after on all ten cases, every verdict and fail count identical | `tests/harness/probe.mjs` for the timing split |
 | Every template in `tests/templates/*.scad` is byte-identical to the copy `index.html` ships | drift test in the Node suite | `node tests/run.mjs` |
+| A declared safety factor can name a document, revision and clause instead of a number the tool invented | `design_factors_nasa` rows quote the requirement sentence they were read from; 25 assertions | `node tests/run.mjs` |
+| A DXF the user drew becomes a solid, with every coordinate read rather than inferred, and refusals that name what is wrong and where | 55 assertions against 13 fixtures written by `ezdxf`, not by hand | `node tests/run.mjs` |
+| And the file it emits renders in the real engine at the size the DXF declared | 5 fixtures through OpenSCAD, measured | `cd tests/harness && node dxf-render.mjs` |
 
 ## The three Gens this stopping point closes
 
@@ -34,6 +37,19 @@ one `Gen N:` line per iteration) is the history; this is the state.
   and the fin template writes its gauges already intersected with `main()` (detected, judged by
   volume as before).
 
+## Gen 28 and Gen 29
+
+- **Gen 28** — the request was a library of NASA rocket CAD models. The models are the wrong
+  artefact: NASA 3D Resources is a visualisation collection (the Apollo Lunar Module folder holds
+  a `.glb` and a `.png`, nothing else), and feeding an outer-mould-line mesh to a shop-readiness
+  declaration would manufacture citations with nothing behind them. What NASA publishes that this
+  tool can use is text. `data/tables/design_factors_nasa.json` carries factors and fastener rules
+  quoted from NASA-STD-5001B and NASA-STD-5020B, both marked for unlimited public release, each
+  row with the requirement sentence, its clause tag and the document revision.
+- **Gen 29** — `⋯ → Import a DXF profile…`. A vector drawing is the only input class whose numbers
+  are read rather than guessed, so it is the only one built. The reader refuses rather than
+  repairs, and asks for units rather than assuming them.
+
 ## Open, with numbers
 
 1. **The SPEC part batch re-renders the part.** For containment and joint checks the SPEC
@@ -50,7 +66,21 @@ one `Gen N:` line per iteration) is the history; this is the state.
    `verify before cutting metal` note in `orings_as568.json`.
 3. **`dbBoreMm` reads across "for a".** "a bulkhead for a 98 mm motor mount" yields a 98 mm
    bore. Safe for stock (oversize), not for a seal. The hint says which words it read.
-4. **Shop groove-bottom tolerance.** Table 4-2 wants B1 +0/−0.05 mm; the endcap fixture
+4. **The DXF path reads geometry, not dimensions.** A DXF `DIMENSION` entity is not yet turned
+   into a declared tolerance, so nothing imported claims `cited` provenance. The groundwork is
+   done and the trap is known: group code 42 (`actualMeasurement`) is **optional** — real `ezdxf`
+   R2010 output omits it entirely and writes `1=<>`, meaning "use the default" — so the value has
+   to be computed from the definition points (13/23, 14/24) with 42 used only as a cross-check
+   when present. A drawing whose text override disagrees with its own geometry must be refused,
+   not silently resolved either way.
+5. **No path from a photo or a sketch, deliberately.** The published evidence on reading
+   dimensions off raster drawings puts a frontier model around F1 0.4 with a ~40 % hallucination
+   rate zero-shot; a purpose-built fine-tuned model reaches ~0.62 F1 and still invents roughly one
+   callout in four. Those figures reached this project through search summaries, not the papers
+   themselves, so treat them as `[likely]`. Either way the design conclusion holds: a vision-read
+   number must never carry `tol_src "source"`, and confirmation by a human promotes it one step,
+   to `user`, and no further.
+6. **Shop groove-bottom tolerance.** Table 4-2 wants B1 +0/−0.05 mm; the endcap fixture
    carries ±0.05. Whether the club's shop holds the former is the real question behind any
    W .139 vs W .210 choice, and nobody has answered it yet.
 
@@ -65,7 +95,7 @@ persistence paths survive a reload beyond the "Welcome back" slot.
 
 ## How to pick this up
 
-    node tests/run.mjs                      # 644 assertions; must be green before any commit
+    node tests/run.mjs                      # 724 assertions; must be green before any commit
     node tools/db/embed.mjs                 # after editing data/tables/*.json
     cd tests/harness && npm i playwright && node server.mjs 8765 &   # then the probes above
 

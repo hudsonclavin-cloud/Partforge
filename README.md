@@ -206,7 +206,7 @@ under **⋯**:
   been measured: after a generation or a **✨ Look & fix**, or, for a template loaded from the
   chip row, after **📏 Measure against the FLIGHT declaration** in this same menu.
 - **⬇ STL: <part>** per module, for an assembly.
-- **⬇ Project file (.json)** and **⬆ Open project file…**
+- **⬇ Project file (.json)**, **⬆ Open project file…** and **📐 Import a DXF profile…**
 - **📸 Screenshot (PNG)**
 - **🔳 QR code for this part** — drawn on your device from a library fetched once; the part is
   never sent anywhere to be drawn. A part whose link exceeds roughly 2,900 characters is too big
@@ -214,6 +214,42 @@ under **⋯**:
 
 **🔗 Share** copies a link carrying the whole `.scad` source, base64, in the URL fragment.
 Opening such a link rebuilds the part straight away.
+
+### Importing a drawing
+
+**⋯ → 📐 Import a DXF profile…** turns a drawing you made into a solid. It reads the file
+itself — no model, no API key, nothing inferred — and every coordinate in the result was read
+out of your DXF. Pick the layer the outline is on, say whether to extrude it as a plate or
+revolve it as a turned part, and it renders.
+
+It asks rather than assumes, and refuses rather than repairs:
+
+- **Units.** If the file does not say (`$INSUNITS` absent or `0`), it asks. It will not guess —
+  a file drawn in inches and read as millimetres is a part 25.4× too small and passes every
+  check this tool runs. DXF **R12 cannot carry units at all**, so an R12 file always asks; the
+  message says so rather than implying the file is broken.
+- **The layer.** With geometry on more than one layer it asks which one, because on a real
+  drawing the largest layer is usually the hatch or the dimensions.
+- **An open contour** is refused with the coordinates of the chain that does not close and the
+  gap that beat the join tolerance. It will not bridge it: a mended profile is a wrong part
+  carrying a clean report.
+- **A contour that crosses itself**, **two separate outlines on one layer**, and a contour that
+  encloses nothing are each refused by name.
+- **An entity it cannot honour** — a SPLINE, most often — is reported by name and count, never
+  dropped in silence. Convert it to a polyline in your CAD first.
+- Arcs, including LWPOLYLINE bulges, are flattened to the curve tolerance in ⚙ Settings, and
+  the file says how many points that took. Holes are re-wound against the outline so
+  `polygon(paths=…)` cuts them rather than filling them, and that re-winding is written into
+  the file as a NOTE rather than done quietly.
+
+The profile lands inline in the `.scad`, so the file stays the geometry of record: shareable,
+inspectable, and renderable later with no DXF and no network.
+
+**What it does not do yet.** It reads geometry, not dimensions: a DXF `DIMENSION` entity is not
+yet turned into a declared tolerance, so nothing imported claims `cited` provenance. And there
+is no path from a photo or a sketch — reading numbers off a picture of a drawing is roughly a
+coin flip per number in the published evidence, and a wrong number wearing a citation is the
+most dangerous thing this tool could produce.
 
 ### The viewer
 
@@ -532,7 +568,7 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 669 assertions, no dependencies). Two files a real generation produced
+(`node tests/run.mjs`, 724 assertions, no dependencies). Two files a real generation produced
 during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
 are tested against what a model actually writes, not only against templates written to pass.
 

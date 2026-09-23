@@ -197,6 +197,7 @@
           <button class="btn" id="btnMic" title="Dictate your prompt" style="display:none">🎤</button>
           <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
           <input type="file" id="projInput" accept=".json,application/json" style="display:none">
+          <input type="file" id="dxfInput" accept=".dxf,image/vnd.dxf,application/dxf" style="display:none">
           <button class="btn primary" id="btnGenerate" style="flex:1">Generate part</button>
           <button class="btn" id="btnRefine" title="Modify the current part" disabled>Refine</button>
         </div>
@@ -4067,6 +4068,386 @@ function measureRevolve(index, spec) {
 }
 
 /* CMM-END */
+/* DXF-BEGIN */
+/* ───────────────────────────────────────────────────────────────────────────────
+   A DXF profile becomes a solid. No model in the loop: this reads the file the
+   user drew, and every number in the result was READ, never inferred. That is the
+   whole reason this path exists — a vision model looking at a picture of a drawing
+   gets roughly half the dimensions wrong or invents them outright, and a wrong
+   number that arrives labelled "from your drawing" is the most dangerous object
+   this tool could produce. A parser's wrong answer is a bug with a witness; a
+   guess has no witness at all.
+
+   The rule everywhere below is REFUSE, NEVER REPAIR. A contour that is open, or
+   self-intersecting, or whose units are unknowable, is reported with the thing
+   that is wrong and the coordinates where it is wrong — because a silently mended
+   profile is a wrong part carrying a clean report.
+
+   DXF is pairs of lines: a group code, then a value. Nothing here needs a library;
+   the format for the 2D entity subset is small and frozen. `ezdxf` generates the
+   test fixtures (see tests/fixtures/dxf/) so the reader is checked against real
+   CAD output rather than against files written to make it pass. */
+
+// $INSUNITS. 0 is "unitless" and is NOT a default — it blocks, because a 25.4×
+// error passes every geometric check this app runs.
+const DXF_UNITS = { 1: ['in', 25.4], 2: ['ft', 304.8], 4: ['mm', 1], 5: ['cm', 10], 6: ['m', 1000] };
+
+/* Group-code pairs, sectioned. Returns { header, entities } with entities as flat
+   code/value lists, since an entity's meaning depends on codes that repeat (a
+   LWPOLYLINE's 10/20 pairs) and a map would lose the order. */
+function dxfParse(text) {
+  const raw = String(text == null ? '' : text).replace(/\r\n?/g, '\n').split('\n');
+  // A DXF may legally start with junk; find the first 0/SECTION pair.
+  const pairs = [];
+  for (let i = 0; i + 1 < raw.length; i += 2) {
+    const code = raw[i].trim();
+    if (!/^-?\d+$/.test(code)) return { error: `not a DXF: line ${i + 1} is "${raw[i].slice(0, 40)}", which is not a group code. A DXF is pairs of lines, a number then a value. If this is a DWG or a PDF, export it as DXF first.` };
+    pairs.push([+code, raw[i + 1] == null ? '' : raw[i + 1].trim()]);
+  }
+  if (!pairs.length) return { error: 'the file is empty' };
+  const header = {}, entities = [];
+  let section = null, cur = null, pendingVar = null;
+  for (const [c, v] of pairs) {
+    if (c === 0 && v === 'SECTION') { section = '?'; cur = null; continue; }
+    if (c === 0 && v === 'ENDSEC') { section = null; cur = null; continue; }
+    if (c === 2 && section === '?') { section = v; continue; }
+    if (section === 'HEADER') {
+      if (c === 9) { pendingVar = v; continue; }
+      if (pendingVar) { header[pendingVar] = v; pendingVar = null; }
+      continue;
+    }
+    if (section !== 'ENTITIES') continue;
+    if (c === 0) { cur = { type: v, codes: [] }; entities.push(cur); continue; }
+    if (cur) cur.codes.push([c, v]);
+  }
+  return { header, entities };
+}
+
+// first value for a group code, as a number
+const dxfNum = (e, code, dflt) => { for (const [c, v] of e.codes) if (c === code) { const n = +v; return isFinite(n) ? n : dflt; } return dflt; };
+const dxfStr = (e, code, dflt = '') => { for (const [c, v] of e.codes) if (c === code) return v; return dflt; };
+
+/* An arc from p0 to p1 sweeping `sweep` radians (signed, CCW positive), flattened
+   so the chordal sagitta never exceeds tol. Returns the points AFTER p0. */
+function dxfArcPoints(p0, p1, sweep, tol) {
+  const dx = p1[0] - p0[0], dy = p1[1] - p0[1], chord = Math.hypot(dx, dy);
+  if (!(chord > 0) || !isFinite(sweep) || Math.abs(sweep) < 1e-12) return [p1];
+  const r = Math.abs(chord / (2 * Math.sin(sweep / 2)));
+  if (!isFinite(r) || r <= 0) return [p1];
+  // centre: midpoint offset along the chord normal by the apothem
+  const mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2;
+  const h = Math.sqrt(Math.max(0, r * r - chord * chord / 4));
+  const sgn = sweep > 0 ? 1 : -1, big = Math.abs(sweep) > Math.PI ? -1 : 1;
+  const cx = mx - sgn * big * h * (dy / chord), cy = my + sgn * big * h * (dx / chord);
+  const a0 = Math.atan2(p0[1] - cy, p0[0] - cx);
+  const n = Math.max(2, Math.ceil(Math.abs(sweep) / (2 * Math.acos(Math.max(-1, Math.min(1, 1 - Math.min(tol, r) / r))))));
+  const out = [];
+  for (let i = 1; i <= n; i++) {
+    const a = a0 + sweep * (i / n);
+    out.push(i === n ? p1 : [cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  return out;
+}
+
+/* Every supported entity becomes a polyline: { pts, closed, layer, type }.
+   Anything else is reported by name rather than ignored, because a profile that
+   silently lost its SPLINE is a wrong profile. */
+function dxfEntityPolylines(entities, tol) {
+  const out = [], skipped = {};
+  for (const e of entities) {
+    const layer = dxfStr(e, 8, '0');
+    if (e.type === 'LINE') {
+      out.push({ type: 'LINE', layer, closed: false, pts: [[dxfNum(e, 10, 0), dxfNum(e, 20, 0)], [dxfNum(e, 11, 0), dxfNum(e, 21, 0)]] });
+    } else if (e.type === 'CIRCLE') {
+      const cx = dxfNum(e, 10, 0), cy = dxfNum(e, 20, 0), r = dxfNum(e, 40, 0);
+      if (!(r > 0)) { skipped.CIRCLE = (skipped.CIRCLE || 0) + 1; continue; }
+      const n = Math.max(24, Math.ceil(Math.PI / Math.acos(Math.max(-1, Math.min(1, 1 - Math.min(tol, r) / r)))));
+      const pts = [];
+      for (let i = 0; i < n; i++) { const a = 2 * Math.PI * i / n; pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+      out.push({ type: 'CIRCLE', layer, closed: true, pts, circle: { cx, cy, r } });
+    } else if (e.type === 'ARC') {
+      const cx = dxfNum(e, 10, 0), cy = dxfNum(e, 20, 0), r = dxfNum(e, 40, 0);
+      let a0 = dxfNum(e, 50, 0) * Math.PI / 180, a1 = dxfNum(e, 51, 0) * Math.PI / 180;
+      if (!(r > 0)) { skipped.ARC = (skipped.ARC || 0) + 1; continue; }
+      let sweep = a1 - a0; while (sweep <= 0) sweep += 2 * Math.PI;      // DXF arcs always run CCW
+      const p0 = [cx + r * Math.cos(a0), cy + r * Math.sin(a0)], p1 = [cx + r * Math.cos(a1), cy + r * Math.sin(a1)];
+      out.push({ type: 'ARC', layer, closed: false, pts: [p0, ...dxfArcPoints(p0, p1, sweep, tol)] });
+    } else if (e.type === 'LWPOLYLINE') {
+      const closed = (dxfNum(e, 70, 0) & 1) === 1;
+      const verts = [];
+      let v = null;
+      for (const [c, val] of e.codes) {
+        if (c === 10) { if (v) verts.push(v); v = { x: +val, y: 0, bulge: 0 }; }
+        else if (c === 20 && v) v.y = +val;
+        else if (c === 42 && v) v.bulge = +val;
+      }
+      if (v) verts.push(v);
+      if (verts.length < 2) { skipped.LWPOLYLINE = (skipped.LWPOLYLINE || 0) + 1; continue; }
+      out.push({ type: 'LWPOLYLINE', layer, closed, pts: dxfExpandBulges(verts, closed, tol) });
+    } else if (e.type === 'POLYLINE') {
+      // the old form: a POLYLINE followed by VERTEX entities until SEQEND. The
+      // caller hands us a flat list, so collect them in dxfProfile instead.
+      out.push({ type: 'POLYLINE', layer, closed: (dxfNum(e, 70, 0) & 1) === 1, pts: [], _open: true });
+    } else if (e.type === 'VERTEX') {
+      const last = out[out.length - 1];
+      if (last && last._open) last.pts.push({ x: dxfNum(e, 10, 0), y: dxfNum(e, 20, 0), bulge: dxfNum(e, 42, 0) });
+    } else if (e.type === 'SEQEND') {
+      const last = out[out.length - 1];
+      if (last && last._open) { last.pts = dxfExpandBulges(last.pts, last.closed, tol); delete last._open; }
+    } else if (e.type !== 'ENDBLK' && e.type !== 'BLOCK' && e.type !== 'ATTRIB') {
+      skipped[e.type] = (skipped[e.type] || 0) + 1;
+    }
+  }
+  for (const p of out) if (p._open) { p.pts = dxfExpandBulges(p.pts, p.closed, tol); delete p._open; }
+  return { polylines: out.filter(p => p.pts.length >= 2), skipped };
+}
+
+// bulge = tan(Δθ/4) on the vertex the arc leaves
+function dxfExpandBulges(verts, closed, tol) {
+  const pts = [];
+  const n = verts.length;
+  for (let i = 0; i < n; i++) {
+    const a = verts[i], b = verts[(i + 1) % n];
+    if (i === 0) pts.push([a.x, a.y]);
+    if (i === n - 1 && !closed) break;
+    const p0 = [a.x, a.y], p1 = [b.x, b.y];
+    if (a.bulge && Math.abs(a.bulge) > 1e-12) pts.push(...dxfArcPoints(p0, p1, 4 * Math.atan(a.bulge), tol));
+    else if (i < n - 1 || closed) pts.push(p1);
+  }
+  if (closed && pts.length > 1) { const f = pts[0], l = pts[pts.length - 1]; if (Math.hypot(f[0] - l[0], f[1] - l[1]) < 1e-9) pts.pop(); }
+  return pts;
+}
+
+const dxfArea = pts => { let a = 0; for (let i = 0, n = pts.length; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; a += p[0] * q[1] - q[0] * p[1]; } return a / 2; };
+function dxfPointInPoly(p, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+  }
+  return inside;
+}
+// proper segment crossing, excluding shared endpoints of neighbours
+function dxfSegCross(a, b, c, d) {
+  const o = (p, q, r) => { const v = (q[1] - p[1]) * (r[0] - q[0]) - (q[0] - p[0]) * (r[1] - q[1]); return Math.abs(v) < 1e-12 ? 0 : (v > 0 ? 1 : 2); };
+  const o1 = o(a, b, c), o2 = o(a, b, d), o3 = o(c, d, a), o4 = o(c, d, b);
+  return o1 !== o2 && o3 !== o4;
+}
+// [i, j] when two segments cross, false when the contour was checked and is clean,
+// null when it was too big to check. Those are three different answers and
+// collapsing the last two made every clean contour report itself as unchecked.
+function dxfSelfIntersects(pts) {
+  const n = pts.length;
+  if (n > 400) return null;                        // O(n²); a decimated contour stays under this
+  for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) {
+    if (i === 0 && j === n - 1) continue;           // neighbours around the wrap
+    if (dxfSegCross(pts[i], pts[(i + 1) % n], pts[j], pts[(j + 1) % n])) return [i, j];
+  }
+  return false;
+}
+
+/* Chain open entities end-to-end into closed rings. The join tolerance is
+   explicit and a gap larger than it is an error with its coordinates, never a
+   bridge. */
+function dxfChain(polylines, joinTol) {
+  const rings = [], open = [];
+  const segs = [];
+  for (const p of polylines) { if (p.closed) rings.push({ pts: p.pts, from: p.type }); else segs.push(p.pts.slice()); }
+  const near = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= joinTol;
+  while (segs.length) {
+    let chain = segs.shift();
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (let i = 0; i < segs.length; i++) {
+        const s = segs[i], head = chain[0], tail = chain[chain.length - 1];
+        if (near(tail, s[0])) { chain = chain.concat(s.slice(1)); segs.splice(i, 1); grew = true; break; }
+        if (near(tail, s[s.length - 1])) { chain = chain.concat(s.slice().reverse().slice(1)); segs.splice(i, 1); grew = true; break; }
+        if (near(head, s[s.length - 1])) { chain = s.slice(0, -1).concat(chain); segs.splice(i, 1); grew = true; break; }
+        if (near(head, s[0])) { chain = s.slice().reverse().slice(0, -1).concat(chain); segs.splice(i, 1); grew = true; break; }
+      }
+    }
+    if (chain.length > 2 && near(chain[0], chain[chain.length - 1])) { chain.pop(); rings.push({ pts: chain, from: 'chain' }); }
+    else open.push(chain);
+  }
+  return { rings, open };
+}
+
+// Drop points that sit on the straight line between their neighbours, within tol.
+// A flattened arc arrives as hundreds of points and the .scad is the file of
+// record — it has to stay readable, shareable and under the QR limit.
+function dxfDecimate(pts, tol) {
+  if (pts.length < 4) return pts;
+  const out = [];
+  const n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const a = pts[(i - 1 + n) % n], b = pts[i], c = pts[(i + 1) % n];
+    const dx = c[0] - a[0], dy = c[1] - a[1], L = Math.hypot(dx, dy);
+    const d = L > 1e-12 ? Math.abs(dy * b[0] - dx * b[1] + c[0] * a[1] - c[1] * a[0]) / L : Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (d > tol) out.push(b);
+  }
+  return out.length >= 3 ? out : pts;
+}
+const dxfF = v => { const s = (+v).toFixed(4).replace(/\.?0+$/, ''); return s === '-0' ? '0' : s; };
+
+/* The whole path, in one call. Returns { ok, errors, warnings, ... } and never
+   throws on bad input — a malformed DXF is a report, not an exception.
+   opts: { layer, units, tol_mm, join_tol_mm } */
+function dxfProfile(text, opts = {}) {
+  const tol = +opts.tol_mm > 0 ? +opts.tol_mm : 0.01;
+  const R = { ok: false, errors: [], warnings: [], layers: [], units: null, mm_per_unit: null, outer: null, holes: [], extents_mm: null, points_in: 0, points_out: 0 };
+  const parsed = dxfParse(text);
+  if (parsed.error) { R.errors.push(parsed.error); return R; }
+  R.header_units_code = parsed.header.$INSUNITS != null ? +parsed.header.$INSUNITS : null;
+
+  // Units first: everything downstream is meaningless without them, and a wrong
+  // unit is the one error that passes every geometric check the app runs.
+  const forced = String(opts.units || '').toLowerCase();
+  if (forced) {
+    const hit = Object.values(DXF_UNITS).find(u => u[0] === forced);
+    if (!hit) { R.errors.push(`units "${opts.units}" is not one I know (mm, cm, m, in, ft)`); return R; }
+    R.units = hit[0]; R.mm_per_unit = hit[1]; R.units_from = 'you stated them';
+    if (R.header_units_code && DXF_UNITS[R.header_units_code] && DXF_UNITS[R.header_units_code][0] !== hit[0])
+      R.warnings.push(`the file's $INSUNITS says ${DXF_UNITS[R.header_units_code][0]} but you stated ${hit[0]}; yours was used`);
+  } else if (R.header_units_code && DXF_UNITS[R.header_units_code]) {
+    [R.units, R.mm_per_unit] = DXF_UNITS[R.header_units_code]; R.units_from = '$INSUNITS in the file';
+  } else {
+    // R12 cannot carry $INSUNITS at all — the variable did not exist in that version —
+    // so every R12 file lands here. Many exporters still default to R12, so say that
+    // rather than implying the file is malformed.
+    const r12 = /^AC10(0[0-6]|09)$/.test(String(parsed.header.$ACADVER || ''));
+    R.errors.push(`this DXF does not say what its units are (${r12 ? `it is DXF R12 (${parsed.header.$ACADVER}), a version that cannot carry units at all` : R.header_units_code === 0 ? '$INSUNITS = 0, "unitless"' : '$INSUNITS is absent'}). I will not guess: a file drawn in inches and read as millimetres is a part 25.4x too small, and it would pass every geometric check here. Say which unit the coordinates are in${r12 ? ', or re-export as R2000 or later so the file carries them itself' : ''}.`);
+    R.needs_units = true;
+    return R;
+  }
+
+  const { polylines, skipped } = dxfEntityPolylines(parsed.entities, tol / R.mm_per_unit);
+  R.layers = [...new Set(polylines.map(p => p.layer))].sort();
+  const allLayers = [...new Set(parsed.entities.map(e => dxfStr(e, 8, '0')))].sort();
+  if (!polylines.length) { R.errors.push(`no LINE, ARC, CIRCLE or POLYLINE entities in this file. Layers present: ${allLayers.join(', ') || '(none)'}.`); return R; }
+
+  // The layer is named, never guessed: "the one with the most entities" picks the
+  // hatch or the dimensions on a real drawing.
+  let layer = opts.layer != null ? String(opts.layer) : null;
+  if (layer == null) {
+    if (R.layers.length === 1) { layer = R.layers[0]; R.layer_from = 'the only layer with geometry'; }
+    else { R.errors.push(`this file has geometry on ${R.layers.length} layers (${R.layers.join(', ')}). Name the one the profile is on — I will not guess, because on a real drawing the biggest layer is usually the hatch or the dimensions.`); return R; }
+  } else {
+    if (!R.layers.includes(layer)) { R.errors.push(`layer "${layer}" has no geometry. Layers with geometry: ${R.layers.join(', ')}.${allLayers.length > R.layers.length ? ` Other layers in the file: ${allLayers.filter(l => !R.layers.includes(l)).join(', ')}.` : ''}`); return R; }
+    R.layer_from = 'you named it';
+  }
+  R.layer = layer;
+  const mine = polylines.filter(p => p.layer === layer);
+  const skippedHere = Object.entries(skipped);
+  if (skippedHere.length) R.warnings.push(`entities this reader does not support were present and were NOT included: ${skippedHere.map(([k, n]) => `${n}x ${k}`).join(', ')}. If any of them was part of the profile, the profile below is incomplete — a SPLINE in particular must be converted to a polyline in your CAD first.`);
+
+  const joinTol = (+opts.join_tol_mm > 0 ? +opts.join_tol_mm : Math.max(tol, 1e-4)) / R.mm_per_unit;
+  const { rings, open } = dxfChain(mine, joinTol);
+  if (open.length) {
+    const g = open[0];
+    R.errors.push(`the profile on layer "${layer}" does not close: a chain of ${g.length} points runs from (${dxfF(g[0][0])}, ${dxfF(g[0][1])}) to (${dxfF(g[g.length - 1][0])}, ${dxfF(g[g.length - 1][1])}) and nothing meets it within the ${dxfF(joinTol * R.mm_per_unit)} mm join tolerance${open.length > 1 ? `, and ${open.length - 1} more chain${open.length > 2 ? 's are' : ' is'} open too` : ''}. Close it in your CAD. I will not bridge the gap: a mended profile is a wrong part with a clean report.`);
+    return R;
+  }
+  if (!rings.length) { R.errors.push(`nothing on layer "${layer}" forms a closed contour.`); return R; }
+
+  // to millimetres, then decimate, then check
+  const scaled = rings.map(r => ({ ...r, pts: r.pts.map(p => [p[0] * R.mm_per_unit, p[1] * R.mm_per_unit]) }));
+  R.points_in = scaled.reduce((n, r) => n + r.pts.length, 0);
+  for (const r of scaled) r.pts = dxfDecimate(r.pts, tol / 4);
+  R.points_out = scaled.reduce((n, r) => n + r.pts.length, 0);
+  for (const r of scaled) {
+    if (r.pts.length < 3) { R.errors.push(`a contour on layer "${layer}" has only ${r.pts.length} distinct points after flattening — it encloses nothing.`); return R; }
+    // Self-intersection is tested BEFORE area: a bow-tie's two lobes cancel to zero
+    // signed area, so testing area first refuses it for the wrong reason and sends
+    // the user looking for a degenerate contour that is not what is wrong.
+    const x = dxfSelfIntersects(r.pts);
+    if (x) { R.errors.push(`a contour on layer "${layer}" crosses itself: segment ${x[0]} meets segment ${x[1]} near (${dxfF(r.pts[x[0]][0])}, ${dxfF(r.pts[x[0]][1])}). OpenSCAD's polygon() is undefined for a self-intersecting path.`); return R; }
+    if (x === null) R.warnings.push(`a contour has ${r.pts.length} points, too many to check for self-intersection in reasonable time; it was not checked.`);
+    if (Math.abs(dxfArea(r.pts)) < 1e-9) { R.errors.push(`a contour on layer "${layer}" encloses zero area.`); return R; }
+  }
+
+  // outer vs holes, by containment. Several disjoint outers is a plate per part,
+  // not one profile, and it is refused rather than arbitrarily picked.
+  const inside = (a, b) => dxfPointInPoly(a.pts[0], b.pts);
+  const outers = scaled.filter(r => !scaled.some(o => o !== r && inside(r, o)));
+  if (outers.length > 1) {
+    R.errors.push(`layer "${layer}" holds ${outers.length} separate outer contours (extents ${outers.map(o => { const e = dxfExtents(o.pts); return `${dxfF(e.w)}x${dxfF(e.h)}`; }).join(', ')} mm). A profile is one outline with its holes. Put one part per layer, or per file.`);
+    return R;
+  }
+  const outer = outers[0];
+  const holes = scaled.filter(r => r !== outer);
+  for (const h of holes) if (!inside(h, outer)) { R.errors.push(`a contour is neither the outline nor inside it — contours must nest.`); return R; }
+  const nested = holes.filter(h => holes.some(o => o !== h && inside(h, o)));
+  if (nested.length) R.warnings.push(`${nested.length} contour${nested.length > 1 ? 's are' : ' is'} nested inside a hole; ${nested.length > 1 ? 'those become islands' : 'that becomes an island'} of solid material. Check the result.`);
+
+  // Winding: OpenSCAD's polygon(paths=) needs the holes wound against the outline.
+  // Reversal is REPORTED, because the sign trap here is the same one that bites on
+  // the way out and it is silent by nature.
+  const rev = [];
+  if (dxfArea(outer.pts) < 0) { outer.pts.reverse(); rev.push('the outline'); }
+  holes.forEach((h, i) => { if (dxfArea(h.pts) > 0) { h.pts.reverse(); rev.push(`hole ${i + 1}`); } });
+  if (rev.length) R.warnings.push(`re-wound ${rev.join(', ')} so the outline runs counter-clockwise and every hole runs clockwise, which is what polygon(paths=...) needs to cut rather than fill.`);
+
+  R.outer = outer.pts; R.holes = holes.map(h => h.pts);
+  R.extents_mm = dxfExtents(outer.pts);
+  R.ok = true;
+  return R;
+}
+function dxfExtents(pts) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of pts) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }
+  return { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 };
+}
+
+/* The profile as OpenSCAD. The points go inline so the .scad stays the file of
+   record — shareable, inspectable, and renderable with no DXF and no network.
+   mode: 'extrude' (a plate, fin, ring) or 'revolve' (a turned part: the profile
+   is the section, X is the radius, and the doctrine's one-profile-one-
+   rotate_extrude rule is what this emits). */
+function dxfToScad(R, opts = {}) {
+  if (!R || !R.ok) return null;
+  const tol = +opts.tol_mm > 0 ? +opts.tol_mm : 0.01;
+  const name = String(opts.name || 'profile').replace(/[^A-Za-z0-9_]/g, '_') || 'profile';
+  const mode = opts.mode === 'revolve' ? 'revolve' : 'extrude';
+  const h = +opts.height_mm > 0 ? +opts.height_mm : 6;
+  const centre = opts.centre !== false;
+  const e = R.extents_mm;
+  const dx = centre && mode === 'extrude' ? -(e.x0 + e.x1) / 2 : 0, dy = centre && mode === 'extrude' ? -(e.y0 + e.y1) / 2 : 0;
+  const rings = [R.outer, ...R.holes].map(r => r.map(p => `[${dxfF(p[0] + dx)}, ${dxfF(p[1] + dy)}]`));
+  const pts = [], paths = [];
+  for (const r of rings) { const start = pts.length; for (const s of r) pts.push(s); paths.push(`[${Array.from({ length: r.length }, (_, i) => start + i).join(',')}]`); }
+  const wrap = (arr, per) => { const L = []; for (let i = 0; i < arr.length; i += per) L.push('  ' + arr.slice(i, i + per).join(', ')); return L.join(',\n'); };
+  const negX = mode === 'revolve' && R.outer.some(p => p[0] < -1e-9);
+  return [
+    `// Profile read from ${opts.file ? String(opts.file).replace(/[\r\n]/g, ' ').slice(0, 60) : 'a DXF'}, layer "${R.layer}".`,
+    `// Units: ${R.units} (${R.units_from}), scaled x${R.mm_per_unit} to millimetres.`,
+    `// ${R.points_in} points flattened from the file, ${R.points_out} after removing points on straight runs.`,
+    `// Every coordinate below was READ from that file. Nothing here was inferred.`,
+    ...(R.warnings.length ? R.warnings.map(w => `// NOTE: ${w}`) : []),
+    ...(negX ? ['// NOTE: the profile has points at negative X and rotate_extrude() will not accept that. Move it clear of the axis.'] : []),
+    ``,
+    `tess_tol = ${dxfF(tol)};  // max chordal deviation of curved surfaces, mm`,
+    // fn_tol has to be DEFINED here. An emitted file that calls it without defining it
+    // gets undef from OpenSCAD, $fn falls back to the default, and a Ø100 revolve comes
+    // out of the engine 0.55 mm under size instead of 0.02 — silently, with no error.
+    // The unit tests could not see that; rendering the emitted file is what caught it.
+    `function fn_tol(d, tol = tess_tol) = max(24, ceil(180 / acos(1 - min(0.5, 2*tol/d))));`,
+    ``,
+    `${name}_h = ${dxfF(h)};  // ${mode === 'revolve' ? 'unused for a revolve' : 'extrusion height, mm — yours to set'}`,
+    ``,
+    `module ${name}_section(){`,
+    `  polygon(points = [`,
+    wrap(pts, 4),
+    `  ], paths = [${paths.join(', ')}]);`,
+    `}`,
+    ``,
+    `module main(){`,
+    mode === 'revolve' ? `  rotate_extrude($fn = fn_tol(${dxfF(Math.max(e.x1 * 2, 1))})) ${name}_section();` : `  linear_extrude(${name}_h) ${name}_section();`,
+    `}`,
+    `main();`,
+  ].join('\n');
+}
+/* DXF-END */
 /* Is main() nothing but calls to the declared part modules (optionally inside one union())?
    Then every part is drawn where its module puts it, by construction. Comments are
    stripped; braces are matched, since union(){ … } nests inside main(). */
@@ -7492,6 +7873,7 @@ function rebuildMoreMenu(){
     download(slug()+'.partforge.json', new Blob([JSON.stringify({ v:1, app:'PartForge', name:firstPartName(currentCode), code: currentCode })], {type:'application/json'}));
   });
   menuItem('⬆ Open project file…', () => $('projInput').click());
+  menuItem('📐 Import a DXF profile…', () => $('dxfInput').click());
   menuItem('📸 Screenshot (PNG)', () => {
     if(!renderer) return toast('3D viewer still loading…');
     renderer.render(scene, camera);
@@ -7596,6 +7978,53 @@ $('projInput').addEventListener('change', async (e) => {
     await runCode(obj.code);
     toast('Project loaded');
   } catch(err){ toast('Could not open project: ' + err.message); }
+});
+
+/* A DXF the user drew becomes a solid, with no model in the loop. Everything the
+   reader refuses is reported with the coordinates of what is wrong — an open
+   contour, a self-intersection, two outlines, a file that will not say its units —
+   because the alternative is a silently mended profile, which is a wrong part
+   carrying a clean report. Units are asked for rather than assumed: a file drawn
+   in inches and read as millimetres is 25.4x wrong and passes every check here. */
+$('dxfInput').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  let text;
+  try { text = await f.text(); } catch(err){ return toast('Could not read the file: ' + err.message); }
+  const run = (opts) => {
+    const R = dxfProfile(text, opts);
+    if(!R.ok){
+      // A layer choice and a unit are questions, not failures: ask, then re-read.
+      if(R.layers && R.layers.length > 1 && !opts.layer){
+        const pick = prompt(`Which layer is the profile on?\n\nLayers with geometry: ${R.layers.join(', ')}`, R.layers[0]);
+        if(pick) return run({ ...opts, layer: pick.trim() });
+        return;
+      }
+      if(R.needs_units){
+        const u = prompt(`${R.errors[0]}\n\nWhich unit are this file's coordinates in? (mm, cm, m, in, ft)`, 'mm');
+        if(u) return run({ ...opts, units: u.trim() });
+        return;
+      }
+      setOverlay(true, '⚠ ' + escapeHtml(R.errors.join(' ')).slice(0, 800), { spin: false });
+      return;
+    }
+    const mode = confirm(`Profile read: ${R.outer.length} points, ${R.holes.length} hole${R.holes.length === 1 ? '' : 's'}, ${R.extents_mm.w.toFixed(2)} × ${R.extents_mm.h.toFixed(2)} mm (${R.units}).\n\nOK = extrude it as a plate.\nCancel = revolve it about the Y axis as a turned part.`) ? 'extrude' : 'revolve';
+    let height = 6;
+    if(mode === 'extrude'){
+      const t = prompt('Extrusion height, mm', '6');
+      if(t == null) return;
+      if(!(+t > 0)) return toast('Extrusion height must be a positive number');
+      height = +t;
+    }
+    const code = dxfToScad(R, { name: (f.name || 'profile').replace(/\.dxf$/i, ''), mode, height_mm: height, file: f.name, tol_mm: settings.tessTol });
+    chat = []; qaAsked = false; hideQuestions(); $('history').innerHTML = '';
+    pushHistory('user', `DXF: ${f.name} · layer ${R.layer} · ${mode}`);
+    if(isFlight()) prefetchSpecProbes(code);
+    runCode(code).then(() => {
+      toast(R.warnings.length ? `Imported with ${R.warnings.length} note${R.warnings.length > 1 ? 's' : ''} — see the top of the file in the code drawer` : 'Imported');
+    }).catch(err => { if(String(err.message) !== 'cancelled') showRenderError(err); });
+  };
+  run({ tol_mm: settings.tessTol });
 });
 
 /* keyboard shortcuts */
@@ -7823,6 +8252,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   get lastIntent(){ return lastIntent; }, benchCostText, updateBenchCost,
   callClaude, get cacheTtl(){ return cacheTtl; }, measureOnDemand, rebuildMoreMenu, get lastGate(){ return lastGate; }, renderTemplates, updateLlmHint, specProbeExprs,
   FLIGHT_DB_DATA, dbAirframes, dbMotors, dbMotorPerf, dbFit, dbMaterialThermal, dbFitThermal, dbDesignFactors,
+  dxfParse, dxfProfile, dxfToScad,
   dbPickORing, dbPickDrill, dbPickStock, dbBoreMm, dbHints, dbSummary, dbRows, dbCredits,
   generate, aiTurn, retryPromptFor, get lastRetryPrompt(){ return lastRetryPrompt; }, get lastSent(){ return lastSent; }, get chat(){ return chat; },
   get specRoot(){ return specRoot; }, get partMesh(){ return partMesh; },
