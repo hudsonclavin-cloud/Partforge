@@ -20,6 +20,8 @@ one `Gen N:` line per iteration) is the history; this is the state.
 | A declared safety factor can name a document, revision and clause instead of a number the tool invented | `design_factors_nasa` rows quote the requirement sentence they were read from; 25 assertions | `node tests/run.mjs` |
 | A DXF the user drew becomes a solid, with every coordinate read rather than inferred, and refusals that name what is wrong and where | 55 assertions against 13 fixtures written by `ezdxf`, not by hand | `node tests/run.mjs` |
 | And the file it emits renders in the real engine at the size the DXF declared | 5 fixtures through OpenSCAD, measured | `cd tests/harness && node dxf-render.mjs` |
+| Every OpenAI-compatible model id gets the token-limit field and role name its own API accepts (GPT-5-and-up and o-series need `max_completion_tokens`; the o-series also needs `developer`; everything else keeps the classic shape) | 14 model ids driven through the real `PROVIDERS.openai.body()` | `cd tests/harness && node provider-body.mjs` |
+| A gateway's own 400 error text reaches the user for every provider, not only Anthropic, with no duplicate retry | mocked 400s from both providers | `cd tests/harness && node provider-400.mjs` |
 
 ## The three Gens this stopping point closes
 
@@ -49,6 +51,17 @@ one `Gen N:` line per iteration) is the history; this is the state.
 - **Gen 29** — `⋯ → Import a DXF profile…`. A vector drawing is the only input class whose numbers
   are read rather than guessed, so it is the only one built. The reader refuses rather than
   repairs, and asks for units rather than assuming them.
+- **Gen 30** — a usage guide (`docs/GETTING-STARTED.md`) and a real fix to the OpenAI-compatible
+  path: OpenAI's GPT-5-and-up and o-series models reject the classic `max_tokens` field outright
+  (400, "Use max_completion_tokens instead") and the o-series also rejects the `system` role —
+  this app was sending both, so "make ChatGPT work" was broken for every current-generation
+  OpenAI model before this commit, working only for gpt-4o-class models and OpenRouter's other
+  providers. The client now detects the model family from the id typed into Settings (with or
+  without an OpenRouter-style `provider/` prefix) and sends the field name and role name that
+  model actually accepts. `sendWithTtlFallback` also now surfaces a gateway's own 400 message
+  regardless of provider — it was gated behind an Anthropic-only condition, so every other
+  provider's 400 came back bare. README's AI providers section walks both working paths (an
+  OpenRouter account, or `worker.js` with your own OpenAI key) end to end.
 
 ## Open, with numbers
 

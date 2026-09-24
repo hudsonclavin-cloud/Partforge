@@ -11,6 +11,9 @@ engineering checks and a manufacturing sheet.
 
 No backend. No build step. One HTML file.
 
+New here? **[`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md)** is the five-minute path from
+this page to a part in hand. What follows below is the full reference.
+
 ## User manual
 
 ### Opening it
@@ -376,12 +379,48 @@ automatically.
 
 ## AI providers
 
-Anthropic works directly from the browser — it is the only major provider that
-permits it. OpenAI and Google send no CORS headers, so a static page cannot call
-them; reach those through any OpenAI-compatible gateway (OpenRouter, a local model
-server) or through `worker.js`, a Cloudflare Worker that relays requests and keeps
-your key as a Worker secret instead of in the page. Setup instructions are in the
-comments at the top of that file. Web search is Anthropic-only.
+Anthropic works directly from the browser — it is the only major provider that ships an
+explicit opt-in header for it (`anthropic-dangerous-direct-browser-access`). OpenAI and Google
+send no CORS headers at all, so a static page cannot call `api.openai.com` or Google's API
+directly no matter what header it sends — there is no key or setting that fixes this from the
+page alone. Reaching either one needs something server-side in between. Web search is
+Anthropic-only; the search checkbox is disabled for every other provider because none of them
+expose it through this app's request shape.
+
+### Using ChatGPT (OpenAI) or another OpenAI-compatible model
+
+Pick **OpenAI-compatible** as the provider, then choose one of two paths:
+
+1. **OpenRouter (no setup beyond an account).** OpenRouter fronts OpenAI, Anthropic, Google,
+   Grok and open-weight models behind one endpoint that *does* answer browser requests, so this
+   needs nothing deployed. In ⚙ Settings: leave the **API base URL** at its default,
+   `https://openrouter.ai/api/v1`; **API key** is your OpenRouter key (openrouter.ai → Keys),
+   not a raw OpenAI key; **Model** is OpenRouter's id for it, which is the provider name and the
+   model name joined with a slash — `openai/gpt-5.4`, `openai/o3-mini`, `openai/gpt-4o`. Check
+   openrouter.ai/models for the current list and pricing; the exact model names on offer change
+   over time and this file will not try to keep a copy of them. Billing runs through OpenRouter,
+   at a small markup over the underlying provider's price.
+2. **Your own OpenAI key, no markup.** Browsers still can't reach `api.openai.com` directly, so
+   `worker.js` — a small Cloudflare Worker, free tier is plenty — relays the request and adds
+   the missing CORS headers back, with your real key stored as a Worker secret rather than in
+   the page. Full setup is in the comments at the top of that file: deploy the Worker, set
+   `UPSTREAM` and `API_KEY`, then point **API base URL** at your Worker's URL and put the exact
+   model id from platform.openai.com/docs/models in **Model** (e.g. `gpt-5.4`, unprefixed — no
+   `openai/`, that convention is OpenRouter's, not OpenAI's). The same Worker relays Google's
+   Gemini through its own OpenAI-compatible endpoint by changing `UPSTREAM`; see the comment.
+
+Either way, OpenAI's newer models need requests shaped slightly differently from the classic
+chat-completions form this app otherwise sends, and PartForge handles it without you doing
+anything: GPT-5-and-up and the o-series ("reasoning") models reject the older `max_tokens`
+field outright (a 400 asking for `max_completion_tokens` instead), and the o-series additionally
+wants the system prompt sent under a `developer` role rather than `system`. The client detects
+both from the model id you typed — anything starting `gpt-5`, `gpt-6`, or `o` followed by a
+digit (with or without an `openai/` prefix) gets the new field name; the o-series also gets the
+new role name — and everything else (`gpt-4o`, local models, Claude or Grok through OpenRouter)
+keeps the classic shape, since that is still what they expect. If a gateway ever rejects a
+request outright, the 400's own message from the provider is shown rather than a bare "API
+400" — that message names the actual problem (a bad model id, a missing parameter, a quota
+limit), which is usually enough to fix on sight.
 
 A third provider, **Replay**, needs no key and sends nothing anywhere: paste one or more
 model replies in Settings and Generate runs the real checks and the retry decision on them,

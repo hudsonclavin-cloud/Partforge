@@ -16,7 +16,19 @@
  *        provider  = OpenAI-compatible
  *        base URL  = https://<your-worker>.workers.dev/v1
  *        API key   = anything non-empty (the Worker substitutes the real one)
- *        model     = e.g. gpt-5.2  /  gemini-3-pro
+ *        model     = the exact id from your provider's own model list right now —
+ *                    platform.openai.com/docs/models for OpenAI, ai.google.dev/gemini-api/docs/models
+ *                    for Gemini. Don't copy an id from an old screenshot or an old comment
+ *                    (including an old version of this one): model names turn over in months,
+ *                    and a stale id fails with a plain 404 naming the model, easy to fix on sight.
+ *
+ * A note on OpenAI's newer models, if you point UPSTREAM at api.openai.com: the current
+ * GPT-5-and-up and o-series ("reasoning") models reject the classic max_tokens parameter
+ * outright (400: "Unsupported parameter: 'max_tokens' ... Use 'max_completion_tokens'
+ * instead"), and the o-series additionally rejects the "system" role in favour of
+ * "developer". PartForge's own OpenAI-compatible client already detects this from the
+ * model id you type and sends the right ones; if you are POSTing to this Worker from
+ * something else, do the same switch there.
  *
  * The origin allowlist below is what stops a stranger who finds this URL from
  * spending your credits. Keep it tight.

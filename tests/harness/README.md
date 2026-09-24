@@ -32,6 +32,21 @@ cost twenty minutes chasing a failure the app no longer had:
 `tests/templates/*.scad` are the editable copies; `node tests/run.mjs` fails if any of them has
 drifted from the copy `index.html` ships.
 
+## OpenAI-compatible provider: the request shape per model
+
+    node provider-body.mjs                           # a matrix of model ids, no key needed
+    node provider-400.mjs                             # a mocked 400 from each provider
+
+`provider-body.mjs` drives `PROVIDERS.openai.body()` for real, inside the running app, against
+fourteen model ids — GPT-5-and-up, the o-series, gpt-4o, OpenRouter-style `provider/model` ids,
+a non-OpenAI model routed through OpenRouter, and a local model — and checks each one gets
+exactly the token-limit field and the role name its own API accepts: `max_completion_tokens`
+and `developer` for GPT-5-and-up and o-series (the classic `max_tokens` field is a hard 400 on
+those, not a warning), `max_tokens` and `system` for everything else. `provider-400.mjs` mocks
+a 400 response from both Anthropic and the OpenAI-compatible provider and checks the real error
+text reaches the caller in one call — no silent retry loop — while the one Anthropic-specific
+retry (a rejected `cache_control` TTL) still fires only on that message.
+
 ## Prompt caching
 
     node cache.mjs                                   # no key needed: the API is intercepted

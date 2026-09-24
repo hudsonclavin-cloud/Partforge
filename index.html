@@ -1099,6 +1099,17 @@ function supportsEffort(model){ return /^claude-(opus-(5|4-[678])|sonnet-(5|4-6)
 /* Whether the web-search tool block is part of this session's request shape at all. It must not
    vary between the calls of one conversation: see the cache_control note in the Anthropic body. */
 function prov_searchCapable(model){ return !!(settings.search && P().search); }
+/* OpenAI's own reasoning models (o1/o3/o4, and gpt-5 and up) rejected the classic Chat
+   Completions fields outright once they shipped: max_tokens comes back "Unsupported
+   parameter ... Use max_completion_tokens instead" (a hard 400, not a warning), and
+   o1-mini/o3-mini reject the "system" role the same way ("does not support 'system'
+   with this model") — "developer" is the replacement name for the same message.
+   Everything else this provider talks to — gpt-4o/4.1, local llama.cpp/vLLM/LM Studio,
+   Grok, most of what OpenRouter serves — still wants the classic fields, so this only
+   fires for a model id that actually looks like the new family, stripped of any
+   "provider/" prefix OpenRouter-style ids carry (openai/gpt-5.4, openai/o3-mini). */
+const OPENAI_REASONING_MODEL = /(^|\/)(gpt-([5-9]|\d{2,})(\.|-|$)|o[1-9](-|$))/i;
+const OPENAI_DEVELOPER_ROLE_MODEL = /(^|\/)o[1-9](-|$)/i;
 const PROVIDERS = {
   anthropic: {
     label: 'Anthropic (Claude)', base: 'https://api.anthropic.com', fixedBase: true,
@@ -1163,8 +1174,12 @@ const PROVIDERS = {
     fixedBase: false, keyHint: 'gateway key', defaultModel: '', search: false, models: [],
     url: b => b.replace(/\/+$/,'') + '/chat/completions',
     headers: k => ({ 'content-type':'application/json', 'authorization': 'Bearer ' + k }),
-    body: (system, msgs, maxTok, search, extra = {}) => ({ model: extra.model || settings.model, max_tokens: maxTok,
-      messages: [{ role:'system', content: system }, ...msgs] }),
+    body: (system, msgs, maxTok, search, extra = {}) => {
+      const model = extra.model || settings.model;
+      const tokKey = OPENAI_REASONING_MODEL.test(model) ? 'max_completion_tokens' : 'max_tokens';
+      const sysRole = OPENAI_DEVELOPER_ROLE_MODEL.test(model) ? 'developer' : 'system';
+      return { model, [tokKey]: maxTok, messages: [{ role: sysRole, content: system }, ...msgs] };
+    },
     image: img => ({ type:'image_url', image_url:{ url:`data:${img.mime};base64,${img.data}` } }),
     parse: d => {
       const c = d.choices && d.choices[0];
@@ -6873,9 +6888,14 @@ async function sendWithTtlFallback(buildBody){
   const prov = P();
   const send = () => fetch(prov.url(settings.base), { method:'POST', headers: prov.headers(settings.key), body: JSON.stringify(buildBody()) });
   let res = await send(), detail = '';
-  if(!res.ok && res.status === 400 && cacheTtl){
+  // The body is read on ANY 400, not only while cacheTtl is set: this is the one place
+  // that surfaces a gateway's own error text (a rejected model id, a parameter a
+  // reasoning model doesn't accept, a quota message), and hiding it behind the
+  // Anthropic-only cache_control retry meant every other provider's 400 came back
+  // bare — exactly the moment someone debugging "why won't ChatGPT work" needs it.
+  if(!res.ok && res.status === 400){
     try{ detail = (await res.json()).error?.message || ''; }catch(e){}
-    if(/\bttl\b|cache_control/i.test(detail)){ cacheTtl = null; detail = ''; res = await send(); }
+    if(cacheTtl && /\bttl\b|cache_control/i.test(detail)){ cacheTtl = null; detail = ''; res = await send(); }
   }
   return { res, detail };
 }
@@ -8239,7 +8259,7 @@ window.__pf = { runCode, renderSCAD, cancelRender, analyze, parseAsciiSTL, parse
   get camera(){ return perspCam; }, get controls(){ return controls; },
   buildAssembly: () => buildAssembly(currentManifest),
   meshTransform, meshMirrorX, meshDropToPlate, checkManifold, connectivity, adviseOrientation, to3MF, toBinarySTL, lint,
-  PRINTERS, printerById, materialCompat, printerDescriptor, settings, PROVIDERS, P,
+  PRINTERS, printerById, materialCompat, printerDescriptor, settings, PROVIDERS, P, sendWithTtlFallback,
   setSection, setMeasure, toggleDimsOverlay, applyMeshOp, reportText, shareUrl, viewPreset,
   captureViews, improveByLooking, gateCheck, partKind,
   BENCH, benchScore, runBench, benchSummary, getBenchRuns, renderBench, judgeIntent, searchToolFor, parseSpec, specCheck, renderProbe, meshBBox, specSummary, supportsEffort, showSpecParts, partColorHex, meshBounds, gateRetryBudget, sliceExtents, bedPinning, declarationScore, declarationCounts,
