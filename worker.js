@@ -47,7 +47,7 @@ export default {
     const allowed = ALLOWED_ORIGINS.includes(origin);
     const cors = {
       'Access-Control-Allow-Origin': allowed ? origin : ALLOWED_ORIGINS[0],
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'content-type, authorization',
       'Access-Control-Max-Age': '86400',
       'Vary': 'Origin',
@@ -58,25 +58,29 @@ export default {
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     if (!allowed) return json({ error: { message: `Origin ${origin || '(none)'} is not allowed by this proxy.` } }, 403);
-    if (request.method !== 'POST') return json({ error: { message: 'POST only.' } }, 405);
+    const path = new URL(request.url).pathname.replace(/^\/v1/, '');
+    const expectedMethod = path === '/models' ? 'GET' : path === '/chat/completions' ? 'POST' : null;
+    if (!expectedMethod) return json({ error: { message: 'Only /v1/models and /v1/chat/completions are supported.' } }, 404);
+    if (request.method !== expectedMethod) return json({ error: { message: `${expectedMethod} only.` } }, 405);
     if (!env.UPSTREAM || !env.API_KEY) return json({ error: { message: 'Worker is missing UPSTREAM or API_KEY.' } }, 500);
 
-    const body = await request.text();
+    const body = request.method === 'POST' ? await request.text() : '';
     if (body.length > MAX_BODY_BYTES) return json({ error: { message: 'Request too large.' } }, 413);
 
     // /v1/chat/completions here → <UPSTREAM>/chat/completions upstream
-    const path = new URL(request.url).pathname.replace(/^\/v1/, '');
     const target = env.UPSTREAM.replace(/\/+$/, '') + path;
 
     let upstream;
     try {
       upstream = await fetch(target, {
-        method: 'POST',
+        method: request.method,
         headers: {
           'content-type': 'application/json',
           'authorization': 'Bearer ' + env.API_KEY,
+          ...(env.OPENAI_ORGANIZATION ? { 'OpenAI-Organization': env.OPENAI_ORGANIZATION } : {}),
+          ...(env.OPENAI_PROJECT ? { 'OpenAI-Project': env.OPENAI_PROJECT } : {}),
         },
-        body,
+        body: request.method === 'POST' ? body : undefined,
       });
     } catch (err) {
       return json({ error: { message: 'Upstream unreachable: ' + String(err.message || err) } }, 502);

@@ -25,7 +25,23 @@ test('401 guidance distinguishes keys from endpoints', () => {
   assert.match(message('https://gateway.example/v1', 'account disabled'), /Provider response: account disabled/);
 });
 
+test('non-auth failures explain permissions and quota instead of blaming the key', () => {
+  const context = { settings:{ base:'https://gateway.example/v1' }, P:() => ({ url:value => value }), URL };
+  vm.runInNewContext(`${source}; forbidden = apiHttpError(403, 'model access denied'); limited = apiHttpError(429, 'insufficient_quota')`, context);
+  assert.match(context.forbidden, /project\/organization role and model permissions/i);
+  assert.match(context.limited, /billing\/credits and project usage limits/i);
+  assert.match(context.limited, /insufficient_quota/);
+});
+
 test('settings guard catches an OpenAI-looking key at OpenRouter', () => {
   assert.match(html, /openrouter\\\.ai[\s\S]{0,100}\^sk-\(\?!or-\)/);
   assert.match(html, /That looks like an OpenAI Platform key/);
+});
+
+test('settings presents unambiguous OpenRouter and local OpenAI routes', () => {
+  assert.match(html, /OpenRouter — requires an OpenRouter key/);
+  assert.match(html, /OpenAI Platform key through local proxy/);
+  assert.match(html, /An OpenAI Platform key will always return 401 here/);
+  assert.match(html, /Do not paste the real key into this dialog/);
+  assert.match(html, /Test key &amp; endpoint/);
 });

@@ -318,8 +318,12 @@ key is defective. Check the URL and key as a pair: `openrouter.ai` requires an O
 (normally `sk-or-v1-…`), while the included local proxy takes a placeholder in Settings and
 reads the real OpenAI Platform key from `OPENAI_API_KEY` when `node server.mjs` starts. Restart
 that process after changing the environment variable. The error now identifies which of these
-routes failed. **API 404** mentioning the model adds *"— pick a different model in ⚙ Settings."*
-**API 429** is *"Rate limited — wait a moment and try again."*
+routes failed. An **API 404** naming the model adds *"— choose a model available to this endpoint."* A 403 points to project/organization or model permissions. A 429 can mean either
+a temporary rate limit or exhausted billing/quota; making another key does not add quota.
+
+Use **Test key & endpoint** before generating. It calls the model-list route without spending
+generation tokens, distinguishes 401, 403 and 429 failures, and warns if the selected model is
+not visible to that account.
 
 **"The reply hit the output limit and was cut off mid-file."** — ask for a simpler part, or
 fewer parts at once. **"The model replied without code."** — rephrase and press Generate again.
@@ -411,6 +415,14 @@ Pick **OpenAI (GPT) / compatible** as the provider, then choose one of three pat
    URL to `http://127.0.0.1:8080/v1`. Enter any non-empty value in the UI's API-key box (the
    local proxy ignores it), then enter the exact OpenAI model id. The real key remains in the
    server process and is never stored by the browser. This is the shortest development path.
+   Because that process spends a real key, it answers only requests addressed to this machine
+   (`Host` of 127.0.0.1 or localhost) and serves its proxy only to the page it hosts: a
+   request from another website, or from a hostname rebound to 127.0.0.1, gets 403 before it
+   reaches OpenAI. Open PartForge at `http://127.0.0.1:8080` rather than at the GitHub Pages
+   URL for this route. Serving a phone on your LAN (`HOST=0.0.0.0`) needs that address listed
+   in `ALLOWED_HOSTS`.
+   If an older account explicitly requires organization or project selection, also set
+   `OPENAI_ORGANIZATION` and/or `OPENAI_PROJECT`; most project keys need neither.
 3. **Your own OpenAI key, deployed.** Browsers still can't reach `api.openai.com` directly, so
    `worker.js` — a small Cloudflare Worker, free tier is plenty — relays the request and adds
    the missing CORS headers back, with your real key stored as a Worker secret rather than in
@@ -419,6 +431,10 @@ Pick **OpenAI (GPT) / compatible** as the provider, then choose one of three pat
    model id from platform.openai.com/docs/models in **Model** (e.g. `gpt-5.4`, unprefixed — no
    `openai/`, that convention is OpenRouter's, not OpenAI's). The same Worker relays Google's
    Gemini through its own OpenAI-compatible endpoint by changing `UPSTREAM`; see the comment.
+
+The Settings dialog has a separate **Connection** choice for these routes. Do not manually put
+an OpenAI Platform key beside the OpenRouter URL: those are different accounts and OpenRouter
+will correctly reject that pair with 401 even when the OpenAI key is brand new.
 
 On all three paths, OpenAI's newer models need requests shaped slightly differently from the classic
 chat-completions form this app otherwise sends, and PartForge handles it without you doing
@@ -618,7 +634,7 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 724 assertions, no dependencies). Two files a real generation produced
+(`node tests/run.mjs`, 724 assertions plus 8 `node:test` checks on the local proxy, the Cloudflare Worker and the provider error text; no dependencies). Two files a real generation produced
 during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
 are tested against what a model actually writes, not only against templates written to pass.
 

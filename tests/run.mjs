@@ -41,5 +41,15 @@ for(const t of ['flight-eng.test.mjs', 'flight-cmm.test.mjs', 'flight-decl.test.
   const r = spawnSync(process.execPath, [path.join(here, t)], { stdio: 'inherit' });
   if(r.status !== 0) failed++;
 }
+// Files written against node:test (the local proxy, the provider error text, the Cloudflare
+// Worker) are picked up by name pattern rather than listed, so a new one cannot be left out the
+// way the first two were: they shipped passing under `node --test` and were never run by this
+// file, which is the one every doc tells you to run.
+{
+  const nodeTests = fs.readdirSync(here).filter(f => f.endsWith('.test.mjs') && !f.startsWith('flight-')).sort();
+  console.log(`\n===== node --test: ${nodeTests.join(', ')} =====`);
+  const r = spawnSync(process.execPath, ['--test', '--test-reporter=spec', ...nodeTests.map(f => path.join(here, f))], { stdio: 'inherit' });
+  if(r.status !== 0) failed++;
+}
 console.log(failed ? `\n${failed} suite(s) FAILED` : '\nall suites passed');
 process.exit(failed ? 1 : 0);

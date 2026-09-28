@@ -22,6 +22,7 @@ one `Gen N:` line per iteration) is the history; this is the state.
 | And the file it emits renders in the real engine at the size the DXF declared | 5 fixtures through OpenSCAD, measured | `cd tests/harness && node dxf-render.mjs` |
 | Every OpenAI-compatible model id gets the token-limit field and role name its own API accepts (GPT-5-and-up and o-series need `max_completion_tokens`; the o-series also needs `developer`; everything else keeps the classic shape) | 14 model ids driven through the real `PROVIDERS.openai.body()` | `cd tests/harness && node provider-body.mjs` |
 | A gateway's own 400 error text reaches the user for every provider, not only Anthropic, with no duplicate retry | mocked 400s from both providers | `cd tests/harness && node provider-400.mjs` |
+| The local OpenAI proxy spends its key only for the page it hosts — never for another website or a rebound hostname | attack requests against the running server, which fail on the unguarded version | `node tests/run.mjs` (node:test section) |
 
 ## The three Gens this stopping point closes
 
@@ -62,6 +63,14 @@ one `Gen N:` line per iteration) is the history; this is the state.
   regardless of provider — it was gated behind an Anthropic-only condition, so every other
   provider's 400 came back bare. README's AI providers section walks both working paths (an
   OpenRouter account, or `worker.js` with your own OpenAI key) end to end.
+- **Gen 31** — merged two rounds of Codex work on running ChatGPT with your own key: a local
+  proxy (`server.mjs`), a Connection selector in Settings (OpenRouter / local proxy / custom), a
+  Test key & endpoint button, and 401/403/429 messages that say which route failed and why. The
+  proxy shipped forwarding a request from any website with the real key attached — a no-preflight
+  text/plain POST, and a DNS-rebound hostname, both reached OpenAI. It now refuses a Host that
+  is not this machine and an Origin that is not its own page; the test reproduces both attacks
+  against the running server and fails on the unguarded version. The node:test files are now
+  run by `tests/run.mjs`; before, they ran only under `node --test`, which no doc mentions.
 
 ## Open, with numbers
 
@@ -108,7 +117,7 @@ persistence paths survive a reload beyond the "Welcome back" slot.
 
 ## How to pick this up
 
-    node tests/run.mjs                      # 724 assertions; must be green before any commit
+    node tests/run.mjs                      # 724 assertions + 8 node:test checks; must be green before any commit
     node tools/db/embed.mjs                 # after editing data/tables/*.json
     cd tests/harness && npm i playwright && node server.mjs 8765 &   # then the probes above
 
