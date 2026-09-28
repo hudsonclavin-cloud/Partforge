@@ -389,7 +389,7 @@ expose it through this app's request shape.
 
 ### Using ChatGPT (OpenAI) or another OpenAI-compatible model
 
-Pick **OpenAI-compatible** as the provider, then choose one of two paths:
+Pick **OpenAI (GPT) / compatible** as the provider, then choose one of three paths:
 
 1. **OpenRouter (no setup beyond an account).** OpenRouter fronts OpenAI, Anthropic, Google,
    Grok and open-weight models behind one endpoint that *does* answer browser requests, so this
@@ -400,7 +400,12 @@ Pick **OpenAI-compatible** as the provider, then choose one of two paths:
    openrouter.ai/models for the current list and pricing; the exact model names on offer change
    over time and this file will not try to keep a copy of them. Billing runs through OpenRouter,
    at a small markup over the underlying provider's price.
-2. **Your own OpenAI key, no markup.** Browsers still can't reach `api.openai.com` directly, so
+2. **Your own OpenAI key, locally.** With Node 18 or newer, run
+   `OPENAI_API_KEY=sk-... node server.mjs`, open `http://127.0.0.1:8080`, and set the API base
+   URL to `http://127.0.0.1:8080/v1`. Enter any non-empty value in the UI's API-key box (the
+   local proxy ignores it), then enter the exact OpenAI model id. The real key remains in the
+   server process and is never stored by the browser. This is the shortest development path.
+3. **Your own OpenAI key, deployed.** Browsers still can't reach `api.openai.com` directly, so
    `worker.js` — a small Cloudflare Worker, free tier is plenty — relays the request and adds
    the missing CORS headers back, with your real key stored as a Worker secret rather than in
    the page. Full setup is in the comments at the top of that file: deploy the Worker, set
@@ -409,7 +414,7 @@ Pick **OpenAI-compatible** as the provider, then choose one of two paths:
    `openai/`, that convention is OpenRouter's, not OpenAI's). The same Worker relays Google's
    Gemini through its own OpenAI-compatible endpoint by changing `UPSTREAM`; see the comment.
 
-Either way, OpenAI's newer models need requests shaped slightly differently from the classic
+On all three paths, OpenAI's newer models need requests shaped slightly differently from the classic
 chat-completions form this app otherwise sends, and PartForge handles it without you doing
 anything: GPT-5-and-up and the o-series ("reasoning") models reject the older `max_tokens`
 field outright (a 400 asking for `max_completion_tokens` instead), and the o-series additionally
