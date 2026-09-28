@@ -317,11 +317,11 @@
 </dialog>
 <dialog id="dlgSettings">
   <h2>Settings</h2>
-  <p>Your API key is used directly from this browser. It is stored only on this device and sent only to the provider you choose below.</p>
+  <p>The credential entered here is stored only on this device and sent only to the endpoint you choose. The included local proxy accepts a placeholder here and keeps the real OpenAI key in its server process.</p>
   <label>AI provider</label>
   <select id="setProvider">
     <option value="anthropic">Anthropic (Claude) — works directly in the browser</option>
-    <option value="openai">OpenAI-compatible — OpenRouter, local model, or proxy</option>
+    <option value="openai">OpenAI (GPT) / compatible — OpenRouter, local model, or proxy</option>
     <option value="replay">Replay — no key: paste model replies, run the real checks and retry loop</option>
   </select>
   <p class="hint" id="provNote" style="margin-top:-4px"></p>
@@ -8155,7 +8155,7 @@ function syncProviderUI(){
     ? 'Nothing leaves this page. The designer\'s replies come from the queue below; the judge, review and improve buttons need a real provider.'
     : prov.search
     ? 'Anthropic is the only provider that allows direct browser calls, and the only one with server-side web search.'
-    : 'Browsers block direct calls to OpenAI and Google (CORS). Point this at OpenRouter, a local model server, or your own proxy. Web search is unavailable here.';
+    : 'Browsers block direct calls to OpenAI and Google (CORS). Use OpenRouter, run OPENAI_API_KEY=sk-... node server.mjs locally, or point this at your own proxy. Web search is unavailable here.';
 }
 $('setProvider').onchange = () => {
   const prov = PROVIDERS[$('setProvider').value] || PROVIDERS.anthropic;

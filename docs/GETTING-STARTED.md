@@ -32,8 +32,8 @@ Everything past templates — typing a request, attaching a photo, **Refine**, *
   straight from a browser.
 - **ChatGPT (OpenAI), Gemini, Grok, or a local model** — one extra step first, because none of
   these answer a browser directly. See **AI providers → Using ChatGPT (OpenAI)** in the main
-  README for the two ways to do it (an OpenRouter account, or your own Cloudflare Worker) —
-  it's a few minutes either way, not a rabbit hole.
+  README for three ways to do it: an OpenRouter account, the included local Node proxy, or your
+  own Cloudflare Worker. The local route is one command when Node 18+ is installed.
 - **Replay** — no key, no account, no cost: paste a reply from any chat window (ChatGPT's own
   page, Claude's own page, a teammate) and PartForge runs the same checks and retry logic on it.
   Good for trying the tool with zero commitment, or for driving it from a provider with no API
