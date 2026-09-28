@@ -6869,7 +6869,7 @@ async function callClaude(userContent, opts = {}){
   if(!res.ok){
     chat.pop();
     if(!detail){ try{ detail = (await res.json()).error?.message || ''; }catch(e){} }
-    if(res.status === 401) detail = 'Invalid API key. Check it in ⚙ Settings.';
+    if(res.status === 401) detail = apiAuthError(detail);
     if(res.status === 404 && /model/i.test(detail)) detail += ' — pick a different model in ⚙ Settings.';
     if(res.status === 429) detail = 'Rate limited — wait a moment and try again.';
     throw new Error(`API ${res.status}: ${detail || res.statusText}`);
@@ -6893,9 +6893,9 @@ async function sendWithTtlFallback(buildBody){
   // reasoning model doesn't accept, a quota message), and hiding it behind the
   // Anthropic-only cache_control retry meant every other provider's 400 came back
   // bare — exactly the moment someone debugging "why won't ChatGPT work" needs it.
-  if(!res.ok && res.status === 400){
+  if(!res.ok && (res.status === 400 || res.status === 401)){
     try{ detail = (await res.json()).error?.message || ''; }catch(e){}
-    if(cacheTtl && /\bttl\b|cache_control/i.test(detail)){ cacheTtl = null; detail = ''; res = await send(); }
+    if(res.status === 400 && cacheTtl && /\bttl\b|cache_control/i.test(detail)){ cacheTtl = null; detail = ''; res = await send(); }
   }
   return { res, detail };
 }
@@ -6906,13 +6906,25 @@ function reachError(err){
     + `only Anthropic allows them. Use Anthropic, an OpenAI-compatible gateway like OpenRouter, `
     + `a local model server, or your own proxy URL. (${String(err.message||err).slice(0,80)})`;
 }
+function apiAuthError(detail = ''){
+  let host = '';
+  try { host = new URL(P().url(settings.base)).hostname; } catch(e){}
+  const upstream = detail && !/^invalid api key\.?$/i.test(detail.trim()) ? ` Provider response: ${detail}` : '';
+  if(host === 'openrouter.ai')
+    return 'OpenRouter rejected the credential. OpenRouter requires its own key (normally sk-or-v1-…), not an OpenAI Platform key. Either paste an OpenRouter key, or use the local/Cloudflare proxy instructions for your OpenAI key.' + upstream;
+  if(host === '127.0.0.1' || host === 'localhost')
+    return 'OpenAI rejected the OPENAI_API_KEY used by the local proxy. Stop the local server, run OPENAI_API_KEY=<your new OpenAI Platform key> node server.mjs again, then retry; the Settings key is only a non-empty placeholder on this route.' + upstream;
+  if(host === 'api.openai.com')
+    return 'OpenAI rejected this API key. A static browser cannot call api.openai.com directly; put the key in the local server or Cloudflare Worker instead of Settings.' + upstream;
+  return `${host || 'The API endpoint'} rejected the credential. Check that the key belongs to that endpoint—not merely that it is a newly created key.${upstream}`;
+}
 async function callClaudeOneShot(system, userText, opts = {}){
   const prov = P();
   if(prov.replay) throw new Error('Replay provides designer replies only; the judge, review and improve calls need a real provider.');
   // Same cache-TTL fallback as the main path: prov.body() reads the module-level cacheTtl, so a
   // gateway that rejects the field would otherwise fail a Review with a bare "API 400".
   const { res, detail } = await sendWithTtlFallback(() => prov.body(system, [{ role:'user', content: userText }], opts.maxTokens || 1500, false, { model: opts.model, effort: opts.effort }));
-  if(!res.ok) throw new Error(`API ${res.status}${detail ? ': ' + detail : ''}`);
+  if(!res.ok) throw new Error(`API ${res.status}${res.status === 401 ? ': ' + apiAuthError(detail) : detail ? ': ' + detail : ''}`);
   const data = await res.json();
   const [ti, to, tc = 0, tw = 0] = prov.usage(data); tokensIn += ti; tokensOut += to; tokensCached += tc; tokensCacheWrite += tw;
   return prov.parse(data);
@@ -8143,6 +8155,7 @@ for(const id of ['bedX','bedY','bedZ'])
   $(id).addEventListener('input', () => { $('setPrinter').value = ''; showPrinterInfo(); });
 function syncProviderUI(){
   const prov = PROVIDERS[$('setProvider').value] || PROVIDERS.anthropic;
+  $('provNote').style.color = '';
   $('lblKey').textContent = prov.label + ' API key';
   $('setKey').placeholder = prov.keyHint;
   $('baseRow').style.display = prov.fixedBase ? 'none' : 'block';
@@ -8170,9 +8183,18 @@ $('setProvider').onchange = () => {
 };
 $('setCancel').onclick = () => dlg.close();
 $('setSave').onclick = () => {
+  const chosenProvider = $('setProvider').value;
+  const chosenKey = $('setKey').value.trim();
+  const chosenBase = $('setBase').value.trim();
+  if(chosenProvider === 'openai' && /^https:\/\/openrouter\.ai(?:\/|$)/i.test(chosenBase) && /^sk-(?!or-)/i.test(chosenKey)){
+    $('provNote').textContent = 'That looks like an OpenAI Platform key, but the selected endpoint is OpenRouter. Use an OpenRouter key (normally sk-or-v1-…), or run the included proxy and set this URL to http://127.0.0.1:8080/v1.';
+    $('provNote').style.color = 'var(--bad)';
+    $('setKey').focus();
+    return;
+  }
   settings.provider = $('setProvider').value;   // set first: key/model/base are stored per provider
-  settings.key = $('setKey').value.trim();
-  settings.base = $('setBase').value.trim();
+  settings.key = chosenKey;
+  settings.base = chosenBase;
   if(P().replay) settings.replay = $('setReplay').value.split(/\n\s*---\s*\n/).map(x => x.trim()).filter(Boolean);
   settings.model = $('setModel').value.trim() || P().defaultModel;
   settings.clarify = $('setClarify').value;

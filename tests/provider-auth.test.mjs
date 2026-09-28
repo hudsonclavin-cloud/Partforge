@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+import vm from 'node:vm';
+
+const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const start = html.indexOf('function apiAuthError(');
+const end = html.indexOf('async function callClaudeOneShot', start);
+assert.ok(start >= 0 && end > start, 'apiAuthError block is present');
+const source = html.slice(start, end);
+
+function message(base, detail = ''){
+  const context = { settings:{ base }, P:() => ({ url:value => value }), URL };
+  vm.runInNewContext(`${source}; result = apiAuthError(${JSON.stringify(detail)})`, context);
+  return context.result;
+}
+
+test('401 guidance distinguishes keys from endpoints', () => {
+  assert.match(message('https://openrouter.ai/api/v1'), /requires its own key/i);
+  assert.match(message('https://openrouter.ai/api/v1'), /not an OpenAI Platform key/i);
+  assert.match(message('http://127.0.0.1:8080/v1'), /OPENAI_API_KEY used by the local proxy/i);
+  assert.match(message('http://localhost:8080/v1'), /Settings key is only a non-empty placeholder/i);
+  assert.match(message('https://api.openai.com/v1'), /cannot call api\.openai\.com directly/i);
+  assert.match(message('https://gateway.example/v1'), /key belongs to that endpoint/i);
+  assert.match(message('https://gateway.example/v1', 'account disabled'), /Provider response: account disabled/);
+});
+
+test('settings guard catches an OpenAI-looking key at OpenRouter', () => {
+  assert.match(html, /openrouter\\\.ai[\s\S]{0,100}\^sk-\(\?!or-\)/);
+  assert.match(html, /That looks like an OpenAI Platform key/);
+});

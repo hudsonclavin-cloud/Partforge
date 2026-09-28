@@ -87,8 +87,10 @@ re-renders about a second after you stop dragging.
 
 ### ⚙ Settings
 
-Your API key is used directly from this browser, stored only on this device, and sent only to
-the provider you pick. Keys, models and base URLs are stored per provider, so switching does not
+The credential entered here is stored only on this device and sent only to the endpoint you
+pick. It must belong to that endpoint: an OpenAI Platform key is not an OpenRouter key. With
+the included local proxy, enter any non-empty placeholder here; the real OpenAI key stays in
+the server process. Keys, models and base URLs are stored per provider, so switching does not
 lose the other one. **Save** commits; **Close** discards.
 
 - **AI provider** — *Anthropic (Claude)*, *OpenAI-compatible* (OpenRouter, a local model server
@@ -311,9 +313,13 @@ provider. Templates still work.
 Anthropic permits direct browser calls; for anything else use an OpenAI-compatible gateway, a
 local model server or your own proxy.
 
-**API 401** — *"Invalid API key. Check it in ⚙ Settings."* **API 404** mentioning the model adds
-*"— pick a different model in ⚙ Settings."* **API 429** is *"Rate limited — wait a moment and
-try again."*
+**API 401** means the endpoint rejected the credential, not necessarily that a newly created
+key is defective. Check the URL and key as a pair: `openrouter.ai` requires an OpenRouter key
+(normally `sk-or-v1-…`), while the included local proxy takes a placeholder in Settings and
+reads the real OpenAI Platform key from `OPENAI_API_KEY` when `node server.mjs` starts. Restart
+that process after changing the environment variable. The error now identifies which of these
+routes failed. **API 404** mentioning the model adds *"— pick a different model in ⚙ Settings."*
+**API 429** is *"Rate limited — wait a moment and try again."*
 
 **"The reply hit the output limit and was cut off mid-file."** — ask for a simpler part, or
 fewer parts at once. **"The model replied without code."** — rephrase and press Generate again.
