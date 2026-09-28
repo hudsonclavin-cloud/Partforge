@@ -1,0 +1,39 @@
+{
+  "name": "partforge-headless",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PartForge checks for agents: the app's own render + gate + flight CMM, headless, as a JSON CLI and an MCP server",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "partforge": "./cli.mjs",
+    "partforge-mcp": "./mcp.mjs"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check",
+    "test": "node --test test/api.test.mjs test/http.test.mjs",
+    "test:parity": "node --test test/parity.test.mjs test/eval-truth.test.mjs",
+    "mcp": "node mcp.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "openscad-wasm": "0.0.4",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "acorn": "8.18.0"
+  },
+  "files": [
+    "cli.mjs",
+    "mcp.mjs",
+    "partforge.mjs",
+    "prelude.mjs",
+    "render-worker.mjs",
+    "core.gen.mjs",
+    "build.mjs"
+  ]
+}

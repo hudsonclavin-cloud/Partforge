@@ -51,5 +51,16 @@ for(const t of ['flight-eng.test.mjs', 'flight-cmm.test.mjs', 'flight-decl.test.
   const r = spawnSync(process.execPath, ['--test', '--test-reporter=spec', ...nodeTests.map(f => path.join(here, f))], { stdio: 'inherit' });
   if(r.status !== 0) failed++;
 }
+// The headless package (the CLI and the MCP server run the app's checks through it) carries its
+// own dependencies — the engine and a parser — so it runs only once they are installed. Its fast
+// suite includes the drift guard: core.gen.mjs must be exactly what index.html builds today.
+{
+  const hl = path.join(here, '..', 'headless');
+  if(fs.existsSync(path.join(hl, 'node_modules', 'openscad-wasm'))){
+    console.log('\n===== headless: api.test.mjs, http.test.mjs (drift guard, envelope, refusals, MCP over HTTP) =====');
+    const r = spawnSync(process.execPath, ['--test', '--test-reporter=spec', path.join(hl, 'test', 'api.test.mjs'), path.join(hl, 'test', 'http.test.mjs')], { stdio: 'inherit', cwd: hl });
+    if(r.status !== 0) failed++;
+  } else console.log('\n===== headless: SKIPPED — run `npm install` in headless/ to test it (and to check core.gen.mjs has not drifted from index.html) =====');
+}
 console.log(failed ? `\n${failed} suite(s) FAILED` : '\nall suites passed');
 process.exit(failed ? 1 : 0);

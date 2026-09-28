@@ -1,6 +1,6 @@
 # Status — a stopping point
 
-Written at Gen 27, extended at Gen 29 (2026-09-23) so that whoever picks this up next, cold, knows what is
+Written at Gen 27, extended at Gen 29 (2026-09-23) and Gen 32 (2026-09-28) so that whoever picks this up next, cold, knows what is
 verified, by what, and what is open with its numbers. The commit log (`git log --oneline`,
 one `Gen N:` line per iteration) is the history; this is the state.
 
@@ -17,6 +17,11 @@ one `Gen N:` line per iteration) is the history; this is the state.
 | A flight template loaded from the chip row can be measured without a key and then has its drawing under ⋯ | `tests/harness/template-drawing.mjs` | same |
 | The gauge check reaches the same verdict on every shipped gauge as the CGAL intersection it replaced, in 0.1 s per gauge instead of 8–27 s | harness before/after on all ten cases, every verdict and fail count identical | `tests/harness/probe.mjs` for the timing split |
 | Every template in `tests/templates/*.scad` is byte-identical to the copy `index.html` ships | drift test in the Node suite | `node tests/run.mjs` |
+| Headless checks are the app's checks: `headless/core.gen.mjs` is extracted unedited from `index.html` and must match what it would build today | `build.mjs --check` in the Node suite (drift guard) | `node tests/run.mjs` (after `npm install` in `headless/`) |
+| Headless verdicts equal the browser's on all ten reference cases (7 flight templates pass; endcap 4, retainer 1, retainer-fixed 0), at the same speed (retainer-fixed 30 + 60 s in Node, 29 + 59 s in Chromium) | `headless/test/parity.test.mjs` | `cd headless && npm run test:parity` (~4 min) |
+| Every agent-facing call answers with one envelope; refusals are results with a reason and a way forward; a runaway render is killed and the next call works; the MCP server lists six read-only tools over stdio and Streamable HTTP, with the token and Host guards | `headless/test/api.test.mjs`, `http.test.mjs` (13 checks) | `node tests/run.mjs` |
+| The ten chat eval answers are what the tools return today | `headless/test/eval-truth.test.mjs` | `npm run test:parity` |
+| A flight share link opens as checked: a fresh browser switches to flight grade and measures on arrival; old links open as before | `tests/harness/share-link.mjs`, real Chromium | `tests/harness/README.md` |
 | A declared safety factor can name a document, revision and clause instead of a number the tool invented | `design_factors_nasa` rows quote the requirement sentence they were read from; 25 assertions | `node tests/run.mjs` |
 | A DXF the user drew becomes a solid, with every coordinate read rather than inferred, and refusals that name what is wrong and where | 55 assertions against 13 fixtures written by `ezdxf`, not by hand | `node tests/run.mjs` |
 | And the file it emits renders in the real engine at the size the DXF declared | 5 fixtures through OpenSCAD, measured | `cd tests/harness && node dxf-render.mjs` |
@@ -71,6 +76,22 @@ one `Gen N:` line per iteration) is the history; this is the state.
   is not this machine and an Origin that is not its own page; the test reproduces both attacks
   against the running server and fails on the unguarded version. The node:test files are now
   run by `tests/run.mjs`; before, they ran only under `node --test`, which no doc mentions.
+- **Gen 32** — PartForge for agents. `headless/` runs the app's own gate, SPEC probes and flight
+  CMM in Node. `build.mjs` extracts 186 declarations from `index.html` unedited (acorn, reference
+  closure from 54 roots); only the five browser edges are swapped (rendering on killable
+  worker threads). Verdicts and timings match the browser on all ten reference cases. On top:
+  - a JSON API and CLI whose envelope carries verdict, per-feature measurement rows, confidence,
+    provenance and first-class refusals (a check is 2.8 KB, down from 20 KB of raw objects;
+    cached re-checks take 0.08 s);
+  - an MCP server with six read-only tools, over stdio (Claude Code/Desktop, works now) and
+    Streamable HTTP (for claude.ai; written and tested, not deployed);
+  - ten repo-verified chat eval pairs, one of which is a trap the lookup falls into;
+  - `docs/MCP-STUDY.md`, which gives hosting options against measured engine numbers and states
+    the decisions left open.
+
+  The share link now carries the grade (`&g=flight`): an agent's flight part used to open in a
+  fresh browser under the hobby checks, with no drawing. The root `.gitignore` ignored every
+  `package.json` in the tree; it is now anchored to the root.
 
 ## Open, with numbers
 
@@ -117,7 +138,9 @@ persistence paths survive a reload beyond the "Welcome back" slot.
 
 ## How to pick this up
 
-    node tests/run.mjs                      # 724 assertions + 8 node:test checks; must be green before any commit
+    node tests/run.mjs                      # 724 assertions + 8 node:test checks + 13 headless checks; must be green before any commit
+    cd headless && npm install              # once; then `node build.mjs` after any index.html change the drift guard flags
+    cd headless && npm run test:parity      # headless vs browser verdicts + eval answers (~4 min)
     node tools/db/embed.mjs                 # after editing data/tables/*.json
     cd tests/harness && npm i playwright && node server.mjs 8765 &   # then the probes above
 

@@ -71,6 +71,16 @@ reference data prints certified peaks so the designer stops guessing, but a cert
 that is SMALLER than the user's conservative figure arrives with better provenance and would
 displace it — the table must only ever raise a load, never lower one.
 
+## An agent's link opens as checked
+
+    node share-link.mjs                              # needs headless/ npm-installed
+
+`headless/` hands a person the app's own share link for the part it checked. A fresh browser
+is in hobby grade, so a flight part used to open under the hobby checks — no measurements, no
+drawing. The link now carries `&g=flight`: this opens it in a clean profile and checks the app
+switched grade, measured on arrival (coupler template: 0 fails, manufacturing sheet), and that
+an old-style `#c=` link still opens as it did.
+
 ## The QR code never leaves the device
 
     node qr.mjs                                      # no network needed: the CDN is stubbed

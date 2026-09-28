@@ -634,7 +634,7 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 724 assertions plus 8 `node:test` checks on the local proxy, the Cloudflare Worker and the provider error text; no dependencies). Two files a real generation produced
+(`node tests/run.mjs`, 724 assertions plus 8 `node:test` checks on the local proxy, the Cloudflare Worker and the provider error text; no dependencies — plus 13 checks on the headless package once `headless/` is npm-installed). Two files a real generation produced
 during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
 are tested against what a model actually writes, not only against templates written to pass.
 
@@ -721,6 +721,27 @@ Flight templates work with no API key. `?bench=1` in flight grade runs the fligh
 twelve things a space-shot club types, scored by the same gate plus the measurements —
 the nose cone is the 1153-mm class of error, the inch tube catches unit slips, the thrust
 plate and tank cap catch a declared load check with the wrong inputs.
+
+## For agents: headless checks, CLI and MCP
+
+The app is for people. `headless/` gives an AI agent the same checks with no page: it runs the
+gate, the SPEC probes and the flight measurements in Node, answers in JSON, and puts the verdict
+in the exit code. The agent builds and tests; the person gets a link that opens the finished part
+in this app, in flight grade, already measured, with its drawing under ⋯.
+
+    cd headless && npm install
+    node cli.mjs check part.scad --human      # PASS/FAIL, the failures, the link
+    node cli.mjs check part.scad              # the JSON envelope an agent reads
+    claude mcp add partforge -- node "$PWD/mcp.mjs"   # six read-only tools in Claude Code
+
+The checks are the app's own code:
+- `headless/build.mjs` extracts them from `index.html` unedited.
+- A test fails if the extracted copy goes stale.
+- Headless and browser verdicts match on every reference part.
+
+Using PartForge from a plain chat on claude.ai needs the HTTP server hosted somewhere. That is
+written and tested here, but not deployed. What hosting takes, and what it costs in CPU, is in
+[docs/MCP-STUDY.md](docs/MCP-STUDY.md). Details: [headless/README.md](headless/README.md).
 
 ## Keyboard
 
