@@ -317,19 +317,27 @@
 </dialog>
 <dialog id="dlgSettings">
   <h2>Settings</h2>
-  <p>Your API key is used directly from this browser. It is stored only on this device and sent only to the provider you choose below.</p>
+  <p>The credential entered here is stored only on this device and sent only to the endpoint you choose. The included local proxy accepts a placeholder here and keeps the real OpenAI key in its server process.</p>
   <label>AI provider</label>
   <select id="setProvider">
     <option value="anthropic">Anthropic (Claude) — works directly in the browser</option>
-    <option value="openai">OpenAI-compatible — OpenRouter, local model, or proxy</option>
+    <option value="openai">OpenAI (GPT) / compatible — OpenRouter, local model, or proxy</option>
     <option value="replay">Replay — no key: paste model replies, run the real checks and retry loop</option>
   </select>
   <p class="hint" id="provNote" style="margin-top:-4px"></p>
   <label id="lblKey">API key</label>
   <input id="setKey" type="password" placeholder="sk-ant-..." autocomplete="off">
   <div id="baseRow" style="display:none">
+    <label>Connection</label>
+    <select id="setEndpoint">
+      <option value="openai">OpenAI Platform — use my API key directly</option>
+      <option value="openrouter">OpenRouter — requires an OpenRouter key</option>
+      <option value="local">OpenAI Platform key through local proxy</option>
+      <option value="custom">Custom compatible endpoint</option>
+    </select>
     <label>API base URL</label>
     <input id="setBase" type="text" placeholder="https://openrouter.ai/api/v1">
+    <div class="row" style="align-items:center;gap:8px"><button class="btn small" id="btnTestApi" type="button">Test key &amp; endpoint</button><span class="hint" id="apiTestResult"></span></div>
   </div>
   <div id="replayRow" style="display:none">
     <label>Replies to replay, in order <span style="font-weight:normal;color:var(--dim)">(paste the raw .scad — no need to add ```openscad fences yourself, they're added automatically if missing; separate multiple replies with a line containing only ---)</span></label>
@@ -1084,11 +1092,9 @@ function materialCompat(){
   return null;
 }
 /* ---------------- AI providers ----------------
-   Only Anthropic officially permits browser-direct calls (it ships an explicit
-   opt-in header). OpenAI and Google send no Access-Control-Allow-Origin, so a
-   static page cannot reach them directly — they are available through any
-   OpenAI-compatible gateway: OpenRouter, a local model server, or the
-   Cloudflare Worker in worker.js. */
+   Direct OpenAI is deliberately opt-in because it stores the user's Platform key
+   in browser local storage. The proxy routes avoid that exposure and also cover
+   browsers or managed networks whose CORS policy blocks the direct request. */
 /* Web search tool variant by model. The 20260209 variant (dynamic filtering) is
    for Opus 5 / 4.8 / 4.7 / 4.6 and Sonnet 5 / 4.6; older models keep the basic one. */
 function searchToolFor(model){
@@ -1170,8 +1176,8 @@ const PROVIDERS = {
     parse: d => d.text, usage: () => [0, 0],
   },
   openai: {
-    label: 'OpenAI-compatible (OpenRouter / local / proxy)', base: 'https://openrouter.ai/api/v1',
-    fixedBase: false, keyHint: 'gateway key', defaultModel: '', search: false, models: [],
+    label: 'OpenAI / compatible', base: 'https://api.openai.com/v1',
+    fixedBase: false, keyHint: 'sk-proj-...', defaultModel: '', search: false, models: [],
     url: b => b.replace(/\/+$/,'') + '/chat/completions',
     headers: k => ({ 'content-type':'application/json', 'authorization': 'Bearer ' + k }),
     body: (system, msgs, maxTok, search, extra = {}) => {
@@ -6869,9 +6875,7 @@ async function callClaude(userContent, opts = {}){
   if(!res.ok){
     chat.pop();
     if(!detail){ try{ detail = (await res.json()).error?.message || ''; }catch(e){} }
-    if(res.status === 401) detail = 'Invalid API key. Check it in ⚙ Settings.';
-    if(res.status === 404 && /model/i.test(detail)) detail += ' — pick a different model in ⚙ Settings.';
-    if(res.status === 429) detail = 'Rate limited — wait a moment and try again.';
+    detail = apiHttpError(res.status, detail);
     throw new Error(`API ${res.status}: ${detail || res.statusText}`);
   }
   const data = await res.json();
@@ -6893,18 +6897,36 @@ async function sendWithTtlFallback(buildBody){
   // reasoning model doesn't accept, a quota message), and hiding it behind the
   // Anthropic-only cache_control retry meant every other provider's 400 came back
   // bare — exactly the moment someone debugging "why won't ChatGPT work" needs it.
-  if(!res.ok && res.status === 400){
+  if(!res.ok){
     try{ detail = (await res.json()).error?.message || ''; }catch(e){}
-    if(cacheTtl && /\bttl\b|cache_control/i.test(detail)){ cacheTtl = null; detail = ''; res = await send(); }
+    if(res.status === 400 && cacheTtl && /\bttl\b|cache_control/i.test(detail)){ cacheTtl = null; detail = ''; res = await send(); }
   }
   return { res, detail };
 }
 /* a fetch that rejects (rather than returning a status) is almost always CORS or offline */
 function reachError(err){
   const host = (() => { try { return new URL(P().url(settings.base)).host; } catch(e){ return 'the provider'; } })();
-  return `Couldn't reach ${host}. Most AI providers block direct browser calls (CORS) — `
-    + `only Anthropic allows them. Use Anthropic, an OpenAI-compatible gateway like OpenRouter, `
-    + `a local model server, or your own proxy URL. (${String(err.message||err).slice(0,80)})`;
+  return `Couldn't reach ${host}. Check your connection and the endpoint's browser/CORS policy; `
+    + `if a direct OpenAI request is blocked on this browser or network, use the included local proxy. (${String(err.message||err).slice(0,80)})`;
+}
+function apiAuthError(detail = ''){
+  let host = '';
+  try { host = new URL(P().url(settings.base)).hostname; } catch(e){}
+  const upstream = detail && !/^invalid api key\.?$/i.test(detail.trim()) ? ` Provider response: ${detail}` : '';
+  if(host === 'openrouter.ai')
+    return 'OpenRouter rejected the credential. OpenRouter requires its own key (normally sk-or-v1-…), not an OpenAI Platform key. Either paste an OpenRouter key, or use the local/Cloudflare proxy instructions for your OpenAI key.' + upstream;
+  if(host === '127.0.0.1' || host === 'localhost')
+    return 'OpenAI rejected the OPENAI_API_KEY used by the local proxy. Stop the local server, run OPENAI_API_KEY=<your new OpenAI Platform key> node server.mjs again, then retry; the Settings key is only a non-empty placeholder on this route.' + upstream;
+  if(host === 'api.openai.com')
+    return 'OpenAI rejected this API key. Check that it is an active OpenAI Platform project key—not a ChatGPT login or OpenRouter key—and that its project is still accessible.' + upstream;
+  return `${host || 'The API endpoint'} rejected the credential. Check that the key belongs to that endpoint—not merely that it is a newly created key.${upstream}`;
+}
+function apiHttpError(status, detail = ''){
+  if(status === 401) return apiAuthError(detail);
+  if(status === 403) return `The endpoint accepted the credential but denied this request. Check the key's project/organization role and model permissions.${detail ? ` Provider response: ${detail}` : ''}`;
+  if(status === 429) return `The endpoint rate- or quota-limited the request. Check billing/credits and project usage limits; making a new key does not add quota.${detail ? ` Provider response: ${detail}` : ''}`;
+  if(status === 404 && /model/i.test(detail)) return `${detail} — choose a model available to this endpoint.`;
+  return detail || `The endpoint returned ${status}.`;
 }
 async function callClaudeOneShot(system, userText, opts = {}){
   const prov = P();
@@ -6912,7 +6934,7 @@ async function callClaudeOneShot(system, userText, opts = {}){
   // Same cache-TTL fallback as the main path: prov.body() reads the module-level cacheTtl, so a
   // gateway that rejects the field would otherwise fail a Review with a bare "API 400".
   const { res, detail } = await sendWithTtlFallback(() => prov.body(system, [{ role:'user', content: userText }], opts.maxTokens || 1500, false, { model: opts.model, effort: opts.effort }));
-  if(!res.ok) throw new Error(`API ${res.status}${detail ? ': ' + detail : ''}`);
+  if(!res.ok) throw new Error(`API ${res.status}: ${apiHttpError(res.status, detail)}`);
   const data = await res.json();
   const [ti, to, tc = 0, tw = 0] = prov.usage(data); tokensIn += ti; tokensOut += to; tokensCached += tc; tokensCacheWrite += tw;
   return prov.parse(data);
@@ -8074,11 +8096,39 @@ document.addEventListener('keydown', (e) => {
 
 /* settings + dialogs */
 const dlg = $('dlgSettings');
+function endpointKind(base){
+  try {
+    const u = new URL(base);
+    if(u.hostname === 'api.openai.com') return 'openai';
+    if(u.hostname === 'openrouter.ai') return 'openrouter';
+    if(u.hostname === '127.0.0.1' || u.hostname === 'localhost') return 'local';
+  } catch(e){}
+  return 'custom';
+}
+function syncEndpointUI(){
+  if($('setProvider').value !== 'openai') return;
+  const kind = $('setEndpoint').value;
+  const known = kind === 'openai' ? 'https://api.openai.com/v1' : kind === 'openrouter' ? 'https://openrouter.ai/api/v1' : kind === 'local' ? 'http://127.0.0.1:8080/v1' : '';
+  if(known) $('setBase').value = known;
+  $('setBase').readOnly = kind !== 'custom';
+  $('lblKey').textContent = kind === 'openai' ? 'OpenAI Platform API key' : kind === 'openrouter' ? 'OpenRouter API key' : kind === 'local' ? 'Settings placeholder (the real key is in OPENAI_API_KEY)' : 'Compatible endpoint API key';
+  $('setKey').placeholder = kind === 'openai' ? 'sk-proj-...' : kind === 'openrouter' ? 'sk-or-v1-...' : kind === 'local' ? 'local-proxy' : 'key required by this endpoint';
+  $('setModel').placeholder = kind === 'openrouter' ? 'OpenRouter model id, including provider/' : kind === 'openai' || kind === 'local' ? 'exact OpenAI Platform model id' : 'model id from this endpoint';
+  if(kind === 'local' && !$('setKey').value) $('setKey').value = 'local-proxy';
+  $('provNote').textContent = kind === 'openai'
+    ? 'Direct OpenAI connection: paste an OpenAI Platform API key. It stays in this browser’s local storage and is sent only to api.openai.com. For a shared computer, use the local proxy instead.'
+    : kind === 'openrouter'
+    ? 'This URL accepts OpenRouter keys only. An OpenAI Platform key will always return 401 here.'
+    : kind === 'local'
+    ? 'Start this repository with OPENAI_API_KEY=<your OpenAI Platform key> node server.mjs, then open http://127.0.0.1:8080. Do not paste the real key into this dialog.'
+    : 'The credential must have been issued by this exact endpoint. Web search is unavailable here.';
+}
 $('btnSettings').onclick = () => {
   $('setProvider').value = settings.provider;
-  syncProviderUI();
   $('setKey').value = settings.key; $('setModel').value = settings.model;
   $('setBase').value = settings.base;
+  $('setEndpoint').value = endpointKind(settings.base);
+  syncProviderUI();
   $('setReplay').value = settings.replay.join('\n---\n');
   $('setClarify').value = settings.clarify; $('setSearch').checked = settings.search;
   $('setGate').checked = settings.gate;
@@ -8143,6 +8193,7 @@ for(const id of ['bedX','bedY','bedZ'])
   $(id).addEventListener('input', () => { $('setPrinter').value = ''; showPrinterInfo(); });
 function syncProviderUI(){
   const prov = PROVIDERS[$('setProvider').value] || PROVIDERS.anthropic;
+  $('provNote').style.color = '';
   $('lblKey').textContent = prov.label + ' API key';
   $('setKey').placeholder = prov.keyHint;
   $('baseRow').style.display = prov.fixedBase ? 'none' : 'block';
@@ -8155,14 +8206,38 @@ function syncProviderUI(){
     ? 'Nothing leaves this page. The designer\'s replies come from the queue below; the judge, review and improve buttons need a real provider.'
     : prov.search
     ? 'Anthropic is the only provider that allows direct browser calls, and the only one with server-side web search.'
-    : 'Browsers block direct calls to OpenAI and Google (CORS). Point this at OpenRouter, a local model server, or your own proxy. Web search is unavailable here.';
+    : 'Choose direct OpenAI for key-only setup, OpenRouter for an OpenRouter key, or a proxy to keep the real key out of browser storage. Web search is unavailable here.';
+  if($('setProvider').value === 'openai') syncEndpointUI();
 }
+$('setEndpoint').onchange = syncEndpointUI;
+$('btnTestApi').onclick = async () => {
+  const out = $('apiTestResult');
+  const base = $('setBase').value.trim().replace(/\/+$/, '');
+  const key = $('setKey').value.trim();
+  if(!base || !key){ out.textContent = 'Enter the endpoint and credential first.'; out.style.color = 'var(--bad)'; return; }
+  out.textContent = 'Testing…'; out.style.color = '';
+  try {
+    const res = await fetch(base + '/models', { headers:{ authorization:'Bearer ' + key } });
+    let data = null, detail = '';
+    try { data = await res.json(); detail = data?.error?.message || ''; } catch(e){}
+    if(!res.ok) throw new Error(`API ${res.status}: ${apiHttpError(res.status, detail)}`);
+    const ids = Array.isArray(data?.data) ? data.data.map(x => x.id).filter(Boolean) : [];
+    const model = $('setModel').value.trim();
+    const found = model && ids.length ? ids.includes(model) : null;
+    out.textContent = `Connected — credential accepted${ids.length ? ` · ${ids.length} models visible` : ''}${found === false ? ` · selected model “${model}” is not in this account's model list` : found ? ' · selected model is available' : ''}.`;
+    out.style.color = found === false ? 'var(--warn)' : 'var(--ok)';
+  } catch(err){
+    out.textContent = err instanceof TypeError ? 'Could not reach this endpoint. Check that the local proxy is running and that you opened PartForge at http://127.0.0.1:8080.' : String(err.message || err);
+    out.style.color = 'var(--bad)';
+  }
+};
 $('setProvider').onchange = () => {
   const prov = PROVIDERS[$('setProvider').value] || PROVIDERS.anthropic;
   const wasProvider = settings.provider;
   settings.provider = $('setProvider').value;      // read that provider's saved values
   $('setKey').value = settings.key;
   $('setBase').value = settings.base;
+  $('setEndpoint').value = endpointKind(settings.base);
   $('setModel').value = settings.model;
   $('setJudgeModel').value = settings.judgeModel;
   settings.provider = wasProvider;                 // don't commit until Save
@@ -8170,9 +8245,18 @@ $('setProvider').onchange = () => {
 };
 $('setCancel').onclick = () => dlg.close();
 $('setSave').onclick = () => {
+  const chosenProvider = $('setProvider').value;
+  const chosenKey = $('setKey').value.trim();
+  const chosenBase = $('setBase').value.trim();
+  if(chosenProvider === 'openai' && /^https:\/\/openrouter\.ai(?:\/|$)/i.test(chosenBase) && /^sk-(?!or-)/i.test(chosenKey)){
+    $('provNote').textContent = 'That looks like an OpenAI Platform key, but the selected endpoint is OpenRouter. Use an OpenRouter key (normally sk-or-v1-…), or run the included proxy and set this URL to http://127.0.0.1:8080/v1.';
+    $('provNote').style.color = 'var(--bad)';
+    $('setKey').focus();
+    return;
+  }
   settings.provider = $('setProvider').value;   // set first: key/model/base are stored per provider
-  settings.key = $('setKey').value.trim();
-  settings.base = $('setBase').value.trim();
+  settings.key = chosenKey;
+  settings.base = chosenBase;
   if(P().replay) settings.replay = $('setReplay').value.split(/\n\s*---\s*\n/).map(x => x.trim()).filter(Boolean);
   settings.model = $('setModel').value.trim() || P().defaultModel;
   settings.clarify = $('setClarify').value;

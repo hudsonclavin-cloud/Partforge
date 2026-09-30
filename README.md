@@ -87,8 +87,10 @@ re-renders about a second after you stop dragging.
 
 ### ⚙ Settings
 
-Your API key is used directly from this browser, stored only on this device, and sent only to
-the provider you pick. Keys, models and base URLs are stored per provider, so switching does not
+The credential entered here is stored only on this device and sent only to the endpoint you
+pick. It must belong to that endpoint: an OpenAI Platform key is not an OpenRouter key. With
+the included local proxy, enter any non-empty placeholder here; the real OpenAI key stays in
+the server process. Keys, models and base URLs are stored per provider, so switching does not
 lose the other one. **Save** commits; **Close** discards.
 
 - **AI provider** — *Anthropic (Claude)*, *OpenAI-compatible* (OpenRouter, a local model server
@@ -300,7 +302,8 @@ not a reference to one.
   150,000 triangles), and orientation advice above 60,000.
 - The intent judge is advisory. It never rejects or retries a part, and the geometry checks
   cannot tell you whether the result is the thing you asked for.
-- Web search is Anthropic-only. Browsers block direct calls to OpenAI and Google.
+- Web search is Anthropic-only. A direct OpenAI key is available for a private device; use a
+  proxy when the key must not be stored in browser local storage.
 
 ### Troubleshooting
 
@@ -311,9 +314,17 @@ provider. Templates still work.
 Anthropic permits direct browser calls; for anything else use an OpenAI-compatible gateway, a
 local model server or your own proxy.
 
-**API 401** — *"Invalid API key. Check it in ⚙ Settings."* **API 404** mentioning the model adds
-*"— pick a different model in ⚙ Settings."* **API 429** is *"Rate limited — wait a moment and
-try again."*
+**API 401** means the endpoint rejected the credential, not necessarily that a newly created
+key is defective. Check the URL and key as a pair: `openrouter.ai` requires an OpenRouter key
+(normally `sk-or-v1-…`), while the included local proxy takes a placeholder in Settings and
+reads the real OpenAI Platform key from `OPENAI_API_KEY` when `node server.mjs` starts. Restart
+that process after changing the environment variable. The error now identifies which of these
+routes failed. A 403 points to project/organization or model permissions. A 429 can mean either
+a temporary rate limit or exhausted billing/quota; making another key does not add quota.
+
+Use **Test key & endpoint** before generating. It calls the model-list route without spending
+generation tokens, distinguishes 401, 403 and 429 failures, and warns if the selected model is
+not visible to that account.
 
 **"The reply hit the output limit and was cut off mid-file."** — ask for a simpler part, or
 fewer parts at once. **"The model replied without code."** — rephrase and press Generate again.
@@ -379,19 +390,22 @@ automatically.
 
 ## AI providers
 
-Anthropic works directly from the browser — it is the only major provider that ships an
-explicit opt-in header for it (`anthropic-dangerous-direct-browser-access`). OpenAI and Google
-send no CORS headers at all, so a static page cannot call `api.openai.com` or Google's API
-directly no matter what header it sends — there is no key or setting that fixes this from the
-page alone. Reaching either one needs something server-side in between. Web search is
-Anthropic-only; the search checkbox is disabled for every other provider because none of them
-expose it through this app's request shape.
+PartForge can send an OpenAI Platform key directly to `api.openai.com`, which is the shortest
+setup on a private device. That necessarily stores the key in this browser's local storage;
+do not use it on a shared or untrusted device. The local and Cloudflare proxy routes keep the
+real key server-side instead. Web search is Anthropic-only; the search checkbox is disabled for
+every other provider because this app does not implement their search-tool request shapes.
 
 ### Using ChatGPT (OpenAI) or another OpenAI-compatible model
 
-Pick **OpenAI-compatible** as the provider, then choose one of two paths:
+Pick **OpenAI (GPT) / compatible** as the provider, then choose one of four paths:
 
-1. **OpenRouter (no setup beyond an account).** OpenRouter fronts OpenAI, Anthropic, Google,
+1. **OpenAI Platform — use my API key directly.** Paste the OpenAI Platform project key, enter
+   the exact OpenAI model id, then press **Test key & endpoint**. This needs no server and is the
+   requested key-only path. The key stays in this browser's local storage and is sent to
+   `api.openai.com`, so use one scoped to this project and do not use this route on a shared
+   device. If browser or network policy blocks the request, use option 3.
+2. **OpenRouter (no setup beyond an account).** OpenRouter fronts OpenAI, Anthropic, Google,
    Grok and open-weight models behind one endpoint that *does* answer browser requests, so this
    needs nothing deployed. In ⚙ Settings: leave the **API base URL** at its default,
    `https://openrouter.ai/api/v1`; **API key** is your OpenRouter key (openrouter.ai → Keys),
@@ -400,16 +414,27 @@ Pick **OpenAI-compatible** as the provider, then choose one of two paths:
    openrouter.ai/models for the current list and pricing; the exact model names on offer change
    over time and this file will not try to keep a copy of them. Billing runs through OpenRouter,
    at a small markup over the underlying provider's price.
-2. **Your own OpenAI key, no markup.** Browsers still can't reach `api.openai.com` directly, so
-   `worker.js` — a small Cloudflare Worker, free tier is plenty — relays the request and adds
-   the missing CORS headers back, with your real key stored as a Worker secret rather than in
-   the page. Full setup is in the comments at the top of that file: deploy the Worker, set
+3. **Your own OpenAI key, locally.** With Node 18 or newer, run
+   `OPENAI_API_KEY=sk-... node server.mjs`, open `http://127.0.0.1:8080`, and set the API base
+   URL to `http://127.0.0.1:8080/v1`. Enter any non-empty value in the UI's API-key box (the
+   local proxy ignores it), then enter the exact OpenAI model id. The real key remains in the
+   server process and is never stored by the browser. This is the shortest development path.
+   If an older account explicitly requires organization or project selection, also set
+   `OPENAI_ORGANIZATION` and/or `OPENAI_PROJECT`; most project keys need neither.
+4. **Your own OpenAI key, deployed.** `worker.js` is a small Cloudflare Worker for deployments
+   where the real key must stay out of browser storage. It relays requests and adds restricted
+   CORS headers, with the key stored as a Worker secret rather than in the page.
+   Full setup is in the comments at the top of that file: deploy the Worker, set
    `UPSTREAM` and `API_KEY`, then point **API base URL** at your Worker's URL and put the exact
    model id from platform.openai.com/docs/models in **Model** (e.g. `gpt-5.4`, unprefixed — no
    `openai/`, that convention is OpenRouter's, not OpenAI's). The same Worker relays Google's
    Gemini through its own OpenAI-compatible endpoint by changing `UPSTREAM`; see the comment.
 
-Either way, OpenAI's newer models need requests shaped slightly differently from the classic
+The Settings dialog has a separate **Connection** choice for these routes. Do not manually put
+an OpenAI Platform key beside the OpenRouter URL: those are different accounts and OpenRouter
+will correctly reject that pair with 401 even when the OpenAI key is brand new.
+
+On all four paths, OpenAI's newer models need requests shaped slightly differently from the classic
 chat-completions form this app otherwise sends, and PartForge handles it without you doing
 anything: GPT-5-and-up and the o-series ("reasoning") models reject the older `max_tokens`
 field outright (a 400 asking for `max_completion_tokens` instead), and the o-series additionally

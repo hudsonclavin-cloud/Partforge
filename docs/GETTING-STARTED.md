@@ -30,10 +30,11 @@ Everything past templates — typing a request, attaching a photo, **Refine**, *
 - **Anthropic (Claude)** — the simplest: paste a key from console.anthropic.com and it works,
   no extra setup, because Anthropic is the one major provider whose API answers requests sent
   straight from a browser.
-- **ChatGPT (OpenAI), Gemini, Grok, or a local model** — one extra step first, because none of
-  these answer a browser directly. See **AI providers → Using ChatGPT (OpenAI)** in the main
-  README for the two ways to do it (an OpenRouter account, or your own Cloudflare Worker) —
-  it's a few minutes either way, not a rabbit hole.
+- **ChatGPT (OpenAI)** — choose **OpenAI Platform — use my API key directly**, paste a Platform
+  project key, enter its model id, and press **Test key & endpoint**. That is the key-only path.
+  On a shared device, use the included local proxy instead so the real key stays server-side.
+  OpenRouter, a custom endpoint, and a deployable Cloudflare Worker are also documented under
+  **AI providers** in the main README.
 - **Replay** — no key, no account, no cost: paste a reply from any chat window (ChatGPT's own
   page, Claude's own page, a teammate) and PartForge runs the same checks and retry logic on it.
   Good for trying the tool with zero commitment, or for driving it from a provider with no API
