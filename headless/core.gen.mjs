@@ -3657,7 +3657,34 @@ function dbHints(text){
     return false;
   };
   const namedMotors = dbMotorPerf(s).filter(r => r.max_thrust_N && usedAsMotor(r));
-  if(mot.length && /motor|case|reload|pro\s?\d|rms|cesaroni|aerotech|loki|retain|mount|mmt|thrust/i.test(s)){
+  /* A motor NAMED that the data does not hold. "The certified peak thrust of the AeroTech Z9000"
+     matched no row, but "AeroTech" alone still selected every AeroTech hardware set, and the
+     designer was handed 18 mm hardware as if it answered the question — the one thing this
+     block must never do. A name counts when it is used as a motor (a motor word or a maker
+     beside it) and is not a thread, laminate, steel or tube part number (M12 bolt, G12
+     coupler, H13 insert, T54-180). */
+  const knownMotorNames = new Set(dbMotorPerfRows().map(r => r.name.toLowerCase()));
+  const unknownMotors = [];
+  {
+    const low = s.toLowerCase(), re = /(^|[^a-z0-9])([a-z]\d{2,5})[a-z]{0,2}(?=[^a-z0-9]|$)/g;
+    let m;
+    while((m = re.exec(low))){
+      const name = m[2], at = m.index + m[1].length, end = at + m[0].length - m[1].length;
+      if(knownMotorNames.has(name) || unknownMotors.includes(name.toUpperCase())) continue;
+      const after = low.slice(end);
+      if(/^-\d/.test(after)) continue;   // a part number: T54-180, BT-2.14
+      if(/^[\s-]*(bolt|screw|thread|nut|washer|tap|hole|x\s?\d|×|tool\s+steel|hardened|annealed|alloy|steel|insert|plate|sheet|laminate|fib(?:er|re)glass|glass|coupler|bulkhead|ring|tube|epoxy|weave|cloth|g-?10|fr-?4)/.test(after)) continue;
+      const before = low.slice(Math.max(0, at - 24), at), around = before + ' ' + after.slice(0, 18);
+      if(/motor|reload|impulse|burn|cert|propellant|grain|thrust/.test(around) || /aerotech|cesaroni|\bcti\b|loki|\bamw\b|animal motor|gorilla/.test(before))
+        unknownMotors.push(name.toUpperCase());
+    }
+  }
+  for(const nm of unknownMotors.slice(0, 3))
+    out.push(`Motor ${nm}: NOT in the reference data — no motor of that name among the ${knownMotorNames.size} ThrustCurve.org motor names it holds (data/tables/motor_perf.json). Nothing in this data is about it: do not state a thrust, impulse, size or mass for it, and do not borrow one from a similar motor. Get the manufacturer's data sheet or certification record, and declare any load from it "assumed" until then.`);
+  // The hardware dump needs a size to be about. When the only cue was a maker's name and the motor
+  // named with it is unknown, there is nothing to show.
+  const sizeCue = /\d{2,3}\s*-?\s*mm|pro\s?\d|rms-?\s?\d|\d{2,3}\s?\/\s?\d{3,5}|\b(?:29|38|54|75|98)\b/i.test(s);
+  if(mot.length && !(unknownMotors.length && !namedMotors.length && !sizeCue) && /motor|case|reload|pro\s?\d|rms|cesaroni|aerotech|loki|retain|mount|mmt|thrust/i.test(s)){
     const sup = (FLIGHT_DB_DATA.motors || {}).supplement || {};
     // A named motor fixes the size: "a retainer for a Cesaroni M1670" is 75 mm, not every Cesaroni set.
     const sizes = new Set(namedMotors.map(r => r.d_mm));

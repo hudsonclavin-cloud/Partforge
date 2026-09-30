@@ -8,6 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 process.env.PARTFORGE_TOKEN = 'test-token';
+process.env.RATE_PER_MIN = '20';
 const { httpServer } = await import('../mcp-http.mjs');
 const { shutdown } = await import('../partforge.mjs');
 await new Promise(r => httpServer.listen(0, '127.0.0.1', r));
@@ -16,7 +17,7 @@ test.after(async () => { httpServer.close(); await shutdown(); });
 
 // raw http.request: fetch() silently drops a custom Host header, which would make the rebinding
 // case pass for the wrong reason
-const raw = (headers) => new Promise(res => { const r = http.request({ host: '127.0.0.1', port, path: '/mcp', method: 'POST', headers: { 'content-type': 'application/json', ...headers } }, x => { x.resume(); res(x.statusCode); }); r.end('{"jsonrpc":"2.0","id":1,"method":"ping"}'); });
+const raw = (headers, p = '/mcp') => new Promise(res => { const r = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', headers: { 'content-type': 'application/json', ...headers } }, x => { x.resume(); res(x.statusCode); }); r.end('{"jsonrpc":"2.0","id":1,"method":"ping"}'); });
 
 test('no token, wrong token: 401', async () => {
   assert.equal(await raw({ host: `127.0.0.1:${port}` }), 401);
@@ -37,4 +38,17 @@ test('an MCP client lists the six tools and renders a part over HTTP', async () 
   assert.deepEqual(r.structuredContent.value.geometry.size_mm, [10, 20, 5]);
   assert.equal(r.structuredContent.view_url, undefined, 'no link unless asked');
   await c.close();
+});
+
+test('the token may ride in the path instead, for a client that only takes a URL', async () => {
+  const c = new Client({ name: 'test', version: '0' });
+  await c.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp/test-token`)));
+  assert.equal((await c.listTools()).tools.length, 6);
+  await c.close();
+  assert.equal(await raw({ host: `127.0.0.1:${port}` }, '/mcp/wrong-token'), 401);
+});
+test('past the per-client budget: 429', async () => {
+  let last;
+  for(let i = 0; i < 25; i++) last = await raw({ host: `127.0.0.1:${port}`, authorization: 'Bearer test-token' });
+  assert.equal(last, 429);
 });

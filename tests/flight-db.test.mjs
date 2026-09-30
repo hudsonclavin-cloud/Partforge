@@ -92,6 +92,18 @@ ok('a bare size gets the bounding motor: 98 mm is N10000 at 11560 N', dbHints('a
 ok('G12 fiberglass is not read as a class-G motor', dbHints('a G12 fiberglass coupler for a 98 mm motor mount'), h => !/Motor G12/.test(h), '');
 ok('nor is H13 tool steel', dbHints('an H13 hardened insert in the thrust plate, 75 mm motor'), h => !/Motor H13/.test(h), '');
 ok('but a real motor survives the word fiberglass', dbHints('a motor retainer for a Cesaroni M1670 in a 75 mm mount, fiberglass airframe'), h => /Motor M1670/.test(h) && /2232 N \(certified\)/.test(h), '');
+// A motor NAMED that the data does not hold must say so, and must not be answered with a maker's
+// hardware: "the AeroTech Z9000" once returned 18 mm AeroTech sets as if they were about it.
+{
+  const z = dbHints('What is the certified peak thrust of the AeroTech Z9000?');
+  ok('an unknown motor is named as not in the data', z, h => /Motor Z9000: NOT in the reference data/.test(h), z.slice(0, 200));
+  ok('and is not answered with the maker\'s hardware', z, h => !/motor hardware|Peak thrust to design/.test(h), z.slice(0, 300));
+  const zs = dbHints('a centering ring for a Z9000 motor in a 54 mm mount');
+  ok('an unknown motor with a size keeps the size\'s data and the warning', zs, h => /Motor Z9000: NOT/.test(h) && /54 mm motor hardware/.test(h), '');
+  for(const q of ['a motor retainer with 8 M12 bolts', 'a G12 fiberglass motor tube, 54 mm', 'a Madcow T54-180 motor mount tube', 'an H13 insert for a motor nozzle', 'a bolt-on motor retainer for a 98 mm motor case, 8 M6 bolts, 20 kN peak thrust'])
+    ok(`no false unknown motor: ${q}`, dbHints(q), h => !/: NOT in the reference data/.test(h), '');
+  ok('a known motor is still found', dbHints('a retainer for an AeroTech K550 in a 54 mm mount'), h => /Motor K550 \(AeroTech K550W\)/.test(h) && !/NOT in the reference data/.test(h), '');
+}
 ok('a motor size is the one next to a motor word, whatever the word order', dbHints('a centring ring for a 152 mm airframe and a 75 mm motor mount'), h => /Peak thrust to design 75 mm hardware/.test(h) && !/Peak thrust to design 152/.test(h), (dbHints('a centring ring for a 152 mm airframe and a 75 mm motor mount').split('\n- ').find(l => /Peak thrust/.test(l)) || 'no line').slice(0, 160));
 ok('an out-of-production motor says so', dbMotorPerfRows().filter(x => !x.current).length, n => n > 200, String(dbMotorPerfRows().filter(x => !x.current).length));
 ok('the peak-thrust line calls itself a floor, never a ceiling, and asks for the motor key', dbHints('a retainer for a 98 mm motor'), h => /a FLOOR for the load, never a ceiling/.test(h) && /never use it to lower a load the user gave/.test(h) && /"motor" on the loads entry/.test(h), (dbHints('a retainer for a 98 mm motor').split('\n- ').find(l => /Peak thrust/.test(l)) || '').slice(-300));

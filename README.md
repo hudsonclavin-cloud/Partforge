@@ -634,7 +634,7 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 724 assertions plus 8 `node:test` checks on the local proxy, the Cloudflare Worker and the provider error text; no dependencies — plus 13 checks on the headless package once `headless/` is npm-installed). Two files a real generation produced
+(`node tests/run.mjs`, 733 assertions plus 8 `node:test` checks on the local proxy, the Cloudflare Worker and the provider error text; no dependencies — plus 15 checks on the headless package once `headless/` is npm-installed). Two files a real generation produced
 during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
 are tested against what a model actually writes, not only against templates written to pass.
 
@@ -739,9 +739,10 @@ The checks are the app's own code:
 - A test fails if the extracted copy goes stale.
 - Headless and browser verdicts match on every reference part.
 
-Using PartForge from a plain chat on claude.ai needs the HTTP server hosted somewhere. That is
-written and tested here, but not deployed. What hosting takes, and what it costs in CPU, is in
-[docs/MCP-STUDY.md](docs/MCP-STUDY.md). Details: [headless/README.md](headless/README.md).
+Using PartForge from a plain chat on claude.ai needs the HTTP server hosted somewhere. What
+hosting takes, and what it costs in CPU, is in
+[docs/MCP-STUDY.md](docs/MCP-STUDY.md). To host it on a VM (one script, TLS, a token, rate limits), see
+[deploy/README.md](deploy/README.md). Details: [headless/README.md](headless/README.md).
 
 ## Keyboard
 

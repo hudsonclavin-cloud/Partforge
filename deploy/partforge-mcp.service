@@ -1,0 +1,53 @@
+# PartForge MCP server (Streamable HTTP) — installed by deploy/install.sh.
+# Listens on 127.0.0.1 only; Caddy terminates TLS in front of it.
+[Unit]
+Description=PartForge MCP server (headless checks over Streamable HTTP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=partforge
+Group=partforge
+WorkingDirectory=/opt/partforge/headless
+EnvironmentFile=/etc/partforge/mcp.env
+ExecStart=/usr/bin/node /opt/partforge/headless/mcp-http.mjs
+Restart=on-failure
+RestartSec=3
+# A render is CPU-bound and can run for minutes: bound what one process may take, so the VM
+# stays reachable over SSH however hard the server is pushed.
+MemoryMax=1536M
+CPUQuota=180%
+TasksMax=64
+# Hardening: nothing here needs to write outside its cache.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=true
+RestrictRealtime=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectProc=invisible
+ProcSubset=pid
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+UMask=0077
+# Not set on purpose: MemoryDenyWriteExecute=true would forbid the JIT that Node and the
+# WebAssembly engine need, and the service would die on its first render.
+CacheDirectory=partforge
+ReadWritePaths=/var/cache/partforge
+
+[Install]
+WantedBy=multi-user.target

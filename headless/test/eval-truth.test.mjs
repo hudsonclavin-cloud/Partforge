@@ -54,10 +54,8 @@ test('9 DXF plate: 2 holes, 5 mm', async () => {
   assert.equal(d.value.holes, 2);
   assert.equal((await pf.render(d.value.code)).value.geometry.size_mm[2], 5);
 });
-test('10 Z9000: no such motor in the data, and the lookup does not say so (the trap)', () => {
+test('10 Z9000: the lookup says it is not in the data, and offers nothing in its place', () => {
   const e = pf.lookup('What is the certified peak thrust of the AeroTech Z9000?');
-  assert.doesNotMatch(JSON.stringify(e), /Z9000/, 'no row names a Z9000');
-  // Today the lookup answers with unrelated rows instead of refusing. If this starts refusing,
-  // the weakness is fixed: update eval pair 10 and docs/MCP-STUDY.md.
-  assert.equal(e.ok, true);
+  assert.match(e.value.hints, /Motor Z9000: NOT in the reference data/);
+  assert.doesNotMatch(e.value.hints, /motor hardware|Peak thrust to design/, 'no unrelated AeroTech hardware');
 });

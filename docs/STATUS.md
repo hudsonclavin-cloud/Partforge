@@ -1,6 +1,6 @@
 # Status — a stopping point
 
-Written at Gen 27, extended at Gen 29 (2026-09-23) and Gen 32 (2026-09-28) so that whoever picks this up next, cold, knows what is
+Written at Gen 27, extended at Gen 29 (2026-09-23), Gen 32 (2026-09-28) and Gen 33 (2026-09-30) so that whoever picks this up next, cold, knows what is
 verified, by what, and what is open with its numbers. The commit log (`git log --oneline`,
 one `Gen N:` line per iteration) is the history; this is the state.
 
@@ -20,6 +20,8 @@ one `Gen N:` line per iteration) is the history; this is the state.
 | Headless checks are the app's checks: `headless/core.gen.mjs` is extracted unedited from `index.html` and must match what it would build today | `build.mjs --check` in the Node suite (drift guard) | `node tests/run.mjs` (after `npm install` in `headless/`) |
 | Headless verdicts equal the browser's on all ten reference cases (7 flight templates pass; endcap 4, retainer 1, retainer-fixed 0), at the same speed (retainer-fixed 30 + 60 s in Node, 29 + 59 s in Chromium) | `headless/test/parity.test.mjs` | `cd headless && npm run test:parity` (~4 min) |
 | Every agent-facing call answers with one envelope; refusals are results with a reason and a way forward; a runaway render is killed and the next call works; the MCP server lists six read-only tools over stdio and Streamable HTTP, with the token and Host guards | `headless/test/api.test.mjs`, `http.test.mjs` (13 checks) | `node tests/run.mjs` |
+| A named motor the data does not hold is reported as missing, never answered with other hardware | 9 assertions in `tests/flight-db.test.mjs` | `node tests/run.mjs` |
+| The VM install works on a clean machine and the unit's sandbox does not break a render or its time limit | Ubuntu 24.04 container run of `deploy/install.sh`; the unit under real systemd | `deploy/README.md` → How this was tested |
 | The ten chat eval answers are what the tools return today | `headless/test/eval-truth.test.mjs` | `npm run test:parity` |
 | A flight share link opens as checked: a fresh browser switches to flight grade and measures on arrival; old links open as before | `tests/harness/share-link.mjs`, real Chromium | `tests/harness/README.md` |
 | A declared safety factor can name a document, revision and clause instead of a number the tool invented | `design_factors_nasa` rows quote the requirement sentence they were read from; 25 assertions | `node tests/run.mjs` |
@@ -85,13 +87,27 @@ one `Gen N:` line per iteration) is the history; this is the state.
     cached re-checks take 0.08 s);
   - an MCP server with six read-only tools, over stdio (Claude Code/Desktop, works now) and
     Streamable HTTP (for claude.ai; written and tested, not deployed);
-  - ten repo-verified chat eval pairs, one of which is a trap the lookup falls into;
+  - ten repo-verified chat eval pairs, one of which was a trap the lookup fell into (fixed in Gen 33);
   - `docs/MCP-STUDY.md`, which gives hosting options against measured engine numbers and states
     the decisions left open.
 
   The share link now carries the grade (`&g=flight`): an agent's flight part used to open in a
   fresh browser under the hobby checks, with no drawing. The root `.gitignore` ignored every
   `package.json` in the tree; it is now anchored to the root.
+
+- **Gen 33** — the Z9000 trap fixed, and a VM deploy kit.
+  - **The trap.** `dbHints` now notices a motor named as a motor that the data does not hold. It
+    says so ("Motor Z9000: NOT in the reference data … do not borrow [a figure] from a similar
+    motor"), and no longer hands over a maker's whole hardware line when the maker's name was
+    the only cue. Threads, laminates, steels and tube part numbers do not trip it (9 new
+    assertions).
+  - **The deploy kit.** `deploy/install.sh` turns a fresh Ubuntu/Debian VM into the hosted MCP
+    server: Node 22 under a systemd unit rated 1.3 OK by `systemd-analyze security`, Caddy for
+    automatic TLS, a random token (header or URL path), and per-client rate limits (new in
+    `mcp-http.mjs`, 429 past 30 calls a minute).
+  - **Tested:** in clean Ubuntu 24.04, and under real systemd, including a render killed by its
+    time limit inside the syscall filter. Not yet on a real VM: that needs a machine and a DNS
+    name.
 
 ## Open, with numbers
 
@@ -138,7 +154,7 @@ persistence paths survive a reload beyond the "Welcome back" slot.
 
 ## How to pick this up
 
-    node tests/run.mjs                      # 724 assertions + 8 node:test checks + 13 headless checks; must be green before any commit
+    node tests/run.mjs                      # 733 assertions + 8 node:test checks + 15 headless checks; must be green before any commit
     cd headless && npm install              # once; then `node build.mjs` after any index.html change the drift guard flags
     cd headless && npm run test:parity      # headless vs browser verdicts + eval answers (~4 min)
     node tools/db/embed.mjs                 # after editing data/tables/*.json

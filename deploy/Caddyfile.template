@@ -1,0 +1,29 @@
+# Caddy in front of the PartForge MCP server: automatic HTTPS (Let's Encrypt) for __DOMAIN__,
+# and nothing but /mcp and /health passed through.
+__DOMAIN__ {
+	encode gzip
+	@mcp path /mcp /mcp/* /health
+	handle @mcp {
+		reverse_proxy 127.0.0.1:8787 {
+			# A check can take minutes; do not cut it off before the app's own 200 s cap.
+			transport http {
+				read_timeout 260s
+				write_timeout 260s
+			}
+		}
+	}
+	handle {
+		respond "PartForge MCP server. Connect an MCP client to /mcp. The app itself: https://hudsonclavin-cloud.github.io/Partforge/" 404
+	}
+	log {
+		output file /var/log/caddy/partforge.log
+		# the token may ride in the path: never write request URIs to disk
+		format filter {
+			wrap json
+			fields {
+				request>uri delete
+				request>headers>Authorization delete
+			}
+		}
+	}
+}
