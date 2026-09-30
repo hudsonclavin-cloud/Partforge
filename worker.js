@@ -1,9 +1,7 @@
 /* PartForge proxy — a Cloudflare Worker (free tier is plenty).
  *
- * Why: browsers block direct calls to OpenAI and Google (no CORS headers).
- * This relays the request server-side and adds the CORS headers back, so
- * PartForge can use those providers — and your real API key lives here as a
- * secret instead of in the page.
+ * Why: this keeps the real API key in a server-side secret instead of browser
+ * local storage, while also providing restricted CORS for the deployed app.
  *
  * Setup, once:
  *   1. dash.cloudflare.com → Workers & Pages → Create → Worker → paste this → Deploy

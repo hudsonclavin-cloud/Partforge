@@ -330,6 +330,7 @@
   <div id="baseRow" style="display:none">
     <label>Connection</label>
     <select id="setEndpoint">
+      <option value="openai">OpenAI Platform — use my API key directly</option>
       <option value="openrouter">OpenRouter — requires an OpenRouter key</option>
       <option value="local">OpenAI Platform key through local proxy</option>
       <option value="custom">Custom compatible endpoint</option>
@@ -1091,11 +1092,9 @@ function materialCompat(){
   return null;
 }
 /* ---------------- AI providers ----------------
-   Only Anthropic officially permits browser-direct calls (it ships an explicit
-   opt-in header). OpenAI and Google send no Access-Control-Allow-Origin, so a
-   static page cannot reach them directly — they are available through any
-   OpenAI-compatible gateway: OpenRouter, a local model server, or the
-   Cloudflare Worker in worker.js. */
+   Direct OpenAI is deliberately opt-in because it stores the user's Platform key
+   in browser local storage. The proxy routes avoid that exposure and also cover
+   browsers or managed networks whose CORS policy blocks the direct request. */
 /* Web search tool variant by model. The 20260209 variant (dynamic filtering) is
    for Opus 5 / 4.8 / 4.7 / 4.6 and Sonnet 5 / 4.6; older models keep the basic one. */
 function searchToolFor(model){
@@ -1177,8 +1176,8 @@ const PROVIDERS = {
     parse: d => d.text, usage: () => [0, 0],
   },
   openai: {
-    label: 'OpenAI-compatible (OpenRouter / local / proxy)', base: 'https://openrouter.ai/api/v1',
-    fixedBase: false, keyHint: 'gateway key', defaultModel: '', search: false, models: [],
+    label: 'OpenAI / compatible', base: 'https://api.openai.com/v1',
+    fixedBase: false, keyHint: 'sk-proj-...', defaultModel: '', search: false, models: [],
     url: b => b.replace(/\/+$/,'') + '/chat/completions',
     headers: k => ({ 'content-type':'application/json', 'authorization': 'Bearer ' + k }),
     body: (system, msgs, maxTok, search, extra = {}) => {
@@ -6934,24 +6933,26 @@ async function sendWithTtlFallback(buildBody){
 /* a fetch that rejects (rather than returning a status) is almost always CORS or offline */
 function reachError(err){
   const host = (() => { try { return new URL(P().url(settings.base)).host; } catch(e){ return 'the provider'; } })();
-  return `Couldn't reach ${host}. Most AI providers block direct browser calls (CORS) — `
-    + `only Anthropic allows them. Use Anthropic, an OpenAI-compatible gateway like OpenRouter, `
-    + `a local model server, or your own proxy URL. (${String(err.message||err).slice(0,80)})`;
+  return `Couldn't reach ${host}. Check your connection and the endpoint's browser/CORS policy; `
+    + `if a direct OpenAI request is blocked on this browser or network, use the included local proxy. (${String(err.message||err).slice(0,80)})`;
 }
-function apiAuthError(detail = ''){
+/* `base` is the endpoint the request went to. The Settings dialog's Test button passes the URL
+   still in the dialog: reading the SAVED settings there blamed api.anthropic.com for an OpenAI
+   key that had never been saved, which is the confusing 401 this message exists to prevent. */
+function apiAuthError(detail = '', base){
   let host = '';
-  try { host = new URL(P().url(settings.base)).hostname; } catch(e){}
+  try { host = new URL(base || P().url(settings.base)).hostname; } catch(e){}
   const upstream = detail && !/^invalid api key\.?$/i.test(detail.trim()) ? ` Provider response: ${detail}` : '';
   if(host === 'openrouter.ai')
     return 'OpenRouter rejected the credential. OpenRouter requires its own key (normally sk-or-v1-…), not an OpenAI Platform key. Either paste an OpenRouter key, or use the local/Cloudflare proxy instructions for your OpenAI key.' + upstream;
   if(host === '127.0.0.1' || host === 'localhost')
     return 'OpenAI rejected the OPENAI_API_KEY used by the local proxy. Stop the local server, run OPENAI_API_KEY=<your new OpenAI Platform key> node server.mjs again, then retry; the Settings key is only a non-empty placeholder on this route.' + upstream;
   if(host === 'api.openai.com')
-    return 'OpenAI rejected this API key. A static browser cannot call api.openai.com directly; put the key in the local server or Cloudflare Worker instead of Settings.' + upstream;
+    return 'OpenAI rejected this API key. Check that it is an active OpenAI Platform project key—not a ChatGPT login or OpenRouter key—and that its project is still accessible.' + upstream;
   return `${host || 'The API endpoint'} rejected the credential. Check that the key belongs to that endpoint—not merely that it is a newly created key.${upstream}`;
 }
-function apiHttpError(status, detail = ''){
-  if(status === 401) return apiAuthError(detail);
+function apiHttpError(status, detail = '', base){
+  if(status === 401) return apiAuthError(detail, base);
   if(status === 403) return `The endpoint accepted the credential but denied this request. Check the key's project/organization role and model permissions.${detail ? ` Provider response: ${detail}` : ''}`;
   if(status === 429) return `The endpoint rate- or quota-limited the request. Check billing/credits and project usage limits; making a new key does not add quota.${detail ? ` Provider response: ${detail}` : ''}`;
   if(status === 404 && /model/i.test(detail)) return `${detail} — choose a model available to this endpoint.`;
@@ -8131,6 +8132,7 @@ const dlg = $('dlgSettings');
 function endpointKind(base){
   try {
     const u = new URL(base);
+    if(u.hostname === 'api.openai.com') return 'openai';
     if(u.hostname === 'openrouter.ai') return 'openrouter';
     if(u.hostname === '127.0.0.1' || u.hostname === 'localhost') return 'local';
   } catch(e){}
@@ -8139,14 +8141,16 @@ function endpointKind(base){
 function syncEndpointUI(){
   if($('setProvider').value !== 'openai') return;
   const kind = $('setEndpoint').value;
-  const known = kind === 'openrouter' ? 'https://openrouter.ai/api/v1' : kind === 'local' ? 'http://127.0.0.1:8080/v1' : '';
+  const known = kind === 'openai' ? 'https://api.openai.com/v1' : kind === 'openrouter' ? 'https://openrouter.ai/api/v1' : kind === 'local' ? 'http://127.0.0.1:8080/v1' : '';
   if(known) $('setBase').value = known;
   $('setBase').readOnly = kind !== 'custom';
-  $('lblKey').textContent = kind === 'openrouter' ? 'OpenRouter API key' : kind === 'local' ? 'Settings placeholder (the real key is in OPENAI_API_KEY)' : 'Compatible endpoint API key';
-  $('setKey').placeholder = kind === 'openrouter' ? 'sk-or-v1-...' : kind === 'local' ? 'local-proxy' : 'key required by this endpoint';
-  $('setModel').placeholder = kind === 'openrouter' ? 'OpenRouter model id, including provider/' : kind === 'local' ? 'exact OpenAI Platform model id' : 'model id from this endpoint';
+  $('lblKey').textContent = kind === 'openai' ? 'OpenAI Platform API key' : kind === 'openrouter' ? 'OpenRouter API key' : kind === 'local' ? 'Settings placeholder (the real key is in OPENAI_API_KEY)' : 'Compatible endpoint API key';
+  $('setKey').placeholder = kind === 'openai' ? 'sk-proj-...' : kind === 'openrouter' ? 'sk-or-v1-...' : kind === 'local' ? 'local-proxy' : 'key required by this endpoint';
+  $('setModel').placeholder = kind === 'openrouter' ? 'OpenRouter model id, including provider/' : kind === 'openai' || kind === 'local' ? 'exact OpenAI Platform model id' : 'model id from this endpoint';
   if(kind === 'local' && !$('setKey').value) $('setKey').value = 'local-proxy';
-  $('provNote').textContent = kind === 'openrouter'
+  $('provNote').textContent = kind === 'openai'
+    ? 'Direct OpenAI connection: paste an OpenAI Platform API key. It stays in this browser’s local storage and is sent only to api.openai.com. For a shared computer, use the local proxy instead.'
+    : kind === 'openrouter'
     ? 'This URL accepts OpenRouter keys only. An OpenAI Platform key will always return 401 here.'
     : kind === 'local'
     ? 'Start this repository with OPENAI_API_KEY=<your OpenAI Platform key> node server.mjs, then open http://127.0.0.1:8080. Do not paste the real key into this dialog.'
@@ -8234,8 +8238,8 @@ function syncProviderUI(){
   $('provNote').textContent = prov.replay
     ? 'Nothing leaves this page. The designer\'s replies come from the queue below; the judge, review and improve buttons need a real provider.'
     : prov.search
-    ? 'Anthropic is the only provider that allows direct browser calls, and the only one with server-side web search.'
-    : 'Browsers block direct calls to OpenAI and Google (CORS). Use OpenRouter, run OPENAI_API_KEY=sk-... node server.mjs locally, or point this at your own proxy. Web search is unavailable here.';
+    ? 'Works directly from this browser, and is the only provider here with server-side web search.'
+    : 'Choose direct OpenAI for key-only setup, OpenRouter for an OpenRouter key, or a proxy to keep the real key out of browser storage. Web search is unavailable here.';
   if($('setProvider').value === 'openai') syncEndpointUI();
 }
 $('setEndpoint').onchange = syncEndpointUI;
@@ -8249,7 +8253,7 @@ $('btnTestApi').onclick = async () => {
     const res = await fetch(base + '/models', { headers:{ authorization:'Bearer ' + key } });
     let data = null, detail = '';
     try { data = await res.json(); detail = data?.error?.message || ''; } catch(e){}
-    if(!res.ok) throw new Error(`API ${res.status}: ${apiHttpError(res.status, detail)}`);
+    if(!res.ok) throw new Error(`API ${res.status}: ${apiHttpError(res.status, detail, base)}`);
     const ids = Array.isArray(data?.data) ? data.data.map(x => x.id).filter(Boolean) : [];
     const model = $('setModel').value.trim();
     const found = model && ids.length ? ids.includes(model) : null;

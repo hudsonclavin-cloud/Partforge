@@ -108,6 +108,17 @@ one `Gen N:` line per iteration) is the history; this is the state.
   - **Tested:** in clean Ubuntu 24.04, and under real systemd, including a render killed by its
     time limit inside the syscall filter. Not yet on a real VM: that needs a machine and a DNS
     name.
+  - **PR #4 merged:** Codex's "OpenAI Platform — use my API key directly" connection, now the
+    default for the OpenAI provider.
+    - Git's clean-looking merge of `index.html` left two copies of `apiAuthError` and
+      `apiHttpError`. That is a SyntaxError in a module script: the whole app would not have
+      loaded. It was caught because the headless build parses the script.
+    - Kept from main: the local proxy's Host/Origin guard, and its attack test.
+    - Fixed: the Test button blamed the *saved* provider's host for a key still in the dialog
+      ("api.anthropic.com rejected the credential" for an OpenAI key). A test now covers it.
+    - Not verified from here: whether api.openai.com accepts a browser's direct request (CORS).
+      This sandbox cannot reach OpenAI. The Test button answers it in one click, and the local
+      proxy remains the fallback.
 
 ## Open, with numbers
 

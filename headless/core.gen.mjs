@@ -472,8 +472,8 @@ const PROVIDERS = {
     parse: d => d.text, usage: () => [0, 0],
   },
   openai: {
-    label: 'OpenAI-compatible (OpenRouter / local / proxy)', base: 'https://openrouter.ai/api/v1',
-    fixedBase: false, keyHint: 'gateway key', defaultModel: '', search: false, models: [],
+    label: 'OpenAI / compatible', base: 'https://api.openai.com/v1',
+    fixedBase: false, keyHint: 'sk-proj-...', defaultModel: '', search: false, models: [],
     url: b => b.replace(/\/+$/,'') + '/chat/completions',
     headers: k => ({ 'content-type':'application/json', 'authorization': 'Bearer ' + k }),
     body: (system, msgs, maxTok, search, extra = {}) => {
