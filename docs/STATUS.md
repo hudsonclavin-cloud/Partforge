@@ -116,6 +116,11 @@ one `Gen N:` line per iteration) is the history; this is the state.
     - Kept from main: the local proxy's Host/Origin guard, and its attack test.
     - Fixed: the Test button blamed the *saved* provider's host for a key still in the dialog
       ("api.anthropic.com rejected the credential" for an OpenAI key). A test now covers it.
+    - "Failed to fetch" from the Test button was one message for three faults. It now makes a second
+      request that ignores CORS: if that reaches the endpoint the message says the browser is
+      blocking the reply (use the local proxy); if it does not, it says the network, a VPN or an
+      extension is blocking the connection. Both branches verified in Chromium against real
+      servers (not mocks: Playwright adds CORS headers to mocked replies).
     - Not verified from here: whether api.openai.com accepts a browser's direct request (CORS).
       This sandbox cannot reach OpenAI. The Test button answers it in one click, and the local
       proxy remains the fallback.

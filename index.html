@@ -8260,8 +8260,22 @@ $('btnTestApi').onclick = async () => {
     out.textContent = `Connected — credential accepted${ids.length ? ` · ${ids.length} models visible` : ''}${found === false ? ` · selected model “${model}” is not in this account's model list` : found ? ' · selected model is available' : ''}.`;
     out.style.color = found === false ? 'var(--warn)' : 'var(--ok)';
   } catch(err){
-    out.textContent = err instanceof TypeError ? 'Could not reach this endpoint. Check that the local proxy is running and that you opened PartForge at http://127.0.0.1:8080.' : String(err.message || err);
     out.style.color = 'var(--bad)';
+    if(!(err instanceof TypeError)){ out.textContent = String(err.message || err); return; }
+    /* "Failed to fetch" is one message for three different faults, and the browser will not say
+       which. A second request that ignores CORS (no-cors: the reply is opaque, but arriving at
+       all proves the server answered) separates them: it gets through when the endpoint is
+       reachable and only the browser's cross-origin rule stopped the first; it fails too when
+       something on the way — network, VPN, filter, extension — never let either through. */
+    out.textContent = 'Could not read the reply — checking why…';
+    let reachable = false;
+    try { await fetch(base + '/models', { mode:'no-cors', cache:'no-store' }); reachable = true; } catch(e2){}
+    const local = endpointKind(base) === 'local';
+    out.textContent = local
+      ? 'Could not reach the local proxy. Start it (OPENAI_API_KEY=… node server.mjs) and open PartForge at http://127.0.0.1:8080, not the GitHub Pages address.'
+      : reachable
+      ? 'The endpoint answered, but this browser will not let the page read the reply (CORS), so a direct key cannot work from here. Use the local proxy: run OPENAI_API_KEY=… node server.mjs, open http://127.0.0.1:8080 and pick “OpenAI Platform key through local proxy”.'
+      : 'Neither request reached the endpoint, so this is not CORS: something between this browser and it is blocking the connection. Try a private window with extensions off (ad/privacy blockers often block api.openai.com), turn off any VPN, and try another network. If it still fails, the local proxy avoids the browser path entirely.';
   }
 };
 $('setProvider').onchange = () => {
