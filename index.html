@@ -6954,7 +6954,7 @@ async function callClaude(userContent, opts = {}){
   }
   if(!res.ok){
     chat.pop();
-    if(!detail){ try{ detail = (await res.json()).error?.message || ''; }catch(e){} }
+    if(!detail){ try{ detail = errorDetail(await res.json()); }catch(e){} }
     detail = apiHttpError(res.status, detail);
     throw new Error(`API ${res.status}: ${detail || res.statusText}`);
   }
@@ -6978,7 +6978,7 @@ async function sendWithTtlFallback(buildBody){
   // Anthropic-only cache_control retry meant every other provider's 400 came back
   // bare — exactly the moment someone debugging "why won't ChatGPT work" needs it.
   if(!res.ok){
-    try{ detail = (await res.json()).error?.message || ''; }catch(e){}
+    try{ detail = errorDetail(await res.json()); }catch(e){}
     if(res.status === 400 && cacheTtl && /\bttl\b|cache_control/i.test(detail)){ cacheTtl = null; detail = ''; res = await send(); }
   }
   return { res, detail };
@@ -7004,11 +7004,24 @@ function apiAuthError(detail = '', base){
     return 'OpenAI rejected this API key. Check that it is an active OpenAI Platform project key—not a ChatGPT login or OpenRouter key—and that its project is still accessible.' + upstream;
   return `${host || 'The API endpoint'} rejected the credential. Check that the key belongs to that endpoint—not merely that it is a newly created key.${upstream}`;
 }
+/* The message inside a provider's error body, whatever its shape: OpenAI {error:{message}},
+   Google's compatibility layer [{error:{message}}], other gateways {message} / {detail}. Reading
+   only the first shape turned Gemini's "model not found" into a bare "The endpoint returned 404." */
+function errorDetail(j){
+  const o = Array.isArray(j) ? j[0] : j;
+  if(!o || typeof o !== 'object') return '';
+  const e = o.error;
+  return String((e && (typeof e === 'string' ? e : e.message)) || o.message || (typeof o.detail === 'string' ? o.detail : '') || '');
+}
+/* Model ids as an endpoint lists them. Google's compatibility layer lists "models/gemini-…" and
+   accepts the bare "gemini-…" in requests, so ids are compared — and suggested — without it. */
+const modelIdBare = (id) => String(id || '').replace(/^models\//, '');
 function apiHttpError(status, detail = '', base){
   if(status === 401) return apiAuthError(detail, base);
   if(status === 403) return `The endpoint accepted the credential but denied this request. Check the key's project/organization role and model permissions.${detail ? ` Provider response: ${detail}` : ''}`;
   if(status === 429) return `The endpoint rate- or quota-limited the request. Check billing/credits and project usage limits; making a new key does not add quota.${detail ? ` Provider response: ${detail}` : ''}`;
   if(status === 404 && /model/i.test(detail)) return `${detail} — choose a model available to this endpoint.`;
+  if(status === 404) return `${detail ? detail + ' — ' : ''}the endpoint has nothing at that address, which almost always means the Model id is not one it serves. In ⚙ Settings press Test key & endpoint and pick a model from the list it fills in.`;
   return detail || `The endpoint returned ${status}.`;
 }
 async function callClaudeOneShot(system, userText, opts = {}){
@@ -8328,14 +8341,27 @@ $('btnTestApi').onclick = async () => {
   try {
     const res = await fetch(base + '/models', { headers: key ? { authorization:'Bearer ' + key } : {} });
     let data = null, detail = '';
-    try { data = await res.json(); detail = data?.error?.message || ''; } catch(e){}
+    try { data = await res.json(); detail = errorDetail(data); } catch(e){}
     if(!res.ok) throw new Error(`API ${res.status}: ${apiHttpError(res.status, detail, base)}`);
-    const ids = Array.isArray(data?.data) ? data.data.map(x => x.id).filter(Boolean) : [];
+    const ids = Array.isArray(data?.data) ? [...new Set(data.data.map(x => modelIdBare(x.id)).filter(Boolean))] : [];
     // the models this key can actually use become the Model field's suggestions
     $('modelList').innerHTML = ids.slice(0, 400).map(m => `<option value="${escapeHtml(String(m)).replace(/"/g, '&quot;')}"></option>`).join('');
-    const model = $('setModel').value.trim();
-    const found = model && ids.length ? ids.includes(model) : null;
-    out.textContent = `Connected — ${key ? 'credential accepted' : 'no key needed'}${ids.length ? ` · ${ids.length} models visible (listed under Model)` : ''}${found === false ? ` · selected model “${model}” is not in this account's model list` : found ? ' · selected model is available' : ''}.`;
+    let model = modelIdBare($('setModel').value.trim());
+    let found = model && ids.length ? ids.includes(model) : null;
+    // The endpoint's suggested default is a guess that ages (a provider retires a model, or a key
+    // cannot use it). If it is still the untouched default and is not served, swap it for the
+    // closest model this key can actually use — the same family, newest version first.
+    let swapped = '';
+    const ex = (ENDPOINTS[endpointKind(base)] || {}).example;
+    if(found === false && (!model || model === ex)){
+      const fam = (ex || '').replace(/[-.\d]+/g, ' ').trim().split(/\s+/).filter(w => w.length > 2);   // "gemini flash"
+      // same family, chat models only; then stable before preview, full before lite, newest first
+      const rank = i => (/preview|exp/i.test(i) ? 2 : 0) + (/lite/i.test(i) ? 1 : 0);
+      const pick = ids.filter(i => fam.length && fam.every(w => i.includes(w)) && !/(embed|tts|image|audio|live|vision|thinking-exp)/i.test(i))
+        .sort((a, b) => rank(a) - rank(b) || b.localeCompare(a, undefined, { numeric: true }))[0];
+      if(pick){ swapped = model; model = pick; found = true; $('setModel').value = pick; }
+    }
+    out.textContent = `Connected — ${key ? 'credential accepted' : 'no key needed'}${ids.length ? ` · ${ids.length} models visible (listed under Model)` : ''}${swapped ? ` · “${swapped}” is not served to this key, so Model is now “${model}” — Save to keep it` : found === false ? ` · selected model “${model}” is not in this account's model list — pick one from the Model suggestions` : found ? ' · selected model is available' : ''}.`;
     out.style.color = found === false ? 'var(--warn)' : 'var(--ok)';
   } catch(err){
     out.style.color = 'var(--bad)';
@@ -8404,7 +8430,7 @@ $('setSave').onclick = () => {
     }
   }
   if(P().replay) settings.replay = $('setReplay').value.split(/\n\s*---\s*\n/).map(x => x.trim()).filter(Boolean);
-  settings.model = $('setModel').value.trim() || P().defaultModel;
+  settings.model = modelIdBare($('setModel').value.trim()) || P().defaultModel;
   settings.clarify = $('setClarify').value;
   settings.search = $('setSearch').checked;
   settings.gate = $('setGate').checked;

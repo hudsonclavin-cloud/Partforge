@@ -80,3 +80,20 @@ test('the Test button names the endpoint in the dialog, not the one last saved',
   assert.match(context.result, /OpenAI rejected this API key/);
   assert.doesNotMatch(context.result, /anthropic/i);
 });
+
+test('error bodies in every shape a provider sends are read, and Google ids compare bare', () => {
+  const ctx = { settings:{ base:'https://generativelanguage.googleapis.com/v1beta/openai' }, P:() => ({ url:v => v }), URL };
+  vm.runInNewContext(`${source}; out = {
+    google: errorDetail([{ error: { code: 404, message: 'models/gemini-2.5-flash is not found' } }]),
+    openai: errorDetail({ error: { message: 'Incorrect API key provided' } }),
+    plain: errorDetail({ message: 'quota' }), none: errorDetail(null),
+    bare: modelIdBare('models/gemini-3.6-flash'), kept: modelIdBare('openai/gpt-oss-120b'),
+    empty404: apiHttpError(404, '') }`, ctx);
+  assert.equal(ctx.out.google, 'models/gemini-2.5-flash is not found');
+  assert.equal(ctx.out.openai, 'Incorrect API key provided');
+  assert.equal(ctx.out.plain, 'quota');
+  assert.equal(ctx.out.none, '');
+  assert.equal(ctx.out.bare, 'gemini-3.6-flash');
+  assert.equal(ctx.out.kept, 'openai/gpt-oss-120b');
+  assert.match(ctx.out.empty404, /Model id is not one it serves/, 'a bare 404 still says what to do');
+});
