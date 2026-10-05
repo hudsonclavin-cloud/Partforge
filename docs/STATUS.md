@@ -146,6 +146,20 @@ one `Gen N:` line per iteration) is the history; this is the state.
     keyless generation through a mocked Kilo that rendered the part with no Authorization
     header sent.
 
+- **Gen 35** — a provider check you run with your own keys.
+  - **What it does:** `node headless/cli.mjs provider-check --all --human` takes each endpoint
+    with a key in the environment, plus the keyless ones, through three steps: list models, one
+    chat with the app's exact request, and a design of a small part checked by the real gate.
+  - **Fidelity:** everything the model is sent comes from `index.html`, via the extracted
+    `ENDPOINTS`, `PROVIDERS.openai.body`, system prompt, `contextLine` first turn and `parseCode`.
+  - **Tested** against a mock OpenAI-compatible server (6 checks, in `node tests/run.mjs`):
+    - a GPT-5 model gets `max_completion_tokens`;
+    - a keyless call carries no Authorization header;
+    - a chatty model's missing code block is reported as such;
+    - a wrong key is a 401 with the app's explanation.
+  - **Not tested live:** this sandbox reaches none of the providers except Google, without a key.
+  - `docs/PROVIDER-TESTS.md` is the checklist for a new key: in the app, and with the check.
+
 ## Open, with numbers
 
 1. **The SPEC part batch re-renders the part.** For containment and joint checks the SPEC

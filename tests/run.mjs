@@ -57,8 +57,8 @@ for(const t of ['flight-eng.test.mjs', 'flight-cmm.test.mjs', 'flight-decl.test.
 {
   const hl = path.join(here, '..', 'headless');
   if(fs.existsSync(path.join(hl, 'node_modules', 'openscad-wasm'))){
-    console.log('\n===== headless: api.test.mjs, http.test.mjs (drift guard, envelope, refusals, MCP over HTTP) =====');
-    const r = spawnSync(process.execPath, ['--test', '--test-reporter=spec', path.join(hl, 'test', 'api.test.mjs'), path.join(hl, 'test', 'http.test.mjs')], { stdio: 'inherit', cwd: hl });
+    console.log('\n===== headless: api, http, llm tests (drift guard, envelope, refusals, MCP over HTTP, provider check) =====');
+    const r = spawnSync(process.execPath, ['--test', '--test-reporter=spec', path.join(hl, 'test', 'api.test.mjs'), path.join(hl, 'test', 'http.test.mjs'), path.join(hl, 'test', 'llm.test.mjs')], { stdio: 'inherit', cwd: hl });
     if(r.status !== 0) failed++;
   } else console.log('\n===== headless: SKIPPED — run `npm install` in headless/ to test it (and to check core.gen.mjs has not drifted from index.html) =====');
 }

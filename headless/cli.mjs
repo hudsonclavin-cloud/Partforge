@@ -10,6 +10,11 @@
 //   partforge doctrine [flight|hobby]
 //   partforge dxf drawing.dxf [--mode extrude|revolve] [--height 6] [--units mm] [--layer L]
 //   partforge credits                        (reference data sources and licences)
+//   partforge provider-check --endpoint groq [--model M] [--key K] [--grade hobby|flight] [--no-design]
+//   partforge provider-check --all           (every endpoint with a key in the environment, plus the no-key ones)
+//   partforge provider-check --base https://…/v1 --key K --model M     (any OpenAI-compatible endpoint)
+//     keys come from OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, OPENROUTER_API_KEY,
+//     COHERE_API_KEY, ZAI_API_KEY, NVIDIA_API_KEY, HF_TOKEN, OLLAMA_API_KEY, LLM7_TOKEN; never printed
 //   --human: the summary line, the failures and the view link instead of JSON
 //   --view:  keep view_url (a link that opens the part in the app) in the JSON
 //
@@ -23,6 +28,8 @@ const flag = (name) => { const i = argv.indexOf(name); if(i < 0) return undefine
 const bool = (name) => { const i = argv.indexOf(name); if(i < 0) return false; argv.splice(i, 1); return true; };
 const human = bool('--human'), doc = bool('--doc'), noCache = bool('--no-cache'), full = bool('--full'), view = bool('--view');
 const grade = flag('--grade'), timeout = flag('--timeout'), stl = flag('--stl');
+const endpoint = flag('--endpoint'), base = flag('--base'), key = flag('--key'), model = flag('--model');
+const all = bool('--all'), noDesign = bool('--no-design');
 const mode = flag('--mode'), height = flag('--height'), units = flag('--units'), layer = flag('--layer');
 const [cmd, arg] = argv;
 const read = (p) => p === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(p, 'utf8');
@@ -36,6 +43,31 @@ try {
     case 'lookup':    env = pf.lookup(argv.slice(1).join(' ')); break;
     case 'templates': env = pf.templates(arg); break;
     case 'credits':   env = pf.credits(); break;
+    case 'provider-check': {
+      const llm = await import('./llm.mjs');
+      const kinds = all ? Object.keys(pf.core.ENDPOINTS).filter(k => k !== 'local' && k !== 'custom') : [null];
+      const results = [];
+      for(const k of kinds){
+        const conn = llm.resolve(k ? { endpoint: k } : { endpoint, base, key, model });
+        if(conn.error){ if(!(all && conn.skipped)) results.push({ endpoint: conn.kind || endpoint || base, verdict: 'not_run', advice: conn.error }); continue; }
+        if(human) process.stderr.write(`checking ${conn.kind} (${conn.model || 'first listed model'})…\n`);
+        results.push(await llm.providerCheck(conn, { grade: grade || 'hobby', design: !noDesign }));
+      }
+      const works = results.filter(r => r.verdict === 'works').length;
+      env = { ok: true, tool: 'provider-check', value: results, summary: `${works} of ${results.length} endpoint(s) design a part that passes PartForge's checks` };
+      if(human){
+        for(const r of results){
+          const st = r.steps || {};
+          const cell = (x, f) => !x ? '—' : x.ok ? f(x) : 'FAIL';
+          process.stdout.write(`${String(r.endpoint).padEnd(12)} ${String(r.model || '').slice(0, 34).padEnd(34)} models ${cell(st.models, x => x.count)}  chat ${cell(st.chat, x => x.ms + 'ms')}  design ${st.design ? (st.design.ok ? 'PASS' : (st.design.verdict || 'FAIL')) : '—'}  → ${r.verdict}\n`);
+          for(const [n, x] of Object.entries(st)) if(x && !x.ok && (x.error || (x.fails && x.fails.length))) process.stdout.write(`    ${n}: ${x.error || x.fails.join('; ')}\n`);
+          if(r.advice) process.stdout.write(`    ${r.advice}\n`);
+        }
+        process.stdout.write(env.summary + '\n');
+        await pf.shutdown(); process.exit(works ? 0 : 1);
+      }
+      break;
+    }
     case 'doctrine':  env = pf.doctrine(arg || 'flight'); break;
     case 'dxf':       if(!arg) usage(); env = pf.dxf(read(arg), { mode, height_mm: height, units, layer }); break;
     default: usage();

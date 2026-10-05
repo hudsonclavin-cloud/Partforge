@@ -42,6 +42,16 @@ the app's own code, not a port of it.
     node cli.mjs dxf drawing.dxf --height 6 [--mode revolve] [--units in]
     node cli.mjs credits                    # reference data sources and licences
 
+## Which model APIs work?
+
+    node cli.mjs provider-check --all --human
+
+This tests every endpoint you have a key for in your environment, plus the no-key ones. For each
+it lists models, sends one chat with the app's exact request format, and has the model design a
+small part that PartForge's gate then checks. The steps, the verdicts and the in-app checklist are
+in [`../docs/PROVIDER-TESTS.md`](../docs/PROVIDER-TESTS.md). `llm.mjs` holds the calls, built from
+the app's extracted `ENDPOINTS`, `PROVIDERS.openai.body`, system prompt, first turn and `parseCode`.
+
 ## What comes back
 
 Every call returns one envelope:

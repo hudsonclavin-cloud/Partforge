@@ -15,7 +15,7 @@
   "scripts": {
     "build": "node build.mjs",
     "check": "node build.mjs --check",
-    "test": "node --test test/api.test.mjs test/http.test.mjs",
+    "test": "node --test test/api.test.mjs test/http.test.mjs test/llm.test.mjs",
     "test:parity": "node --test test/parity.test.mjs test/eval-truth.test.mjs",
     "mcp": "node mcp.mjs"
   },

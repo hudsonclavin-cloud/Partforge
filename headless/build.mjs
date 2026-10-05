@@ -41,6 +41,8 @@ export const ROOTS = [
   'settings', 'isFlight', 'flightMat', 'flightProc', 'fnFor',
   // what a result is reported as: the app's own JSON report, its text checklist, the part's name
   'measurementReport', 'reportText', 'firstPartName', 'b64e',
+  // talking to a model the way the app does: endpoints, the request shape, the first user turn, the reply parser
+  'PROVIDERS', 'ENDPOINTS', 'endpointKind', 'endpointNeedsKey', 'activeSystemPrompt', 'contextLine', 'parseCode', 'apiHttpError',
 ];
 // Provided by prelude.mjs instead of extracted: the browser-only edges.
 export const SHIMS = ['poolRender', 'renderSCAD', 'setOverlay', 'toast', '$'];
