@@ -398,6 +398,38 @@ every other provider because this app does not implement their search-tool reque
 
 ### Using ChatGPT (OpenAI) or another OpenAI-compatible model
 
+### Other model APIs, including free tiers and no-key endpoints
+
+The **Connection** menu (provider **OpenAI (GPT) / compatible**) lists every OpenAI-compatible
+service PartForge knows. Each endpoint keeps its own key and model, so adding a Groq key never
+overwrites your OpenAI one. **Test key & endpoint** lists the models that endpoint serves under
+Model. If a test fails, it says whether the cause is the key, the network, or the browser's CORS
+rule.
+
+| Connection | Key | Browser use from this page |
+|---|---|---|
+| OpenAI Platform | `sk-proj-…` | works (verified) |
+| Google Gemini (free tier, key from aistudio.google.com) | `AIza…` | works — CORS preflight measured 2026-10-05 |
+| Groq · Mistral · OpenRouter · Cohere (trial) · Z.ai · NVIDIA NIM · Hugging Face · Ollama Cloud | each service's own | not yet verified — Test tells you |
+| Kilo Code gateway · OVHcloud AI Endpoints | **none** | not yet verified |
+| LLM7.io | optional free token | not yet verified |
+| Local proxy · custom endpoint | your setup | yes / depends |
+
+The terms change, and Settings shows each endpoint's note before you use it. As of October 2026:
+- Several free tiers may log prompts or train on them: Gemini outside the EEA, UK and Switzerland;
+  Mistral's free mode unless you opt out; Kilo's router; NVIDIA's trial endpoints.
+- Do not send confidential designs to those.
+- OVH's keyless tier allows 2 requests a minute per model. A generation with retries can exceed
+  that; a 429 there means "wait a minute".
+
+**When an endpoint blocks browsers**, the local proxy reaches it from your machine instead:
+
+    OPENAI_BASE_URL=https://api.groq.com/openai/v1 OPENAI_API_KEY=gsk_... node server.mjs
+
+Then open `http://127.0.0.1:8080` and pick **OpenAI Platform key through local proxy**. The
+proxy works for every endpoint above, despite the OpenAI name. Cloudflare Workers AI, ModelScope,
+SiliconFlow and any other OpenAI-compatible service work through **Custom compatible endpoint**.
+
 Pick **OpenAI (GPT) / compatible** as the provider, then choose one of four paths:
 
 1. **OpenAI Platform — use my API key directly.** Paste the OpenAI Platform project key, enter

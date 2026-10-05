@@ -329,12 +329,7 @@
   <input id="setKey" type="password" placeholder="sk-ant-..." autocomplete="off">
   <div id="baseRow" style="display:none">
     <label>Connection</label>
-    <select id="setEndpoint">
-      <option value="openai">OpenAI Platform — use my API key directly</option>
-      <option value="openrouter">OpenRouter — requires an OpenRouter key</option>
-      <option value="local">OpenAI Platform key through local proxy</option>
-      <option value="custom">Custom compatible endpoint</option>
-    </select>
+    <select id="setEndpoint"></select>   <!-- filled from ENDPOINTS -->
     <label>API base URL</label>
     <input id="setBase" type="text" placeholder="https://openrouter.ai/api/v1">
     <div class="row" style="align-items:center;gap:8px"><button class="btn small" id="btnTestApi" type="button">Test key &amp; endpoint</button><span class="hint" id="apiTestResult"></span></div>
@@ -1116,6 +1111,42 @@ function prov_searchCapable(model){ return !!(settings.search && P().search); }
    "provider/" prefix OpenRouter-style ids carry (openai/gpt-5.4, openai/o3-mini). */
 const OPENAI_REASONING_MODEL = /(^|\/)(gpt-([5-9]|\d{2,})(\.|-|$)|o[1-9](-|$))/i;
 const OPENAI_DEVELOPER_ROLE_MODEL = /(^|\/)o[1-9](-|$)/i;
+/* The OpenAI-compatible endpoints the Connection menu offers. One table drives the menu, the base
+   URL, the key label, keyless access, the save-time key check and the browser-support note, so a
+   provider is added in one place.
+     cors:    'yes' — measured: its chat endpoint's CORS preflight allows this page (Gemini, checked
+              2026-10-05; OpenAI, a user's own Test). 'unknown' — not measured; Test tells you, and
+              the local proxy is the fallback. Nothing is claimed that was not observed.
+     key:     'required' | 'optional' | 'none' (keyless endpoints send no Authorization header).
+     prefix:  the key format that provider issues, where it has one — a key with ANOTHER provider's
+              prefix is refused at Save, the mismatch behind most "invalid key" 401s.
+     example: a model id from the provider's free-tier list, to start from; Test lists the real ones.
+   Free-tier terms come from the providers' own pages via the free-LLM-API list (October 2026) and
+   change; the note says what to check, not a promise. */
+const ENDPOINTS = {
+  openai:     { group:'browser', label:'OpenAI Platform — use my API key directly', base:'https://api.openai.com/v1', key:'required', prefix:/^sk-(?!or-)/, hint:'sk-proj-...', cors:'yes', example:'', note:'Your OpenAI Platform key stays in this browser\u2019s local storage and is sent only to api.openai.com. On a shared computer, use the local proxy instead.' },
+  gemini:     { group:'browser', label:'Google Gemini — free tier, key from aistudio.google.com', base:'https://generativelanguage.googleapis.com/v1beta/openai', key:'required', prefix:/^AIza/, hint:'AIza...', cors:'yes', example:'gemini-2.5-flash', note:'Free tier, no card. Outside the EEA, UK and Switzerland, free-tier prompts may be used by Google to improve its products. Rate limits are per model; check them in AI Studio.' },
+  groq:       { group:'free', label:'Groq — free tier', base:'https://api.groq.com/openai/v1', key:'required', prefix:/^gsk_/, hint:'gsk_...', cors:'unknown', example:'openai/gpt-oss-120b', note:'Free tier, no card: about 30 requests a minute and 1,000 a day per model.' },
+  mistral:    { group:'free', label:'Mistral — free mode', base:'https://api.mistral.ai/v1', key:'required', hint:'Mistral API key', cors:'unknown', example:'', note:'Free mode, no card. Free-mode prompts may be used to train Mistral models unless you opt out in the admin panel.' },
+  openrouter: { group:'free', label:'OpenRouter — requires an OpenRouter key', base:'https://openrouter.ai/api/v1', key:'required', prefix:/^sk-or-/, hint:'sk-or-v1-...', cors:'unknown', example:'', note:'This URL accepts OpenRouter keys only. An OpenAI Platform key will always return 401 here. Free models end in ":free" (about 50 requests a day each); free providers may log prompts.' },
+  cohere:     { group:'free', label:'Cohere — trial key (non-commercial)', base:'https://api.cohere.ai/compatibility/v1', key:'required', hint:'Cohere trial key', cors:'unknown', example:'', note:'Trial keys: 1,000 calls a month, non-commercial use only. This is Cohere\u2019s OpenAI-compatibility endpoint.' },
+  zai:        { group:'free', label:'Z.ai (Zhipu) — GLM flash models', base:'https://api.z.ai/api/paas/v4', key:'required', hint:'Z.ai API key', cors:'unknown', example:'glm-4.7-flash', note:'GLM flash models are free; one request at a time.' },
+  nvidia:     { group:'free', label:'NVIDIA NIM — developer program', base:'https://integrate.api.nvidia.com/v1', key:'required', prefix:/^nvapi-/, hint:'nvapi-...', cors:'unknown', example:'', note:'Free with an NVIDIA developer account, about 40 requests a minute. NVIDIA logs trial use; do not send confidential designs.' },
+  huggingface:{ group:'free', label:'Hugging Face router', base:'https://router.huggingface.co/v1', key:'required', prefix:/^hf_/, hint:'hf_...', cors:'unknown', example:'', note:'Free accounts get a small monthly credit; a PartForge generation can be several calls.' },
+  ollama:     { group:'free', label:'Ollama Cloud', base:'https://ollama.com/v1', key:'required', hint:'Ollama API key', cors:'unknown', example:'gpt-oss:120b', note:'Free tier with session and weekly limits Ollama does not publish.' },
+  kilo:       { group:'nokey', label:'Kilo Code gateway — free models, no key', base:'https://api.kilo.ai/api/gateway', key:'none', hint:'(no key needed)', cors:'unknown', example:'kilo-auto/free', note:'No key: about 200 requests an hour per IP. The free router may send prompts to providers that log them; do not send confidential designs.' },
+  llm7:       { group:'nokey', label:'LLM7.io — no key needed (free token optional)', base:'https://api.llm7.io/v1', key:'optional', hint:'(optional free token)', cors:'unknown', example:'gpt-oss:20b', note:'Works without a key; a free token from token.llm7.io raises the limits. Its model list changes often — press Test.' },
+  ovh:        { group:'nokey', label:'OVHcloud AI Endpoints — no key, EU-hosted', base:'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1', key:'none', hint:'(no key needed)', cors:'unknown', example:'gpt-oss-120b', note:'No key: 2 requests a minute per model per IP, which a generation with retries can exceed (you will see a 429; wait a minute). Hosted in the EU.' },
+  local:      { group:'own', label:'OpenAI Platform key through local proxy', base:'http://127.0.0.1:8080/v1', key:'optional', hint:'local-proxy', cors:'yes', example:'', note:'Start this repository with OPENAI_API_KEY=<key> node server.mjs (add OPENAI_BASE_URL=<any endpoint above> to proxy that one instead), then open http://127.0.0.1:8080. Do not paste the real key into this dialog.' },
+  custom:     { group:'own', label:'Custom compatible endpoint', base:'', key:'optional', hint:'key required by this endpoint', cors:'unknown', example:'', note:'Any OpenAI-compatible /chat/completions endpoint (a local model server, Cloudflare Workers AI, your worker.js). The credential must have been issued by this exact endpoint.' },
+};
+const ENDPOINT_GROUPS = { browser:'Work from this browser (verified)', free:'Free tiers — browser support not yet verified; Test tells you', nokey:'No key needed', own:'Your own setup' };
+/* A key is per ENDPOINT, not per provider: one "OpenAI-compatible" provider now fronts a dozen
+   services, and a Groq key saved over the OpenAI one is a 401 waiting to happen. */
+function endpointSlot(field, provider, base){
+  return provider === 'openai' ? `pf_${field}_openai@${endpointKind(base)}` : `pf_${field}_${provider}`;
+}
+function endpointNeedsKey(base){ return (ENDPOINTS[endpointKind(base)] || ENDPOINTS.custom).key === 'required'; }
 const PROVIDERS = {
   anthropic: {
     label: 'Anthropic (Claude)', base: 'https://api.anthropic.com', fixedBase: true,
@@ -1179,7 +1210,9 @@ const PROVIDERS = {
     label: 'OpenAI / compatible', base: 'https://api.openai.com/v1',
     fixedBase: false, keyHint: 'sk-proj-...', defaultModel: '', search: false, models: [],
     url: b => b.replace(/\/+$/,'') + '/chat/completions',
-    headers: k => ({ 'content-type':'application/json', 'authorization': 'Bearer ' + k }),
+    // A keyless endpoint (Kilo, OVH, LLM7) gets no Authorization header at all: "Bearer " with
+    // nothing after it is a malformed credential some gateways reject outright.
+    headers: k => (k ? { 'content-type':'application/json', 'authorization': 'Bearer ' + k } : { 'content-type':'application/json' }),
     body: (system, msgs, maxTok, search, extra = {}) => {
       const model = extra.model || settings.model;
       const tokKey = OPENAI_REASONING_MODEL.test(model) ? 'max_completion_tokens' : 'max_tokens';
@@ -1197,17 +1230,22 @@ const PROVIDERS = {
   },
 };
 function P(){ return PROVIDERS[settings.provider] || PROVIDERS.anthropic; }
+/* Whether a model can be called at all: a key, the replay queue, or an endpoint that needs none. */
+function hasCredential(){ return !!(settings.key || P().replay || (settings.provider === 'openai' && !endpointNeedsKey(settings.base))); }
 
 const settings = {
   get provider(){ const v = store.get('pf_provider')||'anthropic'; return PROVIDERS[v] ? v : 'anthropic'; },
   set provider(v){ store.set('pf_provider', PROVIDERS[v] ? v : 'anthropic'); },
   // keys/models/base are stored PER provider so switching never loses the other one
-  get key(){ return store.get('pf_key_'+this.provider)||''; },
-  set key(v){ const k='pf_key_'+this.provider; v?store.set(k,v):store.del(k); },
-  get model(){ return store.get('pf_model_'+this.provider) || P().defaultModel; },
-  set model(v){ store.set('pf_model_'+this.provider, v); },
-  get judgeModel(){ return store.get('pf_judge_'+this.provider) || ''; },   // '' = same as the designer
-  set judgeModel(v){ store.set('pf_judge_'+this.provider, v || ''); },
+  // and, for the OpenAI-compatible provider, per ENDPOINT (endpointSlot). A key saved before that
+  // split sits in the old per-provider slot and is still read for the endpoint it was saved with.
+  get key(){ return store.get(endpointSlot('key', this.provider, this.base)) || ''; },
+  set key(v){ const k = endpointSlot('key', this.provider, this.base); v ? store.set(k, v) : store.del(k); },
+  get model(){ return store.get(endpointSlot('model', this.provider, this.base))
+    || (this.provider === 'openai' ? (ENDPOINTS[endpointKind(this.base)] || {}).example : '') || P().defaultModel; },
+  set model(v){ store.set(endpointSlot('model', this.provider, this.base), v); },
+  get judgeModel(){ return store.get(endpointSlot('judge', this.provider, this.base)) || ''; },   // '' = same as the designer
+  set judgeModel(v){ store.set(endpointSlot('judge', this.provider, this.base), v || ''); },
   get base(){ return store.get('pf_base_'+this.provider) || P().base; },
   set base(v){ store.set('pf_base_'+this.provider, v || P().base); },
   get replay(){ try { const q = JSON.parse(store.get('pf_replay') || '[]'); return Array.isArray(q) ? q.filter(x => typeof x === 'string') : []; } catch(e){ return []; } },
@@ -1238,6 +1276,21 @@ const settings = {
   get envelope(){ try { const e = JSON.parse(store.get('pf_env')); return Array.isArray(e) && e.length === 3 && e.every(n => n > 0) ? e : null; } catch(e){ return null; } },
   set envelope(v){ v ? store.set('pf_env', JSON.stringify(v)) : store.del('pf_env'); },
 };
+/* Before keys were per endpoint, the one OpenAI-compatible key, model and judge model lived in
+   pf_key_openai / pf_model_openai / pf_judge_openai. Move each, once, into the slot of the endpoint
+   that was saved beside it — the only endpoint it was ever valid for. */
+(function migrateEndpointSlots(){
+  try {
+    const savedBase = store.get('pf_base_openai') || PROVIDERS.openai.base;
+    for(const f of ['key', 'model', 'judge']){
+      const old = store.get('pf_' + f + '_openai');
+      if(!old) continue;
+      const slot = endpointSlot(f, 'openai', savedBase);
+      if(!store.get(slot)) store.set(slot, old);
+      store.del('pf_' + f + '_openai');
+    }
+  } catch(e){}
+})();
 function isFlight(){ return settings.grade === 'flight'; }
 /* A machinist reads 149.450, not 149.5: three decimals in flight grade, one in hobby. */
 function fmtMm(v, hobbyDigits = 1){ return (+v).toFixed(isFlight() ? 3 : hobbyDigits); }
@@ -7030,7 +7083,7 @@ function toast(t){
 function setBusy(b){
   busy = b;
   for(const id of ['btnGenerate','btnRunCode','btnRerender','btnAssembly','qaSubmit','qaSkip']) $(id).disabled = b;
-  $('btnRefine').disabled = b || !((settings.key || P().replay) && currentCode);
+  $('btnRefine').disabled = b || !(hasCredential() && currentCode);
 }
 function showRenderError(err){
   setOverlay(true, '⚠ ' + escapeHtml(String(err.message||err)).slice(0,600), {spin:false});
@@ -7338,7 +7391,7 @@ async function judgeIntent(prompt, spec, k = 1){
 let benchAbort = false, benchRunning = false;
 async function runBench(count, useGate){
   if(aiBusy || benchRunning) return;
-  if(!settings.key && !P().replay){ msg($('genMsg'),'err','Add an API key in ⚙ Settings first.'); return; }
+  if(!hasCredential()){ msg($('genMsg'),'err','Add an API key in ⚙ Settings first.'); return; }
   benchRunning = true; benchAbort = false; aiBusy = true;
   const savedGate = settings.gate, savedClarify = settings.clarify;
   settings.gate = !!useGate; settings.clarify = 'never';
@@ -7600,7 +7653,7 @@ async function generate(isRefine){
   const p = $('prompt').value.trim();
   msg($('genMsg'),'','');
   if(!p && !attachedImages.length){ msg($('genMsg'),'err', isRefine ? 'Describe the change first.' : 'Describe the part (or attach a photo) first.'); return; }
-  if(!settings.key && !P().replay){ msg($('genMsg'),'err','Add your Anthropic API key in ⚙ Settings, or use a template.'); return; }
+  if(!hasCredential()){ msg($('genMsg'),'err','Add an API key in ⚙ Settings (or pick a no-key endpoint), or use a template.'); return; }
   if(busy || aiBusy) return;
   aiBusy = true;
   hideQuestions();
@@ -7630,7 +7683,7 @@ async function generate(isRefine){
     msg($('genMsg'),'err', String(err.message||err).slice(0,300));
   } finally {
     aiBusy = false;
-    $('btnGenerate').disabled = false; $('btnRefine').disabled = !((settings.key || P().replay) && currentCode);
+    $('btnGenerate').disabled = false; $('btnRefine').disabled = !(hasCredential() && currentCode);
     updateLlmHint();   // Replay's queue count just changed — show it without a trip into Settings
   }
 }
@@ -7728,7 +7781,7 @@ $('btnRename').onclick = () => {
    biggest quality lever: until now the model wrote geometry it could never see. */
 async function improveByLooking(){
   if(!currentCode || busy) return;
-  if(!settings.key){ toast('Improve needs an API key (⚙ Settings)'); return; }
+  if(!hasCredential() || P().replay){ toast('Improve needs an API key (⚙ Settings)'); return; }
   if(aiBusy) return;
   aiBusy = true;
   const out = $('reviewOut');
@@ -7808,7 +7861,7 @@ $('btnParts').onclick = () => {
 };
 $('btnReview').onclick = async () => {
   if(!currentCode){ return; }
-  if(!settings.key){ toast('Review needs an API key (⚙ Settings)'); return; }
+  if(!hasCredential() || P().replay){ toast('Review needs an API key (⚙ Settings)'); return; }
   if(aiBusy) return;
   aiBusy = true;
   const out = $('reviewOut');
@@ -8132,35 +8185,58 @@ const dlg = $('dlgSettings');
 function endpointKind(base){
   try {
     const u = new URL(base);
-    if(u.hostname === 'api.openai.com') return 'openai';
-    if(u.hostname === 'openrouter.ai') return 'openrouter';
     if(u.hostname === '127.0.0.1' || u.hostname === 'localhost') return 'local';
+    for(const [kind, e] of Object.entries(ENDPOINTS))
+      if(e.base && new URL(e.base).hostname === u.hostname) return kind;
   } catch(e){}
   return 'custom';
 }
+/* Unsaved key/model edits per endpoint while the dialog is open: switching the Connection menu
+   from Groq to Gemini and back must not lose what was typed for Groq, and must not show Groq's
+   key under Gemini's label. */
+let dlgEndpointEdits = {};
+let dlgEndpointKind = null;
+function storedEndpointValue(kind, field){
+  const e = ENDPOINTS[kind]; return store.get(endpointSlot(field, 'openai', e && e.base ? e.base : 'https://custom.invalid/')) || '';
+}
+function fillEndpointMenu(){
+  const sel = $('setEndpoint'); if(sel.options.length) return;
+  for(const [g, title] of Object.entries(ENDPOINT_GROUPS)){
+    const og = document.createElement('optgroup'); og.label = title;
+    for(const [kind, e] of Object.entries(ENDPOINTS)) if(e.group === g){ const o = document.createElement('option'); o.value = kind; o.textContent = e.label; og.appendChild(o); }
+    sel.appendChild(og);
+  }
+}
 function syncEndpointUI(){
   if($('setProvider').value !== 'openai') return;
-  const kind = $('setEndpoint').value;
-  const known = kind === 'openai' ? 'https://api.openai.com/v1' : kind === 'openrouter' ? 'https://openrouter.ai/api/v1' : kind === 'local' ? 'http://127.0.0.1:8080/v1' : '';
-  if(known) $('setBase').value = known;
+  const kind = $('setEndpoint').value, e = ENDPOINTS[kind] || ENDPOINTS.custom;
+  if(dlgEndpointKind && dlgEndpointKind !== kind){
+    // leaving an endpoint: keep what was typed for it; arriving: show its own key and model
+    dlgEndpointEdits[dlgEndpointKind] = { key: $('setKey').value, model: $('setModel').value, judge: $('setJudgeModel').value };
+    const back = dlgEndpointEdits[kind];
+    $('setKey').value = back ? back.key : storedEndpointValue(kind, 'key');
+    $('setModel').value = back ? back.model : (storedEndpointValue(kind, 'model') || e.example || '');
+    $('setJudgeModel').value = back ? back.judge : storedEndpointValue(kind, 'judge');
+    $('modelList').innerHTML = '';
+    $('apiTestResult').textContent = '';
+  }
+  dlgEndpointKind = kind;
+  if(e.base) $('setBase').value = e.base;
   $('setBase').readOnly = kind !== 'custom';
-  $('lblKey').textContent = kind === 'openai' ? 'OpenAI Platform API key' : kind === 'openrouter' ? 'OpenRouter API key' : kind === 'local' ? 'Settings placeholder (the real key is in OPENAI_API_KEY)' : 'Compatible endpoint API key';
-  $('setKey').placeholder = kind === 'openai' ? 'sk-proj-...' : kind === 'openrouter' ? 'sk-or-v1-...' : kind === 'local' ? 'local-proxy' : 'key required by this endpoint';
-  $('setModel').placeholder = kind === 'openrouter' ? 'OpenRouter model id, including provider/' : kind === 'openai' || kind === 'local' ? 'exact OpenAI Platform model id' : 'model id from this endpoint';
+  $('lblKey').textContent = e.key === 'none' ? 'API key — not needed for this endpoint' : e.key === 'optional' ? 'API key (optional)' : `${e.label.split(' — ')[0]} API key`;
+  $('setKey').placeholder = e.hint;
+  $('setKey').disabled = e.key === 'none';
+  if(e.key === 'none') $('setKey').value = '';
+  $('setModel').placeholder = e.example ? `e.g. ${e.example} — Test lists the models this endpoint serves` : 'model id from this endpoint — Test lists them';
   if(kind === 'local' && !$('setKey').value) $('setKey').value = 'local-proxy';
-  $('provNote').textContent = kind === 'openai'
-    ? 'Direct OpenAI connection: paste an OpenAI Platform API key. It stays in this browser’s local storage and is sent only to api.openai.com. For a shared computer, use the local proxy instead.'
-    : kind === 'openrouter'
-    ? 'This URL accepts OpenRouter keys only. An OpenAI Platform key will always return 401 here.'
-    : kind === 'local'
-    ? 'Start this repository with OPENAI_API_KEY=<your OpenAI Platform key> node server.mjs, then open http://127.0.0.1:8080. Do not paste the real key into this dialog.'
-    : 'The credential must have been issued by this exact endpoint. Web search is unavailable here.';
+  $('provNote').textContent = e.note + (e.cors === 'yes' ? '' : ' Browser access from this page is not yet verified for this endpoint: press Test — if it reports CORS, run the local proxy with OPENAI_BASE_URL set to this endpoint.') + ' Web search is unavailable here.';
 }
 $('btnSettings').onclick = () => {
   $('setProvider').value = settings.provider;
   $('setKey').value = settings.key; $('setModel').value = settings.model;
   $('setBase').value = settings.base;
-  $('setEndpoint').value = endpointKind(settings.base);
+  fillEndpointMenu(); dlgEndpointEdits = {};
+  $('setEndpoint').value = endpointKind(settings.base); dlgEndpointKind = $('setEndpoint').value;
   syncProviderUI();
   $('setReplay').value = settings.replay.join('\n---\n');
   $('setClarify').value = settings.clarify; $('setSearch').checked = settings.search;
@@ -8247,17 +8323,19 @@ $('btnTestApi').onclick = async () => {
   const out = $('apiTestResult');
   const base = $('setBase').value.trim().replace(/\/+$/, '');
   const key = $('setKey').value.trim();
-  if(!base || !key){ out.textContent = 'Enter the endpoint and credential first.'; out.style.color = 'var(--bad)'; return; }
+  if(!base || (!key && endpointNeedsKey(base))){ out.textContent = 'Enter the endpoint and credential first.'; out.style.color = 'var(--bad)'; return; }
   out.textContent = 'Testing…'; out.style.color = '';
   try {
-    const res = await fetch(base + '/models', { headers:{ authorization:'Bearer ' + key } });
+    const res = await fetch(base + '/models', { headers: key ? { authorization:'Bearer ' + key } : {} });
     let data = null, detail = '';
     try { data = await res.json(); detail = data?.error?.message || ''; } catch(e){}
     if(!res.ok) throw new Error(`API ${res.status}: ${apiHttpError(res.status, detail, base)}`);
     const ids = Array.isArray(data?.data) ? data.data.map(x => x.id).filter(Boolean) : [];
+    // the models this key can actually use become the Model field's suggestions
+    $('modelList').innerHTML = ids.slice(0, 400).map(m => `<option value="${escapeHtml(String(m)).replace(/"/g, '&quot;')}"></option>`).join('');
     const model = $('setModel').value.trim();
     const found = model && ids.length ? ids.includes(model) : null;
-    out.textContent = `Connected — credential accepted${ids.length ? ` · ${ids.length} models visible` : ''}${found === false ? ` · selected model “${model}” is not in this account's model list` : found ? ' · selected model is available' : ''}.`;
+    out.textContent = `Connected — ${key ? 'credential accepted' : 'no key needed'}${ids.length ? ` · ${ids.length} models visible (listed under Model)` : ''}${found === false ? ` · selected model “${model}” is not in this account's model list` : found ? ' · selected model is available' : ''}.`;
     out.style.color = found === false ? 'var(--warn)' : 'var(--ok)';
   } catch(err){
     out.style.color = 'var(--bad)';
@@ -8274,7 +8352,7 @@ $('btnTestApi').onclick = async () => {
     out.textContent = local
       ? 'Could not reach the local proxy. Start it (OPENAI_API_KEY=… node server.mjs) and open PartForge at http://127.0.0.1:8080, not the GitHub Pages address.'
       : reachable
-      ? 'The endpoint answered, but this browser will not let the page read the reply (CORS), so a direct key cannot work from here. Use the local proxy: run OPENAI_API_KEY=… node server.mjs, open http://127.0.0.1:8080 and pick “OpenAI Platform key through local proxy”.'
+      ? `The endpoint answered, but this browser will not let the page read the reply (CORS), so it cannot be called from this page. Use the local proxy: run OPENAI_BASE_URL=${base} OPENAI_API_KEY=… node server.mjs, open http://127.0.0.1:8080 and pick “OpenAI Platform key through local proxy”.`
       : 'Neither request reached the endpoint, so this is not CORS: something between this browser and it is blocking the connection. Try a private window with extensions off (ad/privacy blockers often block api.openai.com), turn off any VPN, and try another network. If it still fails, the local proxy avoids the browser path entirely.';
   }
 };
@@ -8284,7 +8362,8 @@ $('setProvider').onchange = () => {
   settings.provider = $('setProvider').value;      // read that provider's saved values
   $('setKey').value = settings.key;
   $('setBase').value = settings.base;
-  $('setEndpoint').value = endpointKind(settings.base);
+  fillEndpointMenu(); dlgEndpointEdits = {};
+  $('setEndpoint').value = endpointKind(settings.base); dlgEndpointKind = $('setEndpoint').value;
   $('setModel').value = settings.model;
   $('setJudgeModel').value = settings.judgeModel;
   settings.provider = wasProvider;                 // don't commit until Save
@@ -8295,15 +8374,35 @@ $('setSave').onclick = () => {
   const chosenProvider = $('setProvider').value;
   const chosenKey = $('setKey').value.trim();
   const chosenBase = $('setBase').value.trim();
-  if(chosenProvider === 'openai' && /^https:\/\/openrouter\.ai(?:\/|$)/i.test(chosenBase) && /^sk-(?!or-)/i.test(chosenKey)){
-    $('provNote').textContent = 'That looks like an OpenAI Platform key, but the selected endpoint is OpenRouter. Use an OpenRouter key (normally sk-or-v1-…), or run the included proxy and set this URL to http://127.0.0.1:8080/v1.';
-    $('provNote').style.color = 'var(--bad)';
-    $('setKey').focus();
-    return;
+  if(chosenProvider === 'openai' && chosenKey){
+    const here = endpointKind(chosenBase);
+    const owner = Object.entries(ENDPOINTS).find(([k, e]) => e.prefix && e.prefix.test(chosenKey));
+    // Block only a definite mismatch: this endpoint issues keys of a known shape, this key is not
+    // one, and it IS another provider's shape. Keys without a distinctive prefix are never judged.
+    const mine = ENDPOINTS[here] && ENDPOINTS[here].prefix;
+    if(owner && owner[0] !== here && mine && !mine.test(chosenKey)){
+      $('provNote').textContent = here === 'openrouter' && owner[0] === 'openai'
+        ? 'That looks like an OpenAI Platform key, but the selected endpoint is OpenRouter. Use an OpenRouter key (normally sk-or-v1-…), or run the included proxy and set this URL to http://127.0.0.1:8080/v1.'
+        : `That looks like a ${ENDPOINTS[owner[0]].label.split(' — ')[0]} key, but the selected endpoint is ${ENDPOINTS[here].label.split(' — ')[0]}. A key only works with the service that issued it — choose ${ENDPOINTS[owner[0]].label.split(' — ')[0]} in Connection, or paste this endpoint's own key.`;
+      $('provNote').style.color = 'var(--bad)';
+      $('setKey').focus();
+      return;
+    }
   }
   settings.provider = $('setProvider').value;   // set first: key/model/base are stored per provider
+  settings.base = chosenBase;                   // then the base: for this provider the key slot is per endpoint
   settings.key = chosenKey;
-  settings.base = chosenBase;
+  // Keys typed for OTHER endpoints while the dialog was open are kept too: Save means everything
+  // shown in the dialog, not only the endpoint that happened to be selected last.
+  if(chosenProvider === 'openai') for(const [kind, ed] of Object.entries(dlgEndpointEdits)){
+    if(kind === endpointKind(chosenBase) || !ENDPOINTS[kind] || !ENDPOINTS[kind].base) continue;
+    const owner = Object.entries(ENDPOINTS).find(([k, e]) => e.prefix && e.prefix.test(ed.key || ''));
+    if(ed.key && owner && owner[0] !== kind && ENDPOINTS[kind].prefix && !ENDPOINTS[kind].prefix.test(ed.key)) continue;   // a mismatched key is not stored
+    for(const [f, val] of [['key', ed.key], ['model', ed.model], ['judge', ed.judge]]){
+      const slot = endpointSlot(f, 'openai', ENDPOINTS[kind].base);
+      val ? store.set(slot, val.trim()) : (f === 'key' ? store.del(slot) : null);
+    }
+  }
   if(P().replay) settings.replay = $('setReplay').value.split(/\n\s*---\s*\n/).map(x => x.trim()).filter(Boolean);
   settings.model = $('setModel').value.trim() || P().defaultModel;
   settings.clarify = $('setClarify').value;
@@ -8337,12 +8436,12 @@ function updateLlmHint(){
   const where = isFlight()
     ? `FLIGHT grade · ${flightMat().name} · ${flightProc().name} · curves ≤ ${settings.tessTol} mm`
     : `${settings.material} on ${pn ? pn.m : settings.bed.join('×')}`;
-  $('llmHint').textContent = (settings.key || P().replay)
+  $('llmHint').textContent = hasCredential()
     ? `${P().label.split(' ')[0]} · ${settings.model || 'set a model'} · ${settings.clarify==='ask'?'asks first':'just builds'}${P().search ? ` · search ${settings.search?'on':'off'}` : ''} · ${where}` + (P().replay ? ` · ${settings.replay.length} repl${settings.replay.length === 1 ? 'y' : 'ies'} queued` : '')
     : (isFlight()
       ? 'FLIGHT grade. AI generation needs an API key (⚙ Settings). The flight templates work without one — load one, then ⋯ → Measure against the FLIGHT declaration, and its drawing appears under ⋯ (a manufacturing sheet, or an interface control drawing for a composite or pressure part).'
       : 'AI generation needs an Anthropic API key (⚙ Settings). Templates work without one — try “Hinged box ⚙” then its Assembly view, or print the “Fit coupon 🎯”.');
-  $('btnRefine').disabled = !((settings.key || P().replay) && currentCode);
+  $('btnRefine').disabled = !(hasCredential() && currentCode);
   const sub = document.querySelector('header .sub');
   if(sub) sub.textContent = isFlight()
     ? 'flight grade · prompt → declared, measured, checked part → STL/3MF + the drawing its class earns'

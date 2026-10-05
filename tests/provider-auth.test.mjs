@@ -33,9 +33,33 @@ test('non-auth failures explain permissions and quota instead of blaming the key
   assert.match(context.limited, /insufficient_quota/);
 });
 
+// The endpoint table, run for real: which endpoint a base URL is, which provider a key's shape
+// belongs to, and which endpoints need no key.
+const tableSrc = (() => {
+  const a = html.indexOf('const ENDPOINTS = {'), b = html.indexOf('function endpointNeedsKey(', a);
+  const c = html.indexOf('function endpointKind(base){'), d = html.indexOf('\n}', c) + 2;
+  return html.slice(a, html.indexOf('\n}', b) + 2) + '\n' + html.slice(c, d);
+})();
+function table(){ const ctx = { URL, store:{ get(){ return null; } } }; vm.runInNewContext(`${tableSrc}; out = { ENDPOINTS, endpointKind, endpointNeedsKey }`, ctx); return ctx.out; }
+
 test('settings guard catches an OpenAI-looking key at OpenRouter', () => {
-  assert.match(html, /openrouter\\\.ai[\s\S]{0,100}\^sk-\(\?!or-\)/);
+  const { ENDPOINTS } = table();
+  assert.ok(ENDPOINTS.openai.prefix.test('sk-proj-abc') && !ENDPOINTS.openrouter.prefix.test('sk-proj-abc'), 'an OpenAI key is not an OpenRouter key');
+  assert.ok(ENDPOINTS.openrouter.prefix.test('sk-or-v1-abc') && !ENDPOINTS.openai.prefix.test('sk-or-v1-abc'), 'and the other way round');
   assert.match(html, /That looks like an OpenAI Platform key/);
+});
+
+test('every endpoint resolves from its own base URL, and keyless ones need no key', () => {
+  const { ENDPOINTS, endpointKind, endpointNeedsKey } = table();
+  for(const [kind, e] of Object.entries(ENDPOINTS)) if(e.base && kind !== 'local') assert.equal(endpointKind(e.base), kind, kind);
+  assert.equal(endpointKind('http://localhost:8080/v1'), 'local');
+  assert.equal(endpointKind('https://my-gateway.example/v1'), 'custom');
+  for(const k of ['kilo', 'ovh', 'llm7', 'local']) assert.equal(endpointNeedsKey(ENDPOINTS[k].base), false, k);
+  for(const k of ['openai', 'gemini', 'groq', 'openrouter']) assert.equal(endpointNeedsKey(ENDPOINTS[k].base), true, k);
+  // a key's shape names its provider, and no two distinctive prefixes claim the same key
+  const samples = { gemini:'AIzaSyD-x', groq:'gsk_x', openrouter:'sk-or-v1-x', nvidia:'nvapi-x', huggingface:'hf_x' };
+  for(const [owner, key] of Object.entries(samples))
+    assert.deepEqual(Object.entries(ENDPOINTS).filter(([k, e]) => e.prefix && e.prefix.test(key)).map(([k]) => k), [owner], key);
 });
 
 test('settings presents unambiguous OpenRouter and local OpenAI routes', () => {

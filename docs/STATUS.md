@@ -125,6 +125,27 @@ one `Gen N:` line per iteration) is the history; this is the state.
       This sandbox cannot reach OpenAI. The Test button answers it in one click, and the local
       proxy remains the fallback.
 
+- **Gen 34** — more model APIs.
+  - **The menu:** the Connection menu is built from one endpoint table:
+    - OpenAI, Gemini, Groq, Mistral, OpenRouter, Cohere, Z.ai, NVIDIA NIM, Hugging Face and
+      Ollama Cloud;
+    - three keyless gateways: Kilo, OVHcloud and LLM7;
+    - the local proxy and custom endpoints.
+  - **Browser support:** each endpoint is labelled with what was actually measured. Gemini's CORS
+    preflight was checked live and passes; the rest say "not yet verified" and Test tells you.
+  - **Per-endpoint storage:** keys and models are kept per endpoint, so a Groq key no longer
+    overwrites the OpenAI one. Old single-slot keys migrate once, into the endpoint they were
+    saved with.
+  - **Keyless calls:** keyless endpoints send no Authorization header, and every Generate path
+    asks `hasCredential()` instead of "is there a key".
+  - **Test:** fills the Model suggestions with the endpoint's real model list.
+  - **Save:** refuses a key whose format belongs to another provider (Gemini `AIza`, Groq `gsk_`,
+    OpenRouter `sk-or-`, NVIDIA `nvapi-`, Hugging Face `hf_`). Keys without a distinctive format
+    are never judged.
+  - **Verified in Chromium:** migration, endpoint switching, the mismatch check, and a whole
+    keyless generation through a mocked Kilo that rendered the part with no Authorization
+    header sent.
+
 ## Open, with numbers
 
 1. **The SPEC part batch re-renders the part.** For containment and joint checks the SPEC
