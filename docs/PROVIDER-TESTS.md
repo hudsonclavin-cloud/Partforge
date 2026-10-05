@@ -65,6 +65,17 @@ Keys are read from the environment and never printed. The check costs about two 
 plus one design call per endpoint. On free tiers that is well inside the limits, except OVH's
 2 requests a minute.
 
+## B2. Which model designs best? Compare them on a real part
+
+    node cli.mjs design "a 40 x 40 x 5 mm spacer plate with a 6.6 mm centre hole" \
+      --models gemini:gemini-2.5-flash,groq:openai/gpt-oss-120b,kilo:kilo-auto/free --human
+    node cli.mjs design "a 6 in centering ring for a 54 mm motor, 8 mm thick" \
+      --models gemini:gemini-2.5-flash,groq:openai/gpt-oss-120b --grade flight --human
+
+Each model gets the app's full Generate loop: the design, PartForge's checks, then the app's
+retry prompt for each failure. You see how many attempts each needed and whether it got there.
+The flight-grade ring is the real test: a model that passes it can be trusted with the app.
+
 ## C. If the app says CORS
 
 The endpoint works, but not from a web page. Run the local proxy aimed at it:

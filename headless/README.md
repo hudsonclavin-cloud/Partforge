@@ -52,6 +52,23 @@ small part that PartForge's gate then checks. The steps, the verdicts and the in
 in [`../docs/PROVIDER-TESTS.md`](../docs/PROVIDER-TESTS.md). `llm.mjs` holds the calls, built from
 the app's extracted `ENDPOINTS`, `PROVIDERS.openai.body`, system prompt, first turn and `parseCode`.
 
+## Let a model design, and PartForge judge it
+
+    node cli.mjs design "a 6 in centering ring for a 54 mm motor" --endpoint gemini --grade flight --human --out ring.scad
+    node cli.mjs design "…" --models gemini:gemini-2.5-flash,groq:openai/gpt-oss-120b,kilo:kilo-auto/free --human
+
+This is the app's Generate loop without the page.
+- **Same inputs:** the same system prompt and first turn as the app.
+- **Same retries:** every failure goes back to the model with the app's own retry prompt, up to
+  the app's budget (2 retries plus one per declared part, capped at 6).
+- **The contract floor:** an attempt that passes only because it deleted declarations is never
+  chosen.
+- **Output:** the result has every attempt's verdict and the chosen file. `--out` writes the
+  file, and the link opens it in the app.
+
+`--models` runs the same prompt on several models and prints them side by side. Use it to pick
+which free tier can actually design parts.
+
 ## What comes back
 
 Every call returns one envelope:

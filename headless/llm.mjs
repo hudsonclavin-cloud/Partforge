@@ -114,3 +114,68 @@ export async function providerCheck(conn, { grade = 'hobby', prompt, design = tr
   const s = steps, verdict = !s.chat || !s.chat.ok ? 'unusable' : !design ? 'reachable' : s.design && s.design.ok ? 'works' : 'reachable_but_design_failed';
   return { endpoint: conn.kind, base: conn.base, model: conn.model, cors_in_browser: conn.cors === 'yes' ? 'verified' : 'unverified', steps, verdict, ms: Math.round(performance.now() - t0) };
 }
+
+// ---------------------------------------------------------------------------------------------
+// design: the app's Generate loop, headless — any model designs, PartForge checks, the model gets
+// the app's own retry prompt for every failure, up to the app's retry budget.
+//   * the retry message is retryPromptFor(g, a) — the text the app sends, measured numbers and all
+//   * the budget is gateRetryBudget: 2 retries, plus one per declared SPEC part, capped at 6
+//   * the contract floor: the first candidate's declaration count is a floor; a later candidate
+//     that declares LESS (drops a SPEC entry to silence a check) is never chosen as the result
+//   * a reply with no code block gets one plain request for the full file, as a retry
+// The best candidate is the first that passes, else the one with fewest failures above the floor.
+// ---------------------------------------------------------------------------------------------
+const declaredScore = (v) => v && v.declared ? Object.values(v.declared).reduce((a, b) => a + b, 0) : 0;
+
+export async function design(conn, prompt, { grade = 'hobby', maxRetries, onAttempt } = {}){
+  const t0 = performance.now(), system = systemFor(grade), attempts = [];
+  const messages = [{ role: 'user', content: firstTurn(prompt, grade) }];
+  let best = null, floor = null, budget = maxRetries ?? 2, tokensOut = 0;
+  for(let n = 1; n <= 1 + budget; n++){
+    let r;
+    try { r = await chat(conn, system, messages, { maxTokens: grade === 'flight' ? 16000 : 9000 }); }
+    catch(err){ attempts.push({ n, verdict: 'api_error', error: String(err.message || err).slice(0, 300) }); break; }
+    tokensOut += r.tokens_out || 0;
+    messages.push({ role: 'assistant', content: r.text });
+    const code = parseCode(r.text);
+    if(!code){
+      attempts.push({ n, verdict: 'no_code', ms: r.ms });
+      messages.push({ role: 'user', content: 'Your reply had no ```openscad code block. Return the FULL OpenSCAD file in one ```openscad block, nothing else.' });
+      onAttempt && onAttempt(attempts.at(-1));
+      continue;
+    }
+    const env = await check(code, { grade, timeoutMs: 180000 });
+    const v = env.value || {};
+    const score = declaredScore(v);
+    if(floor === null && v.verdict !== 'render_error') floor = score;
+    const below = floor !== null && score < floor;
+    const a = { n, verdict: env.refusal ? env.refusal.code : v.verdict, fails: (v.fails || []).length, first_fail: (v.fails || [])[0] ? v.fails[0].split(':')[0] : null,
+      declared: score, below_floor: below, ms: r.ms, tokens_out: r.tokens_out };
+    attempts.push(a); onAttempt && onAttempt(a);
+    // the app's budget once the first candidate's declaration is known
+    if(n === 1 && maxRetries == null && v.spec) budget = core.gateRetryBudget({ spec: { parts: v.spec.parts || [] } });
+    const candidate = { code, env, a };
+    if(a.verdict === 'pass' && !below){ best = candidate; break; }
+    // only a measured verdict can be chosen: a timeout or render error has "0 failures" because it was never checked
+    if(!below && a.verdict === 'fail' && (!best || a.fails < best.a.fails)) best = candidate;
+    const retry = v.verdict === 'render_error'
+      ? `The code did not render. The OpenSCAD engine said:\n${v.error}\n\nFix it and return the FULL corrected file.`
+      : v.retry_prompt || 'Fix the failures and return the FULL corrected file.';
+    messages.push({ role: 'user', content: below ? retry + `\n\nThis version declares less than your first one (${score} checks against ${floor}). Restore every declaration; removing one does not fix the part.` : retry });
+  }
+  const passed = !!(best && best.a.verdict === 'pass');
+  const ms = Math.round(performance.now() - t0);
+  return {
+    ok: true, tool: 'design', value: {
+      verdict: passed ? 'pass' : best ? 'fail' : 'no_part', endpoint: conn.kind, model: conn.model, grade,
+      attempts, chosen: best ? best.a.n : null, fails: best ? best.env.value.fails : [], code: best ? best.code : null,
+      tokens_out: tokensOut,
+    },
+    confidence: 'measured', provenance: [{ source: 'PartForge app checks, extracted from index.html' }, { source: `${conn.kind} ${conn.model}` }],
+    assumptions: ['the model was sent the app\'s system prompt, first turn and retry prompts; questions were turned off'],
+    validity_envelope: 'a pass means the part matches what its own file declares, not that the declaration suits the job',
+    summary: passed ? `PASS on attempt ${best.a.n} of ${attempts.length} — ${conn.kind} ${conn.model}`
+      : best ? `FAIL after ${attempts.length} attempt(s) — best was attempt ${best.a.n} with ${best.a.fails} failure(s): ${best.a.first_fail}` : `No usable part after ${attempts.length} attempt(s)`,
+    view_url: best ? best.env.view_url : undefined, ms,
+  };
+}

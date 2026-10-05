@@ -13,6 +13,8 @@
 //   partforge provider-check --endpoint groq [--model M] [--key K] [--grade hobby|flight] [--no-design]
 //   partforge provider-check --all           (every endpoint with a key in the environment, plus the no-key ones)
 //   partforge provider-check --base https://…/v1 --key K --model M     (any OpenAI-compatible endpoint)
+//   partforge design "a 6 in centering ring for a 54 mm motor" --endpoint gemini [--grade flight] [--retries N] [--out part.scad]
+//   partforge design "…" --models gemini:gemini-2.5-flash,groq:openai/gpt-oss-120b   (same prompt, several models, compared)
 //     keys come from OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, OPENROUTER_API_KEY,
 //     COHERE_API_KEY, ZAI_API_KEY, NVIDIA_API_KEY, HF_TOKEN, OLLAMA_API_KEY, LLM7_TOKEN; never printed
 //   --human: the summary line, the failures and the view link instead of JSON
@@ -30,6 +32,7 @@ const human = bool('--human'), doc = bool('--doc'), noCache = bool('--no-cache')
 const grade = flag('--grade'), timeout = flag('--timeout'), stl = flag('--stl');
 const endpoint = flag('--endpoint'), base = flag('--base'), key = flag('--key'), model = flag('--model');
 const all = bool('--all'), noDesign = bool('--no-design');
+const models = flag('--models'), retries = flag('--retries'), outFile = flag('--out');
 const mode = flag('--mode'), height = flag('--height'), units = flag('--units'), layer = flag('--layer');
 const [cmd, arg] = argv;
 const read = (p) => p === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(p, 'utf8');
@@ -43,6 +46,29 @@ try {
     case 'lookup':    env = pf.lookup(argv.slice(1).join(' ')); break;
     case 'templates': env = pf.templates(arg); break;
     case 'credits':   env = pf.credits(); break;
+    case 'design': {
+      const llm = await import('./llm.mjs');
+      const prompt = argv.slice(1).join(' ').trim();
+      if(!prompt) usage();
+      const targets = models ? models.split(',').map(t => { const [ep, ...m] = t.split(':'); return { endpoint: ep, model: m.join(':') }; }) : [{ endpoint, base, key, model }];
+      const runs = [];
+      for(const t of targets){
+        const conn = llm.resolve(t);
+        if(conn.error){ runs.push({ ok: false, tool: 'design', value: null, refusal: { code: 'invalid_input', reason: conn.error, what_would_help: 'set the key variable it names, or pass --key' }, summary: conn.error }); continue; }
+        if(human) process.stderr.write(`${conn.kind} ${conn.model}:\n`);
+        runs.push(await llm.design(conn, prompt, { grade: grade || 'hobby', maxRetries: retries != null ? +retries : undefined,
+          onAttempt: a => human && process.stderr.write(`  attempt ${a.n}: ${a.verdict}${a.fails ? ` (${a.fails} fail${a.fails > 1 ? 's' : ''}: ${a.first_fail})` : ''}${a.below_floor ? ' — declares less than attempt 1' : ''}${a.ms ? `  ${(a.ms / 1000).toFixed(1)} s` : ''}${a.error ? ' — ' + a.error : ''}\n`) }));
+      }
+      const best = runs.find(r => r.value && r.value.verdict === 'pass') || runs.find(r => r.value && r.value.code);
+      if(outFile && best && best.value.code){ fs.writeFileSync(outFile, best.value.code); }
+      env = runs.length === 1 ? runs[0] : { ok: true, tool: 'design', value: runs.map(r => r.value ? { endpoint: r.value.endpoint, model: r.value.model, verdict: r.value.verdict, attempts: r.value.attempts.length, chosen: r.value.chosen, fails: r.value.fails.length, tokens_out: r.value.tokens_out, ms: r.ms } : { verdict: 'not_run', reason: r.summary }),
+        summary: runs.map(r => r.summary).join('\n'), view_url: best && best.view_url };
+      if(human && runs.length > 1){
+        for(const r of env.value) process.stdout.write(`${String(r.endpoint || '').padEnd(12)} ${String(r.model || '').slice(0, 36).padEnd(36)} ${String(r.verdict).padEnd(8)} attempts ${r.attempts ?? '—'}  fails ${r.fails ?? '—'}  out-tokens ${r.tokens_out ?? '—'}\n`);
+      }
+      if(outFile && best) process.stderr.write(`wrote ${outFile}\n`);
+      break;
+    }
     case 'provider-check': {
       const llm = await import('./llm.mjs');
       const kinds = all ? Object.keys(pf.core.ENDPOINTS).filter(k => k !== 'local' && k !== 'custom') : [null];
@@ -89,4 +115,5 @@ if(human){
   process.stdout.write(JSON.stringify(env) + '\n');
 }
 const v = env.value && env.value.verdict;
-process.exit(env.refusal ? 2 : (v === 'fail' || v === 'render_error') ? 1 : 0);
+const anyPass = Array.isArray(env.value) && env.value.some(r => r && (r.verdict === 'pass' || r.verdict === 'works'));
+process.exit(env.refusal ? 2 : Array.isArray(env.value) ? (anyPass ? 0 : 1) : (v === 'fail' || v === 'render_error' || v === 'no_part') ? 1 : 0);

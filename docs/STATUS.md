@@ -160,6 +160,22 @@ one `Gen N:` line per iteration) is the history; this is the state.
   - **Not tested live:** this sandbox reaches none of the providers except Google, without a key.
   - `docs/PROVIDER-TESTS.md` is the checklist for a new key: in the app, and with the check.
 
+- **Gen 36** — the app's Generate loop, headless, for any model.
+  - **What it does:** `node headless/cli.mjs design "<request>" --endpoint … --model …` has the
+    model design and PartForge check. Every failure goes back with the app's own
+    `retryPromptFor` text, within the app's `gateRetryBudget`.
+  - **Contract floor:** an attempt that declares less than the first is never chosen, and the
+    model is told so.
+  - **Code blocks:** a reply without a code block is asked once for the file.
+  - **Comparing models:** `--models a:x,b:y` runs the same request on several models side by
+    side.
+  - **Tested** against scripted mock models (4 checks in `node tests/run.mjs`):
+    - one fixes its part from the retry prompt;
+    - one never does and stops at the budget;
+    - one forgets the code block;
+    - one passes by deleting its SPEC and is not chosen; its honest third attempt is.
+  - **Not run live:** no provider is reachable from this sandbox.
+
 ## Open, with numbers
 
 1. **The SPEC part batch re-renders the part.** For containment and joint checks the SPEC
