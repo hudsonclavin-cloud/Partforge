@@ -409,7 +409,7 @@ rule.
 | Connection | Key | Browser use from this page |
 |---|---|---|
 | OpenAI Platform | `sk-proj-…` | works (verified) |
-| Google Gemini (free tier, key from aistudio.google.com) | `AIza…` | works — CORS preflight measured 2026-10-05 |
+| Google Gemini (free tier, key from aistudio.google.com) | `AIza…` or `AQ.…` | works — CORS preflight and a live design run measured 2026-10-05 |
 | Groq · Mistral · OpenRouter · Cohere (trial) · Z.ai · NVIDIA NIM · Hugging Face · Ollama Cloud | each service's own | not yet verified — Test tells you |
 | Kilo Code gateway · OVHcloud AI Endpoints | **none** | not yet verified |
 | LLM7.io | optional free token | not yet verified |

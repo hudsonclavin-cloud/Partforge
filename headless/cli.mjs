@@ -14,7 +14,7 @@
 //   partforge provider-check --all           (every endpoint with a key in the environment, plus the no-key ones)
 //   partforge provider-check --base https://…/v1 --key K --model M     (any OpenAI-compatible endpoint)
 //   partforge design "a 6 in centering ring for a 54 mm motor" --endpoint gemini [--grade flight] [--retries N] [--out part.scad]
-//   partforge design "…" --models gemini:gemini-2.5-flash,groq:openai/gpt-oss-120b   (same prompt, several models, compared)
+//   partforge design "…" --models gemini:gemini-3.6-flash,groq:openai/gpt-oss-120b   (same prompt, several models, compared)
 //     keys come from OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, OPENROUTER_API_KEY,
 //     COHERE_API_KEY, ZAI_API_KEY, NVIDIA_API_KEY, HF_TOKEN, OLLAMA_API_KEY, LLM7_TOKEN; never printed
 //   --human: the summary line, the failures and the view link instead of JSON

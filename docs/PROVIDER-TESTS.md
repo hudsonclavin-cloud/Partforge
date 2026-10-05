@@ -15,7 +15,7 @@ under **Connection**.
 | # | Do | Expect | If not |
 |---|---|---|---|
 | A1 | Paste the key, press **Test key & endpoint** | `Connected — credential accepted · N models visible` | 401: the key is wrong for *this* endpoint · CORS: use the local proxy (below) · "Neither request reached": an extension, VPN or network is blocking it |
-| A2 | Open the **Model** field's suggestions | the models Test just listed | type the id exactly as listed (Groq: `openai/gpt-oss-120b`, Gemini: `gemini-2.5-flash`) |
+| A2 | Open the **Model** field's suggestions | the models Test just listed | type the id exactly as listed (Groq: `openai/gpt-oss-120b`, Gemini: `gemini-3.6-flash`) |
 | A3 | Pick a model, press Test again | `· selected model is available` | the id is misspelled, or your account cannot use that model |
 | A4 | Paste a key from a *different* provider (e.g. a Groq `gsk_` key under Gemini), press **Save** | Save is refused: "That looks like a Groq key…" | that's a bug, report it |
 | A5 | Switch Connection to another endpoint and back | each endpoint shows its own key | that's a bug, report it |
@@ -39,7 +39,7 @@ For each endpoint it:
 
 Example output:
 
-    gemini       gemini-2.5-flash    models 41  chat 612ms  design PASS  → works
+    gemini       gemini-3.6-flash    models 61  chat 612ms  design PASS  → works
     groq         openai/gpt-oss-120b models 19  chat 288ms  design PASS  → works
     kilo         kilo-auto/free      models 12  chat 1904ms design fail  → reachable_but_design_failed
         design: Part does not rest on Z=0
@@ -68,9 +68,9 @@ plus one design call per endpoint. On free tiers that is well inside the limits,
 ## B2. Which model designs best? Compare them on a real part
 
     node cli.mjs design "a 40 x 40 x 5 mm spacer plate with a 6.6 mm centre hole" \
-      --models gemini:gemini-2.5-flash,groq:openai/gpt-oss-120b,kilo:kilo-auto/free --human
+      --models gemini:gemini-3.6-flash,groq:openai/gpt-oss-120b,kilo:kilo-auto/free --human
     node cli.mjs design "a 6 in centering ring for a 54 mm motor, 8 mm thick" \
-      --models gemini:gemini-2.5-flash,groq:openai/gpt-oss-120b --grade flight --human
+      --models gemini:gemini-3.6-flash,groq:openai/gpt-oss-120b --grade flight --human
 
 Each model gets the app's full Generate loop: the design, PartForge's checks, then the app's
 retry prompt for each failure. You see how many attempts each needed and whether it got there.

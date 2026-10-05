@@ -32,7 +32,8 @@ export function resolve({ endpoint, base, key, model } = {}){
 const headersFor = (key) => core.PROVIDERS.openai.headers(key);
 async function asJson(res){ const t = await res.text(); try { return JSON.parse(t); } catch(e){ return { _text: t.slice(0, 300) }; } }
 function httpError(conn, status, data){
-  const detail = (data && (data.error?.message || data.message || data._text)) || '';
+  // the app's own reader: Google sends [{error:{message}}], OpenAI {error:{message}}
+  const detail = core.errorDetail(data) || (data && data._text) || '';
   return `HTTP ${status}: ${core.apiHttpError(status, String(detail), conn.base)}`;
 }
 
@@ -42,16 +43,26 @@ export async function listModels(conn, { timeoutMs = 30000 } = {}){
   const res = await fetch(conn.base + '/models', { headers: conn.key ? { authorization: 'Bearer ' + conn.key } : {}, signal: AbortSignal.timeout(timeoutMs) });
   const data = await asJson(res);
   if(!res.ok) throw new Error(httpError(conn, res.status, data));
-  const ids = Array.isArray(data?.data) ? data.data.map(m => m.id).filter(Boolean) : [];
+  // Google lists "models/gemini-…" and is called with the bare id: compare and report bare, as the app does
+  const ids = Array.isArray(data?.data) ? [...new Set(data.data.map(m => core.modelIdBare(m.id)).filter(Boolean))] : [];
   return { ids, ms: Math.round(performance.now() - t0) };
 }
 
+export const RETRY_WAITS_MS = (process.env.PF_RETRY_WAITS_MS || '5000,15000,40000').split(',').map(Number).filter(n => n >= 0);
 /** One chat completion with the app's own request body. */
 export async function chat(conn, system, messages, { maxTokens = 1500, timeoutMs = 180000 } = {}){
   const prov = core.PROVIDERS.openai, t0 = performance.now();
   const body = prov.body(system, messages, maxTokens, false, { model: conn.model });
-  const res = await fetch(prov.url(conn.base), { method: 'POST', headers: headersFor(conn.key), body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) });
-  const data = await asJson(res);
+  // Free tiers shed load: Gemini answers 503 "high demand" and 429 when a minute's quota is spent.
+  // Both are temporary, so they are retried with backoff (honouring Retry-After) before failing.
+  let res, data;
+  for(let attempt = 0; ; attempt++){
+    res = await fetch(prov.url(conn.base), { method: 'POST', headers: headersFor(conn.key), body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) });
+    data = await asJson(res);
+    if(!(res.status === 503 || res.status === 429) || attempt >= RETRY_WAITS_MS.length) break;
+    const after = +res.headers.get('retry-after');
+    await new Promise(r => setTimeout(r, after > 0 && after < 120 ? after * 1000 : RETRY_WAITS_MS[attempt]));
+  }
   if(!res.ok) throw new Error(httpError(conn, res.status, data));
   const text = prov.parse(data);
   const [tin, tout] = prov.usage(data);
@@ -133,10 +144,13 @@ export async function design(conn, prompt, { grade = 'hobby', maxRetries, onAtte
   let best = null, floor = null, budget = maxRetries ?? 2, tokensOut = 0;
   for(let n = 1; n <= 1 + budget; n++){
     let r;
-    try { r = await chat(conn, system, messages, { maxTokens: grade === 'flight' ? 16000 : 9000 }); }
-    catch(err){ attempts.push({ n, verdict: 'api_error', error: String(err.message || err).slice(0, 300) }); break; }
+    // a flight-grade file from a thinking model can take minutes to write
+    try { r = await chat(conn, system, messages, { maxTokens: grade === 'flight' ? 16000 : 9000, timeoutMs: grade === 'flight' ? 420000 : 240000 }); }
+    catch(err){ attempts.push({ n, verdict: 'api_error', error: String(err.message || err).slice(0, 300) }); onAttempt && onAttempt(attempts.at(-1)); break; }
     tokensOut += r.tokens_out || 0;
     messages.push({ role: 'assistant', content: r.text });
+    // PF_TRANSCRIPT=file.jsonl keeps every reply, for seeing what a model actually sent
+    if(process.env.PF_TRANSCRIPT) (await import('node:fs')).appendFileSync(process.env.PF_TRANSCRIPT, JSON.stringify({ model: conn.model, n, ms: r.ms, tokens_out: r.tokens_out, text: r.text }) + '\n');
     const code = parseCode(r.text);
     if(!code){
       attempts.push({ n, verdict: 'no_code', ms: r.ms });

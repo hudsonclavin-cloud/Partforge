@@ -57,9 +57,9 @@ test('every endpoint resolves from its own base URL, and keyless ones need no ke
   for(const k of ['kilo', 'ovh', 'llm7', 'local']) assert.equal(endpointNeedsKey(ENDPOINTS[k].base), false, k);
   for(const k of ['openai', 'gemini', 'groq', 'openrouter']) assert.equal(endpointNeedsKey(ENDPOINTS[k].base), true, k);
   // a key's shape names its provider, and no two distinctive prefixes claim the same key
-  const samples = { gemini:'AIzaSyD-x', groq:'gsk_x', openrouter:'sk-or-v1-x', nvidia:'nvapi-x', huggingface:'hf_x' };
+  const samples = { gemini:'AIzaSyD-x', geminiAQ:'AQ.Ab8x', groq:'gsk_x', openrouter:'sk-or-v1-x', nvidia:'nvapi-x', huggingface:'hf_x' };
   for(const [owner, key] of Object.entries(samples))
-    assert.deepEqual(Object.entries(ENDPOINTS).filter(([k, e]) => e.prefix && e.prefix.test(key)).map(([k]) => k), [owner], key);
+    assert.deepEqual(Object.entries(ENDPOINTS).filter(([k, e]) => e.prefix && e.prefix.test(key)).map(([k]) => k), [owner.replace(/AQ$/, '')], key);
 });
 
 test('settings presents unambiguous OpenRouter and local OpenAI routes', () => {

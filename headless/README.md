@@ -55,7 +55,7 @@ the app's extracted `ENDPOINTS`, `PROVIDERS.openai.body`, system prompt, first t
 ## Let a model design, and PartForge judge it
 
     node cli.mjs design "a 6 in centering ring for a 54 mm motor" --endpoint gemini --grade flight --human --out ring.scad
-    node cli.mjs design "…" --models gemini:gemini-2.5-flash,groq:openai/gpt-oss-120b,kilo:kilo-auto/free --human
+    node cli.mjs design "…" --models gemini:gemini-3.6-flash,groq:openai/gpt-oss-120b,kilo:kilo-auto/free --human
 
 This is the app's Generate loop without the page.
 - **Same inputs:** the same system prompt and first turn as the app.

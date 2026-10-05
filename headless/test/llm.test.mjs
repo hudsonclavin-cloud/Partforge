@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 process.env.PARTFORGE_CACHE = fs.mkdtempSync(path.join(os.tmpdir(), 'pf-llm-'));
+process.env.PF_RETRY_WAITS_MS = '20,20';   // the real waits are 5 s / 15 s / 40 s
 const llm = await import('../llm.mjs');
 const { shutdown } = await import('../partforge.mjs');
 
@@ -26,6 +27,7 @@ const SCRIPTS = {
   shy: ['I would make a square plate with a hole.', PLATE],
   dropper: [twoPart('plate();'), twoPart('plate();', false), twoPart('plate(); boss();')],
 };
+let busyCalls = 0;
 const seen = [];
 const server = http.createServer(async (req, res) => {
   let body = ''; for await (const c of req) body += c;
@@ -34,6 +36,9 @@ const server = http.createServer(async (req, res) => {
   const send = (status, obj) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
   if(req.headers.authorization === 'Bearer bad') return send(401, { error: { message: 'Incorrect API key provided' } });
   if(req.url === '/v1/models') return send(200, { data: [{ id: 'good' }, { id: 'gpt-5.9' }, { id: 'chatty' }] });
+  // Google's overload answer, in Google's error shape, on the first two calls for this model
+  if(j.model === 'busy' && (busyCalls++) < 2) return send(503, [{ error: { code: 503, message: 'This model is currently experiencing high demand.' } }]);
+  if(j.model === 'broke') return send(429, [{ error: { code: 429, message: 'You exceeded your current quota' } }]);
   // the GPT-5 family refuses the classic field, exactly as OpenAI does
   if(/^gpt-5/.test(j.model) && 'max_tokens' in j) return send(400, { error: { message: "Unsupported parameter: 'max_tokens'. Use 'max_completion_tokens' instead." } });
   const ping = /single word OK/.test(JSON.stringify(j.messages));
@@ -122,4 +127,16 @@ test('design: the contract floor — deleting a declaration to pass is never the
   assert.equal(r.value.chosen, 3, 'the honest pass is chosen, not the one that dropped its SPEC');
   const told = seen.filter(x => x.body.model === 'dropper' && x.body.messages).pop().body.messages.at(-1).content;
   assert.match(told, /declares less than your first one/);
+});
+
+test('an overloaded model (503) is retried, and the call then succeeds', async () => {
+  const r = await llm.providerCheck(llm.resolve({ base, key: 'k', model: 'busy' }), { design: false });
+  assert.equal(r.verdict, 'reachable', JSON.stringify(r.steps));
+  assert.equal(busyCalls, 3, 'two 503s, then the answer');
+});
+
+test('a quota that stays spent (429) fails with the provider\'s own words, read from Google\'s error shape', async () => {
+  const r = await llm.providerCheck(llm.resolve({ base, key: 'k', model: 'broke' }), { design: false });
+  assert.equal(r.verdict, 'unusable');
+  assert.match(r.steps.chat.error, /HTTP 429[\s\S]*You exceeded your current quota/);
 });
