@@ -176,6 +176,18 @@ one `Gen N:` line per iteration) is the history; this is the state.
     - one passes by deleting its SPEC and is not chosen; its honest third attempt is.
   - **Not run live:** no provider is reachable from this sandbox.
 
+- **Live: Gemini through PartForge** (2026-10-05, `docs/runs/2026-10-05-gemini/`). This was the
+  first run against a real model API, `gemini-3.6-flash` on the free tier.
+  - **Provider check:** works.
+  - **Hobby plate:** passed on attempt 1.
+  - **Flight centering ring for a 54 mm motor:** failed attempt 1 on an undeclared bolt grade,
+    which the gate refused to assume. After the app's retry prompt, it passed on attempt 2:
+    every dimension in tolerance, bolt SF 6.3 against 2.0.
+  - **No confabulation:** every external number the model used (LOC MMT-2.14 OD, 152.4 mm
+    airframe ID, Loki L2050 3,331 N peak) is in the reference data PartForge handed it.
+  - **The rest of that day's Gemini lineup:** `gemini-2.5-flash` is closed to new users,
+    `3.8/3.7/3.5-flash` were overloaded (503), and `flash-latest` was out of quota (429).
+
 ## Open, with numbers
 
 1. **The SPEC part batch re-renders the part.** For containment and joint checks the SPEC
