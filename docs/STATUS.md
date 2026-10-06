@@ -188,6 +188,16 @@ one `Gen N:` line per iteration) is the history; this is the state.
   - **The rest of that day's Gemini lineup:** `gemini-2.5-flash` is closed to new users,
     `3.8/3.7/3.5-flash` were overloaded (503), and `flash-latest` was out of quota (429).
 
+- **Flight ring × 5, live** (2026-10-06, `docs/runs/2026-10-06-gemini-flight-x5/`).
+  - **Results:** with the first run, 6 of 6 passed by attempt 2, and 0 of 6 on attempt 1. Five
+    of the six first attempts failed on one point: a bolt check with no bolt grade.
+  - **Cause:** PartForge's flight doctrine said the grade defaulted to 8.8 and showed an example
+    without one, while the check refuses to assume a grade.
+  - **Fix:** the doctrine now requires the grade.
+  - **After the fix:** the next run passed on attempt 1. Two more runs were blocked by Gemini's
+    free-tier quota (429).
+  - **Remaining gap:** that ring did not add the NOTE naming the grade to buy.
+
 ## Open, with numbers
 
 1. **The SPEC part batch re-renders the part.** For containment and joint checks the SPEC
