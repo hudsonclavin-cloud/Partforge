@@ -55,3 +55,17 @@ the doctrine now asks for, naming the grade to buy, so that part of the instruct
 followed.
 
 Files: `ring1.scad` … `ring5.scad`, `ring6-after-doctrine-fix.scad`.
+
+## The requested 5-run follow-up: blocked by the provider, no new evidence
+
+A further batch of 5 post-fix runs (`gemini-3.6-flash`, same key) produced **no designs**:
+- **Runs 9 and 10, first try:** Gemini answered HTTP 503 "high demand" through every retry, for
+  up to 7 minutes. At that point every full Flash model (3.5, 3.6, 3.7, 3.8) answered 503, and
+  only `gemini-3.5-flash-lite` answered. The batch waited for 3.6 rather than switch to a
+  different model, since results from another model would not be comparable.
+- **Runs 9 and 10, after the wait:** 3.6 answered a probe again after about 2 minutes. Run 9
+  then got 503 on the long design request, and run 10 got 429 "exceeded your current quota". The
+  batch stopped there.
+
+The post-fix evidence is still **one run: one first-attempt pass**. This is a provider-capacity
+limit, not a design result: none of these attempts reached PartForge's gate.
