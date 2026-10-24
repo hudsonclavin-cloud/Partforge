@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d1117">
+<meta name="description" content="An educational sketch of how a computational-engineering workflow for a rocket engine could be organised: requirements, domain models, geometry, checks, an evidence ledger and human review. Not a design tool, and separate from PartForge's part checks.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1117'/%3E%3Cpath d='M8 24V8h10a6 6 0 0 1 0 12h-6v4z' fill='none' stroke='%23e8833a' stroke-width='2.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>Engine Design Study — PartForge (educational)</title>
+<!-- A separate page on purpose. It shares the app's colours and nothing else: no script, check,
+     table, template or prompt from index.html is read or changed here, and nothing here feeds
+     back into flight-part readiness. Every number on this page is dimensionless and synthetic;
+     tests/engine-study.test.mjs holds it to that. -->
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2129; --border:#2d333b;
+    --text:#e6edf3; --dim:#8b949e; --accent:#e8833a; --accent2:#f0a35e;
+    --good:#3fb950; --warn:#d29922; --bad:#f85149; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    /* evidence classes, shared by the map, the ledger and the chart (validated for this surface:
+       lightness band, chroma, CVD separation and 3:1 contrast all pass) */
+    --computed:#d0752c; --measured:#3f8fdc; --assistant:#9085e9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  a{color:var(--accent2)}
+  header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:10}
+  header .logo{font-weight:700;font-size:16px;letter-spacing:.3px;color:var(--text);text-decoration:none}
+  header .logo span{color:var(--accent)}
+  header .sub{color:var(--dim);font-size:12px;display:none}
+  @media(min-width:700px){header .sub{display:block}}
+  header .spacer{flex:1}
+  .btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block}
+  .btn:hover{border-color:var(--accent)}
+  .btn.small{padding:4px 10px;font-size:12px;border-radius:6px}
+  @media(pointer:coarse){.btn.small{min-height:44px;padding:12px 14px}}
+
+  main{max-width:1120px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:18px}
+  section{scroll-margin-top:64px}
+  h1{font-size:22px;line-height:1.3}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin-bottom:10px}
+  h3{font-size:14px;color:var(--accent2);margin:14px 0 6px}
+  p{margin-bottom:10px;max-width:78ch}
+  p:last-child{margin-bottom:0}
+  ul,ol{padding-left:20px;max-width:80ch}
+  li{margin-bottom:6px}
+  .card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:16px}
+  .lede{color:var(--dim);font-size:15px;max-width:78ch}
+  .dim{color:var(--dim)}
+  .small{font-size:12.5px}
+  code{font-family:var(--mono);font-size:12.5px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0 4px}
+  .label{display:inline-block;font:600 10.5px var(--mono);letter-spacing:.3px;padding:0 6px;border-radius:4px;border:1px solid var(--border);color:var(--dim);vertical-align:1px}
+  nav.toc{display:flex;flex-wrap:wrap;gap:6px}
+  nav.toc a{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:4px 12px;font-size:12px;text-decoration:none}
+  nav.toc a:hover{border-color:var(--accent);color:var(--accent2)}
+  @media(pointer:coarse){nav.toc a{padding:12px 14px}}
+
+  /* the scope notice: the one thing on the page that must not be missed */
+  #scope{border:1px solid rgba(210,153,34,.55);background:rgba(210,153,34,.10);border-radius:10px;padding:14px 16px}
+  #scope strong{color:var(--warn);display:block;font-size:15px;margin-bottom:4px}
+  #scope p{max-width:none}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:820px){.grid2,.grid3{grid-template-columns:1fr}}
+  .stage{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px}
+  .stage .n{font:600 11px var(--mono);color:var(--accent2)}
+  .stage h3{margin:2px 0 6px;color:var(--text)}
+  .stage dl{font-size:12.5px}
+  .stage dt{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-top:6px}
+  .stage dd{margin:0}
+  .has li::marker{color:var(--good)}
+  .hasnot li::marker{color:var(--dim)}
+
+  /* systems map */
+  .mapwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:10px;background:var(--panel)}
+  #map{display:block;width:100%;min-width:760px;height:auto}
+  #map .box{fill:var(--panel2);stroke:var(--border);stroke-width:1.5}
+  #map .node{cursor:pointer;outline:none}
+  #map .node:hover .box,#map .node:focus-visible .box{stroke:var(--text)}
+  #map .node.sel .box{stroke:var(--accent2);stroke-width:2.5}
+  #map .k-computed .box{stroke:var(--computed)}
+  #map .k-measured .box{stroke:var(--measured)}
+  #map .k-assistant .box{stroke:var(--assistant);stroke-dasharray:6 4}
+  #map .group{fill:none;stroke:var(--computed);stroke-width:1.5;stroke-dasharray:2 3}
+  #map text{fill:var(--text);font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-anchor:middle;pointer-events:none}
+  #map text.s{fill:var(--dim);font-weight:400;font-size:11px}
+  #map text.t{font-size:12px}
+  #map text.lab{fill:var(--dim);font-weight:400;font-size:10.5px;text-anchor:start}
+  #map text.lab.mid{text-anchor:middle}
+  #map text.lab.end{text-anchor:end}
+  #map text.warnlab{fill:var(--assistant);font-weight:400;font-size:10.5px}
+  #map .flow{fill:none;stroke:var(--dim);stroke-width:1.5}
+  #map .flow.prop{stroke:var(--assistant);stroke-dasharray:5 4}
+  #map .flow.meas{stroke:var(--measured)}
+  #map .pfbadge{font:600 10px var(--mono);text-anchor:end}
+  #map.pf .pf-none{opacity:.38}
+  #map:not(.pf) .pfbadge{display:none}
+  .maplegend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--dim);margin-top:10px}
+  .maplegend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{display:inline-block;width:22px;height:12px;border-radius:3px;border:2px solid var(--border);background:var(--panel2)}
+  .sw.computed{border-color:var(--computed)} .sw.measured{border-color:var(--measured)} .sw.assistant{border:2px dashed var(--assistant)}
+  .ln{display:inline-block;width:22px;height:0;border-top:2px solid var(--dim)}
+  .ln.prop{border-top:2px dashed var(--assistant)}
+  .ln.meas{border-top-color:var(--measured)}
+  #nodeInfo{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:12px;min-height:96px}
+  #nodeInfo h3{margin-top:0;color:var(--text)}
+  #nodeInfo dl{display:grid;grid-template-columns:150px 1fr;gap:4px 12px;font-size:13px}
+  #nodeInfo dt{color:var(--dim)}
+  @media(max-width:600px){#nodeInfo dl{grid-template-columns:1fr}#nodeInfo dt{margin-top:6px}}
+  .toggle{display:inline-flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;user-select:none}
+  .toggle input{width:16px;height:16px;accent-color:var(--accent)}
+  @media(pointer:coarse){.toggle{min-height:44px}.toggle input{width:22px;height:22px}}
+  details{margin-top:10px}
+  summary{cursor:pointer;color:var(--accent2);font-size:13px}
+  details[open] summary{margin-bottom:8px}
+  @media(pointer:coarse){summary{padding:10px 0}}
+
+  /* evidence ledger */
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .chip{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer}
+  .chip:hover{border-color:var(--accent)}
+  .chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent2);background:rgba(232,131,58,.12)}
+  @media(pointer:coarse){.chip{min-height:44px;padding:10px 14px}}
+  .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table.ledger{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1040px}
+  table.ledger th{text-align:left;font-weight:600;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:bottom}
+  table.ledger td{padding:8px;border-bottom:1px solid var(--border);vertical-align:top}
+  table.ledger td.id{font-family:var(--mono);color:var(--accent2);white-space:nowrap}
+  table.ledger td.claim{font-weight:600;min-width:180px}
+  table.ledger tr[hidden]{display:none}
+  @media(max-width:820px){
+    table.ledger{min-width:0}
+    table.ledger thead{display:none}
+    table.ledger,table.ledger tbody,table.ledger tr,table.ledger td{display:block}
+    table.ledger tr{border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:10px;background:var(--bg)}
+    table.ledger td{border:none;padding:3px 0}
+    table.ledger td::before{content:attr(data-label);display:block;color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px}
+  }
+  .cls{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid var(--border);color:var(--text)}
+  .cls.measured{border-color:var(--measured)}
+  .cls.computed{border-color:var(--computed)}
+  .cls.cited{border-style:solid}
+  .cls.illustrative{border-style:dotted;color:var(--dim)}
+  .cls.unknown{border-style:dashed;color:var(--dim)}
+  .st{font-size:12px}
+  .st b{font-family:var(--mono);font-size:11px;font-weight:600}
+  .tally{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;color:var(--dim);margin-top:8px}
+  .tally b{color:var(--text);font-family:var(--mono)}
+
+  /* synthetic chart */
+  #chartBox{position:relative;margin-top:8px}
+  #chart{display:block;width:100%}
+  #chart .grid{stroke:var(--border);stroke-width:1}
+  #chart .axis text{fill:var(--dim);font:11px var(--mono)}
+  #chart .axlab{fill:var(--dim);font:11px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  #chart .env{fill:rgba(139,148,158,.13)}
+  #chart .envlab{fill:var(--dim);font:11px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  #chart .band{fill:var(--computed);fill-opacity:.17}
+  #chart .model{fill:none;stroke:var(--computed);stroke-width:2;stroke-linejoin:round}
+  #chart .truth{fill:none;stroke:var(--measured);stroke-width:2;stroke-dasharray:6 4}
+  #chart .cal{fill:var(--panel);stroke:var(--measured);stroke-width:2}
+  #chart .pick{fill:none;stroke:var(--text);stroke-width:2}
+  #chart .picklab{fill:var(--text);font:600 11.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  #chart .cross{stroke:var(--dim);stroke-width:1;stroke-dasharray:3 3}
+  #chart .wm{fill:var(--dim);fill-opacity:.55;font:600 11px var(--mono);letter-spacing:1px}
+  #tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;line-height:1.5;display:none;white-space:nowrap;z-index:2}
+  #tip b{font-family:var(--mono);font-weight:500}
+  .synth{display:inline-block;font:700 11px var(--mono);letter-spacing:.6px;color:var(--warn);border:1px solid rgba(210,153,34,.55);border-radius:4px;padding:0 6px}
+  .chartlegend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--dim);margin-top:6px}
+  .chartlegend span{display:inline-flex;align-items:center;gap:6px}
+  .chartlegend .band{display:inline-block;width:22px;height:12px;background:var(--computed);opacity:.3;border-radius:2px}
+  .chartlegend .env{display:inline-block;width:22px;height:12px;background:rgba(139,148,158,.3);border-radius:2px}
+  .chartlegend .dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid var(--measured)}
+  .chartlegend .ln.model{border-top-color:var(--computed)}
+  .chartlegend .ln.truth{border-top:2px dashed var(--measured)}
+  .controls{display:flex;flex-wrap:wrap;gap:6px 20px;margin:8px 0}
+  #readout{font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-top:8px}
+  #readout b{font-family:var(--mono);font-weight:500}
+  table.plain{border-collapse:collapse;font-size:12px;font-family:var(--mono)}
+  table.plain th,table.plain td{padding:2px 10px;border-bottom:1px solid var(--border);text-align:right}
+  table.plain th{color:var(--dim);font-weight:500}
+
+  footer{max-width:1120px;margin:0 auto;padding:0 16px 32px;color:var(--dim);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="index.html" title="Back to the PartForge app">Part<span>Forge</span></a>
+  <div class="sub">Engine Design Study — an educational page, separate from flight-part readiness</div>
+  <div class="spacer"></div>
+  <a class="btn small" href="index.html">← Back to PartForge</a>
+</header>
+
+<main>
+  <section>
+    <h1>Engine Design Study</h1>
+    <p class="lede">How might a computational-engineering system for a rocket engine be organised so that its
+      output means something? This page sketches one answer. It does not design anything.</p>
+  </section>
+
+  <section id="scope" role="note" aria-label="Scope notice">
+    <strong>Educational concept only. Not for fabrication, testing, or flight.</strong>
+    <p>No engine dimensions, propellant recipes, injector specifications, operating setpoints, or build instructions
+      appear on this page. PartForge contains no propulsion, combustion, thermal or structural solver that could produce
+      them. Every data value shown here is <b>synthetic and dimensionless</b>. This page changes nothing in PartForge's
+      generation prompt, flight doctrine, reference data, templates, checks or exports.</p>
+  </section>
+
+  <nav class="toc" aria-label="On this page">
+    <a href="#why">Why this page exists</a>
+    <a href="#today">What PartForge checks today</a>
+    <a href="#workflow">The workflow</a>
+    <a href="#map-section">Systems map</a>
+    <a href="#ledger">Evidence ledger</a>
+    <a href="#envelope">Synthetic chart</a>
+    <a href="#credible">Before analysis is credible</a>
+    <a href="#not">What this page does not establish</a>
+    <a href="#refs">References</a>
+  </nav>
+
+  <section id="why" class="card">
+    <h2>Why this page exists</h2>
+    <p>LEAP 71 describes its Noyron system as a large computational engineering model. It encodes physics, engineering
+      logic, production constraints and feedback from tests as software that generates engine geometry from a specification.
+      The company has reported hot-fire tests of engines it generated this way. <span class="label">company claims, as reported; not evaluated here</span></p>
+    <p>Look at what carries the weight in that description: <b>encoded physics and test feedback</b>. The geometry
+      is the output. The evidence that it works came from hardware on a test stand. A language model that writes
+      plausible engine code has neither. The same goes for a mesh that looks like an engine, or a geometry check that
+      passes.</p>
+    <p>None of this is new. NASA's 1989 "rocket engine design expert system" combined three things: a JANNAF standard
+      reference performance code, a finite-element model of how injection, combustion and cooling interact, and
+      rule-of-thumb injector heuristics. The "expert" part was the heuristics. The numbers came from the codes. So the
+      useful question for PartForge is how to keep a system like that honest about what each part of it knows, not how
+      to make an LLM design an engine.</p>
+  </section>
+
+  <section id="today" class="card">
+    <h2>What PartForge checks today, and what it does not</h2>
+    <p>PartForge's flight grade is for passive rocket-club parts: couplers, bulkheads, centering rings, retainers, fins,
+      nose cones and sleds. Its checks work on <b>declared part geometry, measurements of the mesh, reference data and
+      documents</b>. They are not validated propulsion, combustion, thermal or structural solvers, and nothing on this
+      page changes that.</p>
+    <div class="grid2">
+      <div>
+        <h3>Checks it runs (for parts)</h3>
+        <ul class="has small">
+          <li>The finished mesh is measured against the part's own FLIGHT declaration: bores, hole patterns, outside diameters,
+            extents, revolved profiles and go/no-go gauges.</li>
+          <li>Closed-form engineering checks are recomputed from declared inputs: Lamé thick-wall stress, fin flutter, thread
+            engagement, bolt shear. Room-temperature, typical material values.</li>
+          <li>Mass, centre of gravity and inertia are computed from the mesh at the material's density.</li>
+          <li>Reference-data lookups (airframes, motors, fits, O-rings, fasteners), each with its source and a confidence label.</li>
+          <li>Every tolerance and load input is tagged <i>cited</i>, <i>user</i> or <i>tool default</i>. A check computed from
+            tool defaults reports COMPUTED, not PASS.</li>
+          <li>A part with a hot-gas path or a pressure boundary is classed tier B and gets an interface drawing with a blank
+            inspection column and a list of missing evidence ("hot fire for a nozzle"). Energetic hardware is tier C: geometry
+            is never a sign-off.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Things it does not model at all</h3>
+        <ul class="hasnot small">
+          <li>Thermochemistry or theoretical performance</li>
+          <li>Internal flow, nozzle flow or losses</li>
+          <li>Heat transfer, wall temperature or cooling</li>
+          <li>Combustion stability, injection or mixing</li>
+          <li>Finite-element stress, thermal stress, fatigue or creep</li>
+          <li>Material properties at temperature, or for a specific additive process</li>
+          <li>Transients: start-up, shutdown, throttling</li>
+          <li>Inspection of the as-built article, and tests of any kind</li>
+        </ul>
+        <p class="small dim">The project's own roadmap evaluated browser FEA, CFD, modal analysis and thermal stress, and
+          declined all four. Each could print a confident number that is wrong in the dangerous direction
+          (<code>docs/roadmap-evaluation.md</code>, "Do not build").</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="workflow" class="card">
+    <h2>The proposed workflow</h2>
+    <p>Six stages. The loop closes through test results, not through the language model.</p>
+    <div class="grid3">
+      <div class="stage">
+        <div class="n">1</div>
+        <h3>Requirements &amp; assumptions</h3>
+        <dl>
+          <dt>Produces</dt><dd>Targets with units, a source and a tolerance for each; written assumptions; an explicit out-of-scope list.</dd>
+          <dt>If skipped</dt><dd>The optimizer works hard on the wrong problem, and nobody can tell.</dd>
+          <dt>PartForge today</dt><dd>For parts: the SPEC and FLIGHT declarations.</dd>
+        </dl>
+      </div>
+      <div class="stage">
+        <div class="n">2</div>
+        <h3>Domain models &amp; validity limits</h3>
+        <dl>
+          <dt>Produces</dt><dd>A registry of versioned models. Each states its assumptions and its <i>validity envelope</i>: the input range it was built and checked for.</dd>
+          <dt>If skipped</dt><dd>A number from outside an envelope looks exactly like a number from inside it.</dd>
+          <dt>PartForge today</dt><dd>Closed-form part checks only. No propulsion models.</dd>
+        </dl>
+      </div>
+      <div class="stage">
+        <div class="n">3</div>
+        <h3>Concept &amp; geometry representation</h3>
+        <dl>
+          <dt>Produces</dt><dd>Geometry generated by code from the model outputs (parametric or implicit), with a digest for every version.</dd>
+          <dt>If skipped</dt><dd>A hand edit breaks the chain from requirement to shape.</dd>
+          <dt>PartForge today</dt><dd>For parts: the OpenSCAD source is the record of the geometry.</dd>
+        </dl>
+      </div>
+      <div class="stage">
+        <div class="n">4</div>
+        <h3>Simulation &amp; constraint checks</h3>
+        <dl>
+          <dt>Produces</dt><dd>Coupled runs, sweeps and optimization. The constraints include "every model input stays inside that model's envelope".</dd>
+          <dt>If skipped</dt><dd>The optimizer finds the models' errors and reports them as performance (see the <a href="#envelope">chart</a>).</dd>
+          <dt>PartForge today</dt><dd>For parts: the geometry gate and the mesh CMM, against the part's own declaration.</dd>
+        </dl>
+      </div>
+      <div class="stage">
+        <div class="n">5</div>
+        <h3>Evidence, provenance, uncertainty, status</h3>
+        <dl>
+          <dt>Produces</dt><dd>A ledger row per claim: source, version, assumptions, uncertainty, evidence class, verification status, what remains unverified.</dd>
+          <dt>If skipped</dt><dd>A reviewer can no longer tell measured from computed from guessed.</dd>
+          <dt>PartForge today</dt><dd>For parts: cited / user / tool-default provenance, COMPUTED versus PASS, and tiers.</dd>
+        </dl>
+      </div>
+      <div class="stage">
+        <div class="n">6</div>
+        <h3>Human engineering review</h3>
+        <dl>
+          <dt>Produces</dt><dd>A decision: accept, reject, or order the test that would decide. Test results recalibrate the models, which gives new model versions and new ledger rows.</dd>
+          <dt>If skipped</dt><dd>Nobody is responsible for the result.</dd>
+          <dt>PartForge today</dt><dd>A person reads the sheet or drawing. No release status is issued for tier B or C parts.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section id="map-section" class="card">
+    <h2>Systems map <span class="label">non-operational</span></h2>
+    <p>Select a box to see what it can claim, what it cannot, and whether PartForge has anything like it today. The
+      language model sits outside the computation: it <b>proposes, summarizes and orchestrates</b>. The physics solvers
+      and the validation evidence are separate components. The model has no path that writes a verification status.</p>
+    <div class="controls">
+      <label class="toggle"><input type="checkbox" id="pfToggle"> Show what PartForge has today</label>
+    </div>
+    <div class="mapwrap">
+      <svg id="map" viewBox="0 0 960 540" role="group" aria-label="Systems map of the proposed workflow. Each box is a button that shows its details below.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8b949e"/></marker>
+          <marker id="ahp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9085e9"/></marker>
+          <marker id="ahm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3f8fdc"/></marker>
+        </defs>
+
+        <!-- flows: solid = data with provenance; dashed violet = proposal or summary, never evidence -->
+        <path class="flow" d="M200,75 H236" marker-end="url(#ah)"/>
+        <path class="flow" d="M420,75 H456" marker-end="url(#ah)"/>
+        <path class="flow" d="M670,75 H716" marker-end="url(#ah)"/>
+        <path class="flow" d="M830,110 V166" marker-end="url(#ah)"/>
+        <path class="flow" d="M670,205 H716" marker-end="url(#ah)"/>
+        <path class="flow" d="M565,268 V336" marker-end="url(#ah)"/>
+        <text class="lab end" x="557" y="306">computed, with model version</text>
+        <path class="flow" d="M760,240 V300 H640 V336" marker-end="url(#ah)"/>
+        <text class="lab" x="770" y="292">check results</text>
+        <path class="flow meas" d="M720,383 H674" marker-end="url(#ahm)"/>
+        <text class="lab mid" x="697" y="402">measured</text>
+        <path class="flow meas" d="M940,383 H952 V12 H565 V20" marker-end="url(#ahm)"/>
+        <text class="lab mid" x="830" y="30">test data recalibrates models (new version)</text>
+        <path class="flow prop" d="M240,383 H204" marker-end="url(#ahp)"/>
+        <text class="lab mid" x="222" y="402">reads</text>
+        <path class="flow prop" d="M110,340 V114" marker-end="url(#ahp)"/>
+        <text class="lab" x="116" y="232">drafts</text>
+        <path class="flow prop" d="M180,340 V200 H330 V114" marker-end="url(#ahp)"/>
+        <text class="lab" x="190" y="193">configures runs</text>
+        <path class="flow" d="M455,410 V452" marker-end="url(#ah)"/>
+        <path class="flow" d="M240,486 H10 V75 H16" marker-end="url(#ah)"/>
+        <text class="lab" x="14" y="476">revise or reject</text>
+        <path class="flow" d="M670,486 H830 V430" marker-end="url(#ah)"/>
+        <text class="lab" x="700" y="478">orders tests</text>
+
+        <g class="node k-people" data-id="req" tabindex="0" role="button" aria-label="Requirements and assumptions">
+          <rect class="box" x="20" y="40" width="180" height="70" rx="8"/>
+          <text x="110" y="70">Requirements</text>
+          <text class="s" x="110" y="90">&amp; assumptions, sourced</text>
+        </g>
+        <g class="node k-people" data-id="orch" tabindex="0" role="button" aria-label="Orchestrator, a coupled-model framework">
+          <rect class="box" x="240" y="40" width="180" height="70" rx="8"/>
+          <text x="330" y="70">Orchestrator</text>
+          <text class="s" x="330" y="90">couples models (MDAO)</text>
+        </g>
+
+        <rect class="group" x="460" y="24" width="210" height="244" rx="10"/>
+        <text class="s" x="565" y="44">Domain models (solvers)</text>
+        <g class="node k-computed" data-id="thermo" tabindex="0" role="button" aria-label="Thermochemistry model">
+          <rect class="box" x="472" y="56" width="186" height="34" rx="6"/>
+          <text class="t" x="565" y="78">Thermochemistry</text>
+        </g>
+        <g class="node k-computed" data-id="flow" tabindex="0" role="button" aria-label="Flow and performance model">
+          <rect class="box" x="472" y="98" width="186" height="34" rx="6"/>
+          <text class="t" x="565" y="120">Flow &amp; performance</text>
+        </g>
+        <g class="node k-computed" data-id="thermal" tabindex="0" role="button" aria-label="Heat transfer and cooling model">
+          <rect class="box" x="472" y="140" width="186" height="34" rx="6"/>
+          <text class="t" x="565" y="162">Heat transfer &amp; cooling</text>
+        </g>
+        <g class="node k-computed" data-id="struct" tabindex="0" role="button" aria-label="Structures model">
+          <rect class="box" x="472" y="182" width="186" height="34" rx="6"/>
+          <text class="t" x="565" y="204">Structures</text>
+        </g>
+        <g class="node k-computed" data-id="mfg" tabindex="0" role="button" aria-label="Manufacturing rules">
+          <rect class="box" x="472" y="224" width="186" height="34" rx="6"/>
+          <text class="t" x="565" y="246">Manufacturing rules</text>
+        </g>
+
+        <g class="node k-computed" data-id="geom" tabindex="0" role="button" aria-label="Geometry generator">
+          <rect class="box" x="720" y="40" width="220" height="70" rx="8"/>
+          <text x="830" y="70">Geometry generator</text>
+          <text class="s" x="830" y="90">code, never hand-drawn</text>
+        </g>
+        <g class="node k-computed" data-id="check" tabindex="0" role="button" aria-label="Constraint and consistency checks">
+          <rect class="box" x="720" y="170" width="220" height="70" rx="8"/>
+          <text x="830" y="200">Constraint checks</text>
+          <text class="s" x="830" y="220">margins · validity envelopes</text>
+        </g>
+
+        <g class="node k-assistant" data-id="llm" tabindex="0" role="button" aria-label="LLM assistant: proposes, summarizes, orchestrates. Not a solver and not evidence.">
+          <rect class="box" x="20" y="340" width="180" height="86" rx="8"/>
+          <text x="110" y="366">LLM assistant</text>
+          <text class="s" x="110" y="386">proposes · summarizes ·</text>
+          <text class="s" x="110" y="401">orchestrates</text>
+          <text class="s" x="110" y="417">not a solver · not evidence</text>
+        </g>
+        <text class="warnlab" x="110" y="446">no write access to</text>
+        <text class="warnlab" x="110" y="460">verification status</text>
+
+        <g class="node k-people" data-id="ledger" tabindex="0" role="button" aria-label="Evidence ledger">
+          <rect class="box" x="240" y="340" width="430" height="70" rx="8"/>
+          <text x="455" y="370">Evidence ledger</text>
+          <text class="s" x="455" y="390">claim · source · version · assumptions · uncertainty · status</text>
+        </g>
+        <g class="node k-measured" data-id="test" tabindex="0" role="button" aria-label="Validation evidence: tests and inspection, outside the software">
+          <rect class="box" x="720" y="340" width="220" height="86" rx="8"/>
+          <text x="830" y="366">Validation evidence</text>
+          <text class="s" x="830" y="386">tests · inspection · as-built</text>
+          <text class="s" x="830" y="402">outside the software</text>
+        </g>
+        <g class="node k-people" data-id="review" tabindex="0" role="button" aria-label="Human engineering review">
+          <rect class="box" x="240" y="456" width="430" height="60" rx="8"/>
+          <text x="455" y="482">Human engineering review</text>
+          <text class="s" x="455" y="501">reads the ledger, not the summary · accepts · rejects</text>
+        </g>
+      </svg>
+    </div>
+    <div class="maplegend" aria-hidden="true">
+      <span><i class="sw computed"></i>computed (models, geometry, checks)</span>
+      <span><i class="sw measured"></i>measured (physical evidence)</span>
+      <span><i class="sw assistant"></i>assistant (proposal, not evidence)</span>
+      <span><i class="sw"></i>people &amp; records</span>
+      <span><i class="ln"></i>data with provenance</span>
+      <span><i class="ln meas"></i>measured data</span>
+      <span><i class="ln prop"></i>proposal or summary</span>
+    </div>
+    <div id="nodeInfo" aria-live="polite"><p class="dim">Select a box in the map. On a narrow screen, scroll the map sideways.</p></div>
+    <details>
+      <summary>Read the map as text</summary>
+      <ol class="small">
+        <li>Requirements and assumptions go to the orchestrator, which runs the domain models: thermochemistry, flow and
+          performance, heat transfer and cooling, structures, and manufacturing rules.</li>
+        <li>Model outputs drive the geometry generator. Geometry and model outputs go to the constraint checks.</li>
+        <li>Model outputs (with their versions) and check results become <i>computed</i> rows in the evidence ledger.</li>
+        <li>Validation evidence from tests and inspection becomes <i>measured</i> rows in the ledger. It also recalibrates the
+          models, which produces new model versions.</li>
+        <li>The LLM assistant drafts requirements (a person accepts them), configures runs, and reads the ledger to
+          summarize it. It has no path that writes a verification status.</li>
+        <li>Human engineering review reads the ledger. It sends requirements back for revision or rejection, and orders tests.</li>
+      </ol>
+    </details>
+  </section>
+
+  <section id="ledger" class="card">
+    <h2>Evidence ledger — an example <span class="label">illustrative rows; no values</span></h2>
+    <p>One row per claim. The ledger's job is to make <b>"not established"</b> as visible as "established". The rows below
+      describe a hypothetical concept and deliberately carry no values. Their purpose is to show the fields and how the
+      statuses differ. The evidence classes follow PartForge's convention: <i>measured</i>, <i>computed</i>,
+      <i>cited</i>, <i>illustrative</i> and <i>unknown</i> are never merged.</p>
+    <div class="chips" id="ledgerFilter" role="group" aria-label="Filter rows by evidence class"></div>
+    <div class="tablewrap">
+      <table class="ledger" id="ledgerTable">
+        <thead><tr>
+          <th>ID</th><th>Claim</th><th>Source / model</th><th>Version</th><th>Assumptions</th><th>Uncertainty</th><th>Evidence class</th><th>Verification status</th><th>What remains unverified</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="tally" id="ledgerTally"></div>
+    <details>
+      <summary>The status scale, strongest first</summary>
+      <ul class="small">
+        <li><b>validated by test</b>: a measurement of real hardware, under the conditions claimed. <i>No row on this page reaches it, because nothing here has been tested.</i></li>
+        <li><b>verified</b>: the code or the digital model was checked against a reference case or its own declaration. That shows the equations were solved right. It does not show they were the right equations.</li>
+        <li><b>computed from unverified inputs</b>: the arithmetic is right; the inputs have nobody standing behind them. PartForge reports this as COMPUTED, not PASS.</li>
+        <li><b>cited, not verified for this use</b>: a published value used outside the conditions it was published for.</li>
+        <li><b>declared</b>: someone stated it. Nobody has checked it yet.</li>
+        <li><b>outside validity envelope</b>: a model was asked a question it was never built to answer. The number exists, but it is not usable.</li>
+        <li><b>not assessed</b>: no model, source or test addresses it.</li>
+        <li><b>not evidence</b>: a summary, a proposal or a plausible-looking output. It can point to evidence, but it cannot become evidence.</li>
+        <li><b>illustrative</b>: synthetic, for teaching. It is no claim about any hardware.</li>
+      </ul>
+    </details>
+  </section>
+
+  <section id="envelope" class="card" data-synthetic="true">
+    <h2>Why validity envelopes are constraints, not footnotes <span class="synth">SYNTHETIC DATA</span></h2>
+    <p>A toy problem with made-up, dimensionless functions. <b>It is not a prediction for any engine. Neither axis has a
+      physical meaning.</b> A "model" was calibrated against synthetic test points that exist only inside the shaded
+      validity envelope. Outside the envelope, it extrapolates. Turn off the constraint and see where the optimizer goes,
+      then reveal the synthetic "truth".</p>
+    <p class="small dim">PartForge learned this lesson at a small scale. A generator under a pass/fail gate finds the cheapest
+      way to pass, for example by deleting a declaration or lowering an input it invented. So the gate refuses a retry that
+      declares less. An optimizer over a model does the same thing with the model's errors.</p>
+    <div class="controls">
+      <label class="toggle"><input type="checkbox" id="constrain" checked> Constrain the optimizer to the validity envelope</label>
+      <label class="toggle"><input type="checkbox" id="reveal"> Reveal the synthetic "truth"</label>
+    </div>
+    <div class="chartlegend" aria-hidden="true">
+      <span><i class="ln model"></i>model prediction</span>
+      <span><i class="band"></i>model's own uncertainty band</span>
+      <span><i class="dot"></i>synthetic test points</span>
+      <span><i class="env"></i>validity envelope</span>
+      <span id="truthKey" hidden><i class="ln truth"></i>synthetic "truth"</span>
+    </div>
+    <div id="chartBox">
+      <svg id="chart" role="img" aria-label="Synthetic chart: a dimensionless model prediction with its uncertainty band, calibration points inside a validity envelope, and the optimizer's pick. Not engine data."></svg>
+      <div id="tip"></div>
+    </div>
+    <div id="readout" aria-live="polite"></div>
+    <details>
+      <summary>Table view of the synthetic curves</summary>
+      <div class="tablewrap"><table class="plain" id="chartTable"></table></div>
+    </details>
+  </section>
+
+  <section id="credible" class="card">
+    <h2>What would have to exist before engine-specific analysis is credible</h2>
+    <p>This list is for a student learning computational engineering. None of it is implemented here, and each item is
+      a field of study in its own right.</p>
+    <ol>
+      <li><b>Verified domain models.</b> Each implementation is checked against published reference cases. That is
+        <i>verification</i>: are the equations solved right? For thermochemistry, NASA's CEA and Cantera are the usual
+        starting points, and their documentation states the assumptions (equilibrium, ideal gas, idealized combustor
+        models) that bound every answer.</li>
+      <li><b>Validation data for the regime of interest.</b> The model is compared with measurements. That is
+        <i>validation</i>: are they the right equations? A verified model that was never validated is a precise answer to
+        a possibly different question.</li>
+      <li><b>Validity envelopes enforced as constraints.</b> Each model declares the input range it was built and checked
+        for. The optimizer may not leave it, and the ledger flags any result that did.</li>
+      <li><b>Uncertainty quantification.</b> This means input uncertainty and model-form uncertainty, propagated through the
+        coupled models. A single number without a spread is a ledger row with an empty field.</li>
+      <li><b>Coupling with consistent interfaces.</b> Units, reference conditions and versions must agree between models.
+        Frameworks such as NASA's OpenMDAO exist for multidisciplinary analysis and optimization, but they connect models.
+        They do not make any of them right.</li>
+      <li><b>Material data for the actual process and temperature.</b> A typical room-temperature datasheet value says
+        little about a part printed on one machine from one powder lot and run hot. Coupons from that process do.</li>
+      <li><b>Manufacturing and inspection capability.</b> Internal passages cannot be checked by measuring a mesh. They need
+        inspection of the built part, such as computed tomography.</li>
+      <li><b>Configuration management.</b> Every model, input, geometry and result carries a version or digest, so any ledger
+        row can be reproduced.</li>
+      <li><b>A test programme run by qualified people at a suitable facility, with its own safety and regulatory
+        oversight.</b> This lies entirely outside software and entirely outside this page.</li>
+      <li><b>Reviewers with the expertise and the authority to reject.</b></li>
+    </ol>
+    <p class="small dim">For how the subsystems of a liquid engine relate to one another, NASA SP-125 is a classic
+      textbook. Read it for the system picture, not as a design recipe.</p>
+  </section>
+
+  <section id="not" class="card">
+    <h2>What this page does not establish</h2>
+    <ul>
+      <li>It does not establish that PartForge can design, analyze, qualify or produce an engine or any engine component.
+        It cannot.</li>
+      <li>Nothing here describes a real engine: no concept, ledger row, number or chart. The chart's values are synthetic
+        and dimensionless, and the ledger rows carry no values at all.</li>
+      <li>None of the following counts as engineering validation: an LLM response, a plausible-looking mesh, a passing
+        geometry check. That includes PartForge's own gate.</li>
+      <li>CEA, Cantera and OpenMDAO are not integrated here. They are named as examples of classes of model.</li>
+      <li>Following a workflow like this one does not make hardware safe. Qualified people, proper facilities and test
+        evidence do.</li>
+      <li>This page has not evaluated LEAP 71's system. It goes no further than what the company has published.</li>
+      <li>It has no effect on flight-part readiness. PartForge's parts are checked exactly as before.</li>
+    </ul>
+  </section>
+
+  <section id="refs" class="card">
+    <h2>References, and what each is used for</h2>
+    <ul class="small">
+      <li>LEAP 71, <a href="https://leap71.com/rp/">Noyron RP</a>: the inspiration for the architecture. This page
+        describes it only in the company's own general terms, as reported.</li>
+      <li>NASA Glenn, <a href="https://www.nasa.gov/glenn/research/chemical-equilibrium-with-applications/">Chemical
+        Equilibrium with Applications (CEA)</a>: equilibrium compositions, thermodynamic properties and theoretical rocket
+        performance. These are an example of one domain model and its assumptions.</li>
+      <li>NASA NESC, <a href="https://www.nasa.gov/centers-and-facilities/nesc/tb-26-04-updates-and-modernization-of-nasas-chemical-equilibrium-with-applications-cea-code/">TB-26-04,
+        Updates and modernization of CEA</a>. CEA v3 is a modern Fortran rewrite with C, Python, MATLAB and Excel
+        interfaces. The bulletin advises keeping engineering review and validation when established workflows move to it.
+        That advice is the pattern this page follows: even a trusted solver's new version is a new ledger entry.</li>
+      <li>Huzel &amp; Huang, <a href="https://ntrs.nasa.gov/search.jsp?R=19710019929">NASA SP-125, Design of Liquid
+        Propellant Rocket Engines</a> (second edition): how thrust chambers, turbopumps and valves relate to the whole
+        engine. Used here for the system picture only.</li>
+      <li>K. J. Davidian, <a href="https://ntrs.nasa.gov/citations/19900000856">A rocket engine design expert system</a>
+        (NASA Lewis, JANNAF Combustion Meeting, 1989). The precedent: performance code, finite-element model and heuristics,
+        combined.</li>
+      <li><a href="https://openmdao.org/">OpenMDAO</a>: NASA's open-source framework for multidisciplinary analysis and
+        optimization. An example of the orchestrator box.</li>
+      <li><a href="https://cantera.org/stable/">Cantera</a>: an open-source toolkit for chemical kinetics, thermodynamics and
+        transport processes. A second example of a thermochemistry model.</li>
+      <li>PartForge: <a href="https://github.com/hudsonclavin-cloud/Partforge/blob/main/README.md">README</a> (flight grade,
+        provenance, tiers), <a href="https://github.com/hudsonclavin-cloud/Partforge/blob/main/docs/STATUS.md">STATUS</a>
+        (what is verified and by what), <a href="https://github.com/hudsonclavin-cloud/Partforge/blob/main/headless/README.md">headless/README</a>
+        (the measured / derived / cited confidence an agent receives).</li>
+    </ul>
+  </section>
+</main>
+
+<footer>
+  PartForge · Engine Design Study, an educational page. It is not a design tool and makes no claim about any hardware.
+  <a href="index.html">Back to the app</a>.
+</footer>
+
+<!-- The example ledger. Kept as data so tests/engine-study.test.mjs can hold every row to the schema:
+     all fields present, a known evidence class, and no row "validated" (nothing here was tested). -->
+<script type="application/json" id="ledger-data">
+[
+  {"id":"L-01","claim":"The concept meets a declared performance target within a declared mass budget.",
+   "source":"Requirements document (from the requester)","version":"rev A (placeholder)",
+   "assumptions":"The target and the budget are consistent with the vehicle they serve.",
+   "uncertainty":"None stated. A requirement with no tolerance is itself an open item.",
+   "class":"cited","status":"declared","status_text":"declared — not verified",
+   "unverified":"Whether the requirement is achievable, and whether it was derived correctly from the mission. No value is given here."},
+  {"id":"L-02","claim":"Theoretical performance of the declared reactant set at the declared conditions.",
+   "source":"Equilibrium thermochemistry solver (e.g. NASA CEA, Cantera)","version":"solver release + thermodynamic database hash (placeholder)",
+   "assumptions":"Chemical equilibrium or frozen composition; ideal gas; idealized combustor model; complete mixing.",
+   "uncertainty":"Small against reference cases at the code level. Physically an upper bound: real hardware delivers less, by an efficiency only testing establishes.",
+   "class":"computed","status":"verified","status_text":"verified against reference cases — not validated on hardware",
+   "unverified":"Combustion efficiency, mixing, and every effect the equilibrium assumption leaves out."},
+  {"id":"L-03","claim":"Wall heat-flux margin is positive along the cooled length.",
+   "source":"Empirical heat-transfer correlation (illustrative)","version":"published correlation + implementation commit (placeholder)",
+   "assumptions":"Fluid properties, geometry and flow regime inside the range the correlation was fitted to.",
+   "uncertainty":"Such correlations often scatter widely even inside their range. Outside it, the uncertainty is unbounded.",
+   "class":"computed","status":"outside-envelope","status_text":"outside validity envelope — not usable",
+   "unverified":"Any heat-flux value at all. The check asked a model a question it was never fitted to answer."},
+  {"id":"L-04","claim":"The generated geometry matches its own declared parameters.",
+   "source":"Mesh measurement against the declaration (a PartForge-style ray CMM)","version":"checker commit + geometry digest (placeholder)",
+   "assumptions":"The mesh is a faithful tessellation within the declared curve tolerance.",
+   "uncertainty":"Bounded by the curve tolerance and the probe resolution.",
+   "class":"measured","status":"verified","status_text":"verified — on the digital model only",
+   "unverified":"Whether the parameters are right, and whether the built part matches them (internal passages need inspection of the real part, not a mesh check)."},
+  {"id":"L-05","claim":"Pressure-wall stress margin at a declared load.",
+   "source":"Closed-form thick-wall stress (Lamé), as PartForge's flight checks compute it","version":"formula + material table revision (placeholder)",
+   "assumptions":"Isothermal; room-temperature properties; axisymmetric wall with no ports or welds; load exactly as declared.",
+   "uncertainty":"The formula is exact for its idealization. The result is dominated by its inputs: the load, and the material property at temperature.",
+   "class":"computed","status":"computed-unverified-inputs","status_text":"computed from unverified inputs — COMPUTED, not PASS",
+   "unverified":"Thermal stress, properties at temperature, cyclic fatigue, and the as-printed material."},
+  {"id":"L-06","claim":"The material strength used in L-05.",
+   "source":"Published typical value (datasheet)","version":"datasheet revision (placeholder)",
+   "assumptions":"Wrought form, room temperature, a typical value rather than a design minimum.",
+   "uncertainty":"There is a gap between a typical value and a design allowable. An additive process can differ substantially.",
+   "class":"cited","status":"cited-unverified","status_text":"cited — not verified for this process or temperature",
+   "unverified":"Coupon tests from the same machine, powder lot and heat treatment."},
+  {"id":"L-07","claim":"Combustion is stable across the operating range.",
+   "source":"None — no model in this system addresses it","version":"—",
+   "assumptions":"—","uncertainty":"Unknown.",
+   "class":"unknown","status":"not-assessed","status_text":"not assessed",
+   "unverified":"All of it. Historically a major development risk for liquid engines; it is settled by specialized analysis and by testing."},
+  {"id":"L-08","claim":"The concept is ready for review.",
+   "source":"LLM assistant (a summary of the rows above)","version":"model id + prompt hash (placeholder)",
+   "assumptions":"Whatever the summary left out.","uncertainty":"Not quantifiable. A summary is not a measurement.",
+   "class":"unknown","status":"not-evidence","status_text":"not evidence — cannot change any row's status",
+   "unverified":"Everything it summarized. A reviewer reads the rows, not the summary."},
+  {"id":"L-09","claim":"The optimizer's preferred design on this page's chart.",
+   "source":"The synthetic objective function below","version":"this page",
+   "assumptions":"Synthetic and dimensionless. No physical meaning.","uncertainty":"A synthetic band, shown for teaching.",
+   "class":"illustrative","status":"illustrative","status_text":"illustrative — not a prediction",
+   "unverified":"Not applicable: no engine is described."},
+  {"id":"L-10","claim":"The hardware survives operation as designed.",
+   "source":"Test campaign (none performed)","version":"—","assumptions":"—","uncertainty":"—",
+   "class":"unknown","status":"not-assessed","status_text":"not started — only a test could establish it",
+   "unverified":"Everything. Hot-fire and inspection evidence lies outside this software and outside this study."}
+]
+</script>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+  // ---- systems map: what each box can claim, cannot claim, and whether PartForge has it ----
+  const NODES = {
+    req:{ t:'Requirements & assumptions', role:'States what the design must do, as declared numbers with units and a source for each. Also records the assumptions everyone is working under, where they can be challenged.',
+      can:'State intent. A requirement is the only legitimate source of a target.', cannot:'Prove itself achievable or correct. An unsourced requirement is an open item, not a fact.',
+      pf:'partial', pfText:'Partly, for parts. The SPEC and FLIGHT declarations carry dimensions, tolerances and load inputs, each tagged cited, user or tool default.' },
+    orch:{ t:'Orchestrator (coupled-model framework)', role:'Connects the domain models so one model\'s outputs become the next model\'s inputs, in consistent units. Runs sweeps and optimizations, and records every run with its versions.',
+      can:'Guarantee that the numbers handed between models are the same numbers, and that any run can be reproduced.', cannot:'Make any model inside it more accurate. Given the chance, an optimizer will exploit model errors (see the synthetic chart).',
+      ex:'OpenMDAO, NASA\'s open-source framework for multidisciplinary analysis and optimization.', pf:'none', pfText:'Not in PartForge.' },
+    thermo:{ t:'Thermochemistry (equilibrium)', role:'Equilibrium composition, thermodynamic properties and theoretical performance for a declared set of reactants.',
+      can:'Give the theoretical reference point that every later loss is measured against.', cannot:'Predict what hardware delivers. Real combustion is neither at equilibrium nor complete.',
+      ex:'NASA CEA (now CEA v3); Cantera.', pf:'none', pfText:'Not in PartForge.' },
+    flow:{ t:'Flow & performance', role:'Models how flow through the chamber and nozzle turns theoretical performance into delivered performance, including losses.',
+      can:'Rank concepts and size flow paths, within the method\'s assumptions.', cannot:'Capture flow separation, transients or combustion dynamics, unless it was built and validated for them.',
+      pf:'none', pfText:'Not in PartForge.' },
+    thermal:{ t:'Heat transfer & cooling', role:'Heat flux into the walls, and how the cooling scheme carries it away.',
+      can:'Flag early any concept whose walls cannot survive.', cannot:'Be trusted outside the range its correlations were fitted to. This is often a dominant uncertainty.',
+      pf:'none', pfText:'Not in PartForge. The roadmap evaluated even a steady thermal-stress check and dropped it: its temperature input can be neither measured on the mesh nor looked up.' },
+    struct:{ t:'Structures', role:'Stress, deformation and life under pressure, thermal and mechanical loads.',
+      can:'Find the load paths and margins of a defined geometry under defined loads.', cannot:'Do better than its loads and material data, which are hard to get at temperature and in cyclic service.',
+      pf:'partial', pfText:'Partly. It runs closed-form checks only (Lamé thick wall, bolt shear, thread engagement, fin flutter) with typical room-temperature properties. There is no FEA: the roadmap rejected browser FEA because it can understate stress.' },
+    mfg:{ t:'Manufacturing rules', role:'What the chosen process can make and inspect: minimum features, supports, powder removal from internal passages, post-machining.',
+      can:'Keep the design inside what can be built.', cannot:'Say what the built part\'s properties are.',
+      pf:'partial', pfText:'Partly: process-capability and tolerance-class tables for machining and industrial printing of parts.' },
+    geom:{ t:'Geometry generator', role:'Turns model outputs into geometry by code (parametric or implicit), so the shape is a function of the numbers and never hand-drawn.',
+      can:'Make geometry reproducible and traceable to its inputs, with a digest per version.', cannot:'Make a shape correct. A plausible-looking mesh is not evidence of anything.',
+      pf:'partial', pfText:'For parts, yes: OpenSCAD compiled in the browser. For engines, no. No engine generator exists here, by design.' },
+    check:{ t:'Constraint & consistency checks', role:'Checks margins against requirements. Confirms that every model input is inside that model\'s validity envelope, that units and interfaces agree, and that the geometry matches its declaration.',
+      can:'Reject a design that breaks a declared rule.', cannot:'Make a design safe by passing it. A pass means only that no declared rule was broken.',
+      pf:'partial', pfText:'For parts, yes: the geometry gate and the mesh CMM measure a part against its own declaration. They cannot tell whether the declaration itself is right.' },
+    llm:{ t:'LLM assistant', role:'Drafts requirements and design options, configures and launches runs, and summarizes the ledger for a reader.',
+      can:'Save people time on drafting, bookkeeping and explanation.', cannot:'Compute physics, produce evidence, or change a verification status. Its output enters the ledger as "unknown" until a solver, a citation or a test stands behind it.',
+      pf:'partial', pfText:'For parts, yes. The designer model writes OpenSCAD and its declaration, PartForge checks them, and failures go back to the model. The model never judges its own part.' },
+    ledger:{ t:'Evidence ledger', role:'One row per claim: what is claimed, its model or source, version, assumptions, uncertainty, evidence class, verification status, and what remains unverified.',
+      can:'Make "not established" as visible as "established", and make every number traceable.', cannot:'Upgrade anything. It records evidence; it does not create it.',
+      pf:'partial', pfText:'Partly. It has per-dimension provenance (cited, user, tool default), COMPUTED versus PASS, and tier-based documents with an explicit list of what is unresolved.' },
+    test:{ t:'Validation evidence', role:'Results from the physical world: coupon tests, inspection of internal passages, component tests, hot fire.',
+      can:'Move a claim to "validated", for the conditions tested, and recalibrate the models.', cannot:'Say anything beyond what was tested.',
+      pf:'none', pfText:'Not in PartForge, by design. The tier B drawing leaves the inspection column blank and lists the missing tests (a nozzle needs hot fire) rather than inventing a result.' },
+    review:{ t:'Human engineering review', role:'Reads the ledger, not the summary. Accepts, rejects, or orders the test that would decide.',
+      can:'Take responsibility. No software here can.', cannot:'Be replaced by a confident summary.',
+      pf:'partial', pfText:'For parts, a person reads the manufacturing sheet or interface drawing. PartForge issues no release status for tier B or C parts.' },
+  };
+  const PF_LABEL = { partial:'PartForge: partial', none:'PartForge: none' };
+  const map = $('map'), info = $('nodeInfo');
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  map.querySelectorAll('.node').forEach(g => {
+    const n = NODES[g.dataset.id];
+    g.classList.add('pf-' + n.pf);
+    const r = g.querySelector('rect');
+    const badge = document.createElementNS(SVGNS, 'text');
+    badge.setAttribute('class', 'pfbadge');
+    badge.setAttribute('x', +r.getAttribute('x') + +r.getAttribute('width') - 6);
+    badge.setAttribute('y', +r.getAttribute('y') + 12);
+    badge.setAttribute('fill', n.pf === 'none' ? '#8b949e' : '#f0a35e');
+    badge.textContent = n.pf === 'none' ? 'none' : 'partial';
+    g.appendChild(badge);
+    const pick = () => select(g.dataset.id);
+    g.addEventListener('click', pick);
+    g.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pick(); } });
+  });
+  function select(id){
+    const n = NODES[id];
+    map.querySelectorAll('.node').forEach(g => g.classList.toggle('sel', g.dataset.id === id));
+    info.innerHTML = `<h3>${esc(n.t)}</h3><dl>
+      <dt>Role</dt><dd>${esc(n.role)}</dd>
+      <dt>Can claim</dt><dd>${esc(n.can)}</dd>
+      <dt>Cannot claim</dt><dd>${esc(n.cannot)}</dd>
+      ${n.ex ? `<dt>Example</dt><dd>${esc(n.ex)}</dd>` : ''}
+      <dt>${esc(PF_LABEL[n.pf])}</dt><dd>${esc(n.pfText)}</dd></dl>`;
+  }
+  $('pfToggle').addEventListener('change', e => map.classList.toggle('pf', e.target.checked));
+
+  // ---- evidence ledger ----
+  const CLASSES = ['measured', 'computed', 'cited', 'illustrative', 'unknown'];
+  const rows = JSON.parse($('ledger-data').textContent);
+  const tbody = $('ledgerTable').querySelector('tbody');
+  const COLS = [['id','ID'], ['claim','Claim'], ['source','Source / model'], ['version','Version'], ['assumptions','Assumptions'],
+    ['uncertainty','Uncertainty'], ['class','Evidence class'], ['status_text','Verification status'], ['unverified','What remains unverified']];
+  tbody.innerHTML = rows.map(r => `<tr data-class="${esc(r.class)}">` + COLS.map(([k, label]) => {
+    let v = esc(r[k]);
+    if(k === 'class') v = `<span class="cls ${esc(r.class)}">${v}</span>`;
+    if(k === 'status_text') v = `<span class="st"><b>${esc(r.status)}</b><br>${v}</span>`;
+    return `<td class="${k === 'id' ? 'id' : k === 'claim' ? 'claim' : ''}" data-label="${esc(label)}">${v}</td>`;
+  }).join('') + '</tr>').join('');
+  const active = new Set(CLASSES);
+  const filter = $('ledgerFilter');
+  filter.innerHTML = CLASSES.map(c => `<button class="chip" type="button" aria-pressed="true" data-c="${c}">${c} · ${rows.filter(r => r.class === c).length}</button>`).join('');
+  filter.addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    const c = b.dataset.c;
+    if(active.has(c)) active.delete(c); else active.add(c);
+    b.setAttribute('aria-pressed', active.has(c));
+    tbody.querySelectorAll('tr').forEach(tr => { tr.hidden = !active.has(tr.dataset.class); });
+  });
+  const established = rows.filter(r => r.status === 'validated').length;
+  $('ledgerTally').innerHTML = `<span>rows <b>${rows.length}</b></span><span>validated by test <b>${established}</b></span>` +
+    `<span>verified (code or digital model) <b>${rows.filter(r => r.status === 'verified').length}</b></span>` +
+    `<span>not assessed, not evidence, or unusable <b>${rows.filter(r => ['not-assessed','not-evidence','outside-envelope'].includes(r.status)).length}</b></span>`;
+
+  // ---- synthetic chart: dimensionless toy functions, nothing physical ----
+  const ENV = [0.15, 0.6];                                       // where the synthetic test points are
+  const truth = x => 0.25 + 0.6 * Math.exp(-(((x - 0.5) / 0.22) ** 2));
+  const drift = x => x > 0.55 ? 4 * (x - 0.55) ** 2 : x < ENV[0] ? 1.5 * (ENV[0] - x) ** 2 : 0;
+  const model = x => truth(x) + drift(x);                        // agrees inside the envelope, extrapolates badly outside
+  const half = x => 0.04 + 1.2 * (x < ENV[0] ? ENV[0] - x : x > ENV[1] ? x - ENV[1] : 0);
+  const NOISE = [0.012, -0.015, 0.008, -0.01, 0.014, -0.006];
+  const CAL = [0.18, 0.26, 0.34, 0.42, 0.5, 0.58].map((x, i) => ({ x, y: truth(x) + NOISE[i] }));
+  const XS = Array.from({ length: 201 }, (_, i) => i / 200);
+  const argmax = (lo, hi) => XS.filter(x => x >= lo - 1e-9 && x <= hi + 1e-9).reduce((b, x) => model(x) > model(b) ? x : b);
+  const f2 = v => v.toFixed(2);
+  const svg = $('chart'), tip = $('tip'), box = $('chartBox');
+  const Y = [0, 1.7];
+  let geom = null;
+
+  function draw(){
+    const W = Math.max(240, box.clientWidth || 600), H = Math.round(Math.min(380, Math.max(260, W * 0.48)));
+    const m = { l: 40, r: 14, t: 26, b: 40 };
+    const sx = x => m.l + x * (W - m.l - m.r), sy = y => H - m.b - (y - Y[0]) / (Y[1] - Y[0]) * (H - m.t - m.b);
+    geom = { W, H, m, sx, sy };
+    const constrained = $('constrain').checked, reveal = $('reveal').checked;
+    const px = constrained ? argmax(ENV[0], ENV[1]) : argmax(0, 1);
+    const line = fn => XS.map((x, i) => `${i ? 'L' : 'M'}${sx(x).toFixed(1)},${sy(fn(x)).toFixed(1)}`).join('');
+    const band = XS.map((x, i) => `${i ? 'L' : 'M'}${sx(x).toFixed(1)},${sy(model(x) + half(x)).toFixed(1)}`).join('') +
+      XS.slice().reverse().map(x => `L${sx(x).toFixed(1)},${sy(Math.max(Y[0], model(x) - half(x))).toFixed(1)}`).join('') + 'Z';
+    let s = `<rect class="env" x="${sx(ENV[0])}" y="${m.t}" width="${sx(ENV[1]) - sx(ENV[0])}" height="${H - m.t - m.b}"/>`;
+    s += `<text class="envlab" x="${sx(ENV[0]) + 6}" y="${m.t + 14}">validity envelope</text>`;
+    s += '<g class="axis">';
+    for(const y of [0, 0.5, 1, 1.5]) s += `<line class="grid" x1="${m.l}" x2="${W - m.r}" y1="${sy(y)}" y2="${sy(y)}"/><text x="${m.l - 6}" y="${sy(y) + 4}" text-anchor="end">${y.toFixed(1)}</text>`;
+    for(const x of [0, 0.25, 0.5, 0.75, 1]) s += `<text x="${sx(x)}" y="${H - m.b + 16}" text-anchor="middle">${x.toFixed(2)}</text>`;
+    s += '</g>';
+    s += `<text class="axlab" x="${(m.l + W - m.r) / 2}" y="${H - 6}" text-anchor="middle">design variable (synthetic, dimensionless)</text>`;
+    s += `<text class="axlab" x="${m.l}" y="${m.t - 10}">objective (synthetic, dimensionless)</text>`;
+    s += `<text class="wm" x="${W - m.r - 6}" y="${sy(0.06)}" text-anchor="end">SYNTHETIC — NOT ENGINE DATA</text>`;
+    s += `<path class="band" d="${band}"/>`;
+    s += `<path class="model" d="${line(model)}"/>`;
+    if(reveal) s += `<path class="truth" d="${line(truth)}"/>`;
+    for(const p of CAL) s += `<circle class="cal" cx="${sx(p.x)}" cy="${sy(p.y)}" r="4.5"/>`;
+    const pxp = sx(px), pyp = sy(model(px));
+    s += `<circle class="pick" cx="${pxp}" cy="${pyp}" r="8"/>`;
+    const right = pxp > W * 0.7;
+    s += `<text class="picklab" x="${pxp + (right ? -12 : 12)}" y="${pyp - 10}" text-anchor="${right ? 'end' : 'start'}">optimizer pick</text>`;
+    s += `<line class="cross" id="cross" x1="0" x2="0" y1="${m.t}" y2="${H - m.b}" visibility="hidden"/>`;
+    s += `<rect id="hit" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="transparent"/>`;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('width', W); svg.setAttribute('height', H);
+    svg.innerHTML = s;
+    $('truthKey').hidden = !reveal;
+
+    const inside = px >= ENV[0] && px <= ENV[1];
+    let r = `Optimizer pick at x = <b>${f2(px)}</b> (${inside ? 'inside' : 'outside'} the envelope). The model predicts <b>${f2(model(px))}</b> ± <b>${f2(half(px))}</b>.`;
+    if(reveal) r += ` The synthetic truth there is <b>${f2(truth(px))}</b>.` + (inside
+      ? ' Inside the envelope, the model and the test points agree. The pick is defensible because the evidence covers it.'
+      : ' The model\'s best design is its largest error, and even its own uncertainty band does not cover the truth. Outside the envelope, the band is itself a model.');
+    else r += inside ? ' Turn the constraint off and see where the optimizer goes.' : ' The model says this is the best design. Reveal the synthetic truth.';
+    $('readout').innerHTML = r;
+
+    const hit = $('hit'), cross = $('cross');
+    hit.addEventListener('pointermove', e => {
+      const rect = svg.getBoundingClientRect();
+      const x = Math.min(1, Math.max(0, ((e.clientX - rect.left) * (W / rect.width) - m.l) / (W - m.l - m.r)));
+      const xr = Math.round(x * 200) / 200;
+      cross.setAttribute('x1', sx(xr)); cross.setAttribute('x2', sx(xr)); cross.setAttribute('visibility', 'visible');
+      const inEnv = xr >= ENV[0] && xr <= ENV[1];
+      tip.innerHTML = `x <b>${f2(xr)}</b> · ${inEnv ? 'inside envelope' : 'outside envelope'}<br>model <b>${f2(model(xr))}</b> ± <b>${f2(half(xr))}</b>` +
+        (reveal ? `<br>synthetic truth <b>${f2(truth(xr))}</b>` : '');
+      tip.style.display = 'block';
+      const tx = sx(xr) * rect.width / W;
+      tip.style.left = Math.min(rect.width - tip.offsetWidth - 4, Math.max(4, tx + 12)) + 'px';
+      tip.style.top = (m.t + 8) + 'px';
+    });
+    hit.addEventListener('pointerleave', () => { cross.setAttribute('visibility', 'hidden'); tip.style.display = 'none'; });
+
+    $('chartTable').innerHTML = '<tr><th>x</th><th>model</th><th>band low</th><th>band high</th><th>envelope</th>' + (reveal ? '<th>synthetic truth</th>' : '') + '</tr>' +
+      [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(x => `<tr><td>${x.toFixed(1)}</td><td>${f2(model(x))}</td><td>${f2(model(x) - half(x))}</td><td>${f2(model(x) + half(x))}</td><td>${x >= ENV[0] && x <= ENV[1] ? 'inside' : 'outside'}</td>` + (reveal ? `<td>${f2(truth(x))}</td>` : '') + '</tr>').join('');
+  }
+  $('constrain').addEventListener('change', draw);
+  $('reveal').addEventListener('change', draw);
+  if('ResizeObserver' in window) new ResizeObserver(() => { if(!geom || Math.abs(box.clientWidth - geom.W) > 2) draw(); }).observe(box);
+  draw();
+})();
+</script>
+</body>
+</html>

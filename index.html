@@ -27,6 +27,10 @@
   header .sub{color:var(--dim);font-size:12px;display:none}
   @media(min-width:700px){header .sub{display:block}}
   header .spacer{flex:1}
+  /* the educational Engine Design Study page. Below 1000 px it would wrap the subtitle onto a second
+     line, so it is shown only where the header has room; Help links to it at every width. */
+  header .study{display:none;text-decoration:none;color:var(--dim);line-height:normal}
+  @media(min-width:1000px){header .study{display:inline-block}}
   .btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s}
   .btn:hover{border-color:var(--accent)}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#111;font-weight:600}
@@ -180,6 +184,7 @@
   <div class="logo">Part<span>Forge</span></div>
   <div class="sub">prompt or photo → questions → parametric part with moving-assembly preview → STL/3MF</div>
   <div class="spacer"></div>
+  <a class="btn small study" href="engine-study.html" title="Engine Design Study: an educational page, separate from the part checks. Not a design tool.">Engine study</a>
   <button class="btn small" id="btnHelp" title="Help & shortcuts (?)">? Help</button>
   <button class="btn small" id="btnSettings">⚙ Settings</button>
 </header>
@@ -406,6 +411,8 @@
   <p>Generate → answer questions → tweak parameters → Refine with follow-ups → inspect → export. Templates work with no API key. Everything renders locally; only AI design calls leave the browser.</p>
   <h3>Flight grade (⚙ Settings → Design grade)</h3>
   <p>For machined and engineering parts — a rocket club's couplers, bulkheads, retainers, fins, nose cones. The designer follows an aerospace doctrine (materials, processes, ISO fits, rocketry practice), must declare every dimension a shop will measure with its tolerance, and the program measures the finished geometry against that declaration like a CMM: bores, bolt circles, outside diameters, extents, revolved profiles. Declared engineering checks (pressure walls, fin flutter, thread engagement, bolt shear) are recomputed; mass, CG and inertia come out at the material's density. ⋯ → <b>Manufacturing sheet</b> is the drawing substitute. Honest limit: a mesh is not a STEP file — export the .scad and open it in FreeCAD for STEP, and inspect the machined part to the sheet, not to the mesh.</p>
+  <h3>Engine Design Study (separate, educational)</h3>
+  <p><a href="engine-study.html" style="color:var(--accent2)">engine-study.html</a> sketches how a computational-engineering workflow for a rocket engine could be organised: requirements, domain models, geometry, checks, an evidence ledger and human review. It is a concept page, not a design tool. It shows no engine dimensions or operating values, and it does not touch flight grade or anything above.</p>
   <h3>Keyboard shortcuts</h3>
   <table>
     <tr><td>G</td><td>Generate from prompt</td></tr>

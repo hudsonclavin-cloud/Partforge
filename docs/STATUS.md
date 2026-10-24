@@ -8,7 +8,7 @@ one `Gen N:` line per iteration) is the history; this is the state.
 
 | claim | proof | how to re-run |
 |---|---|---|
-| The engineering, measurement, declaration and reference-data modules do what the README says | 724 Node assertions, no dependencies, extracted from the marked blocks of `index.html` | `node tests/run.mjs` |
+| The engineering, measurement, declaration and reference-data modules do what the README says | 733 Node assertions, no dependencies, extracted from the marked blocks of `index.html` | `node tests/run.mjs` |
 | The embedded reference data is exactly `data/tables/*.json` projected by `tools/db/embed.mjs` | `tests/flight-db-embed.test.mjs` re-derives the projection row by row | same |
 | The seven flight templates compile and pass their own declarations; the three dry-run fixtures earn exactly the failures they are kept for (endcap 4, retainer 1, retainer-fixed 0) | headless Chromium, real engine | `tests/harness/README.md` → `run.mjs` |
 | The 1-hour prompt cache holds: the system block is byte-identical between turns, the looked-up hardware rides in the user turn, a rejected TTL is retried once without decorating the turn twice | `tests/harness/cache.mjs` | same |
@@ -30,6 +30,7 @@ one `Gen N:` line per iteration) is the history; this is the state.
 | Every OpenAI-compatible model id gets the token-limit field and role name its own API accepts (GPT-5-and-up and o-series need `max_completion_tokens`; the o-series also needs `developer`; everything else keeps the classic shape) | 14 model ids driven through the real `PROVIDERS.openai.body()` | `cd tests/harness && node provider-body.mjs` |
 | A gateway's own 400 error text reaches the user for every provider, not only Anthropic, with no duplicate retry | mocked 400s from both providers | `cd tests/harness && node provider-400.mjs` |
 | The local OpenAI proxy spends its key only for the page it hosts — never for another website or a rebound hostname | attack requests against the running server, which fail on the unguarded version | `node tests/run.mjs` (node:test section) |
+| The Engine Design Study page stays educational. The scope notice is there in full. Every ledger row is complete, carries no value, and none is "validated". The LLM is drawn as an assistant with no arrow into the ledger. The chart is synthetic and dimensionless. No number carries a physical unit and no propellant is named. The page loads no dependency and is linked from the app's markup only | `tests/engine-study.test.mjs` (5 checks; each one fails under a planted violation) | `node tests/run.mjs` (node:test section) |
 
 ## The three Gens this stopping point closes
 
@@ -198,6 +199,29 @@ one `Gen N:` line per iteration) is the history; this is the state.
     free-tier quota (429).
   - **Remaining gap:** that ring did not add the NOTE naming the grade to buy.
 
+- **Gen 37** — an Engine Design Study page (`engine-study.html`), exploratory and **separate
+  from flight-part readiness**.
+  - **What it is:** an educational sketch of a Noyron-style computational-engineering
+    workflow. It has a six-stage workflow, a clickable systems map (the LLM as an assistant,
+    solvers and validation evidence as separate boxes), an example evidence ledger with no
+    values, and a synthetic chart of an optimizer leaving a model's validity envelope. It ends
+    with what would have to exist before engine analysis is credible. The README section says
+    what it is not.
+  - **What did not change:** the generation prompt, flight doctrine, reference tables,
+    templates, checks and exports. The app gained a header link (shown at 1000 px and wider,
+    where the header has room) and a paragraph in Help. Both are markup outside the module
+    script, so `core.gen.mjs` is unchanged; the drift guard passes.
+  - **Checked:** in Chromium at 1280 and 375 px, with no console errors and no horizontal page
+    scroll. The map, the ledger filter and the chart toggles work. The app header is identical
+    to before below 1000 px.
+  - **Not verified from here:** leap71.com, openmdao.org and cantera.org did not resolve from
+    this sandbox. So the page describes Noyron only in the company's general terms, as reported
+    by trade press, and OpenMDAO and Cantera only at the level of what they are. The CEA, CEA v3
+    bulletin, SP-125 and Davidian 1989 statements were read from the NASA pages.
+  - **Counts corrected:** the node:test and headless counts in this file and the README had
+    gone stale. They were 11 and 27 before this Gen, not 8 and 15. The suite is now
+    733 + 16 + 27.
+
 ## Open, with numbers
 
 1. **The SPEC part batch re-renders the part.** For containment and joint checks the SPEC
@@ -243,7 +267,7 @@ persistence paths survive a reload beyond the "Welcome back" slot.
 
 ## How to pick this up
 
-    node tests/run.mjs                      # 733 assertions + 8 node:test checks + 15 headless checks; must be green before any commit
+    node tests/run.mjs                      # 733 assertions + 16 node:test checks + 27 headless checks; must be green before any commit
     cd headless && npm install              # once; then `node build.mjs` after any index.html change the drift guard flags
     cd headless && npm run test:parity      # headless vs browser verdicts + eval answers (~4 min)
     node tools/db/embed.mjs                 # after editing data/tables/*.json

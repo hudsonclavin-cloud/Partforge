@@ -31,7 +31,9 @@ behind **Run ▸**.
 
 ### The screen
 
-Header: the logo, a subtitle that states the current mode, **? Help** and **⚙ Settings**.
+Header: the logo, a subtitle that states the current mode, **? Help** and **⚙ Settings**. On
+screens 1000 px and wider it also has **Engine study**, a link to a separate educational page
+(*Engine Design Study* below). On narrower screens the Help dialog has the same link.
 
 Left column, top to bottom:
 
@@ -670,7 +672,7 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 733 assertions plus 8 `node:test` checks on the local proxy, the Cloudflare Worker and the provider error text; no dependencies — plus 15 checks on the headless package once `headless/` is npm-installed). Two files a real generation produced
+(`node tests/run.mjs`, 733 assertions plus 16 `node:test` checks on the local proxy, the Cloudflare Worker, the provider error text and the Engine Design Study page; no dependencies — plus 27 checks on the headless package once `headless/` is npm-installed). Two files a real generation produced
 during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
 are tested against what a model actually writes, not only against templates written to pass.
 
@@ -779,6 +781,43 @@ Using PartForge from a plain chat on claude.ai needs the HTTP server hosted some
 hosting takes, and what it costs in CPU, is in
 [docs/MCP-STUDY.md](docs/MCP-STUDY.md). To host it on a VM (one script, TLS, a token, rate limits), see
 [deploy/README.md](deploy/README.md). Details: [headless/README.md](headless/README.md).
+
+## Engine Design Study (educational, separate from flight-part readiness)
+
+**[`engine-study.html`](engine-study.html)** (live at `/Partforge/engine-study.html`) is a
+concept page, not a feature. Its question: how could a computational-engineering system for a
+rocket engine be organised so that its output means something? The inspiration is LEAP 71's
+Noyron. The page shows:
+
+- a six-stage workflow: requirements and assumptions, domain models with validity limits,
+  generated geometry, simulation and constraint checks, an evidence ledger, and human review;
+- a clickable systems map. The language model is drawn as an assistant that proposes,
+  summarizes and orchestrates. The physics solvers and the validation evidence are separate
+  boxes, and nothing gives the model a way to set a verification status. A toggle shows which
+  boxes PartForge has anything like today;
+- an example evidence ledger whose rows carry no values. Each row has its claim, source,
+  version, assumptions, uncertainty, evidence class (measured, computed, cited, illustrative,
+  unknown), verification status, and what remains unverified;
+- a synthetic, dimensionless chart. It shows an optimizer running past a model's validity
+  envelope and settling on the model's largest error;
+- what would have to exist before any engine-specific analysis could be credible.
+
+**What it is not.** It is not for fabrication, testing or flight. It contains no engine
+dimensions, propellant recipes, injector specifications, operating setpoints or build
+instructions. PartForge has no propulsion, combustion, thermal or structural solver that could
+produce them, and its flight-grade checks do not become one on this page. Those checks
+cover declared part geometry, mesh measurements, reference data and documents. The page reads
+nothing from the app and changes nothing in it: the generation prompt, flight doctrine,
+reference tables, templates, checks and exports are untouched, and so is the headless core
+built from them. `tests/engine-study.test.mjs` keeps the page to that. It checks that:
+
+- the scope notice is present in full;
+- every ledger row has every field and a known evidence class, and no row claims validation;
+- no arrow from the model ends in the ledger;
+- the chart is labelled synthetic;
+- no number on the page carries a physical unit;
+- no propellant is named;
+- the page loads no dependency.
 
 ## Keyboard
 
