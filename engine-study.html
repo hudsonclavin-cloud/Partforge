@@ -32,10 +32,10 @@
   .btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block}
   .btn:hover{border-color:var(--accent)}
   .btn.small{padding:4px 10px;font-size:12px;border-radius:6px}
-  @media(pointer:coarse){.btn.small{min-height:44px;padding:12px 14px}}
+  @media(pointer:coarse){.btn.small{min-height:44px;padding:12px 14px}header .logo{display:inline-flex;align-items:center;min-height:44px}}
 
   main{max-width:1120px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:18px}
-  section{scroll-margin-top:64px}
+  section{scroll-margin-top:80px}   /* the sticky header is 66 px tall on a touch screen */
   h1{font-size:22px;line-height:1.3}
   h2{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin-bottom:10px}
   h3{font-size:14px;color:var(--accent2);margin:14px 0 6px}
@@ -103,6 +103,8 @@
   .ln{display:inline-block;width:22px;height:0;border-top:2px solid var(--dim)}
   .ln.prop{border-top:2px dashed var(--assistant)}
   .ln.meas{border-top-color:var(--measured)}
+  .maphint,.nodechips{display:none}
+  @media(max-width:820px){.maphint{display:block;margin-bottom:8px}.nodechips{display:flex;margin:10px 0 0}}
   #nodeInfo{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:12px;min-height:96px}
   #nodeInfo h3{margin-top:0;color:var(--text)}
   #nodeInfo dl{display:grid;grid-template-columns:150px 1fr;gap:4px 12px;font-size:13px}
@@ -114,7 +116,7 @@
   details{margin-top:10px}
   summary{cursor:pointer;color:var(--accent2);font-size:13px}
   details[open] summary{margin-bottom:8px}
-  @media(pointer:coarse){summary{padding:10px 0}}
+  @media(pointer:coarse){summary{padding:12px 0}}
 
   /* evidence ledger */
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
@@ -348,6 +350,7 @@
     <div class="controls">
       <label class="toggle"><input type="checkbox" id="pfToggle"> Show PartForge's nearest analogue (parts only, not engines)</label>
     </div>
+    <p class="maphint small dim">On a narrow screen, scroll the map sideways, or pick a box from the list under it.</p>
     <div class="mapwrap">
       <svg id="map" viewBox="0 0 960 540" role="group" aria-label="Systems map of the example workflow. Each box is a button that shows its details below.">
         <defs>
@@ -464,8 +467,9 @@
       <span><i class="ln meas"></i>measured data</span>
       <span><i class="ln prop"></i>proposal or summary</span>
     </div>
-    <div id="nodeInfo" aria-live="polite"><p class="dim">Select a box in the map. On a narrow screen, scroll the map sideways.</p></div>
-    <details>
+    <div class="chips nodechips" id="nodeChips" role="group" aria-label="Boxes in the map"></div>
+    <div id="nodeInfo" aria-live="polite"><p class="dim">Select a box in the map, or on a narrow screen from the list above.</p></div>
+    <details id="mapText">
       <summary>Read the map as text</summary>
       <ol class="small">
         <li>Requirements and assumptions go to the orchestrator, which runs the domain models: thermochemistry, flow and
@@ -638,58 +642,58 @@
      all fields present, a known evidence class, and no row "validated" (nothing here was tested). -->
 <script type="application/json" id="ledger-data">
 [
-  {"id":"L-01","claim":"The concept meets a declared performance target within a declared mass budget.",
+  {"id":"L-01","origin":"requester","claim":"The concept meets a declared performance target within a declared mass budget.",
    "source":"Requirements document (from the requester)","version":"rev A (placeholder)",
    "assumptions":"The target and the budget are consistent with the vehicle they serve.",
    "uncertainty":"None stated. A requirement with no tolerance is itself an open item.",
    "class":"cited","status":"declared","status_text":"declared — not verified",
    "unverified":"Whether the requirement is achievable, and whether it was derived correctly from the mission. No value is given here."},
-  {"id":"L-02","claim":"Theoretical performance of the declared reactant set at the declared conditions.",
+  {"id":"L-02","origin":"solver","claim":"Theoretical performance of the declared reactant set at the declared conditions.",
    "source":"Equilibrium thermochemistry, e.g. the NASA CEA rocket-performance model (RP-1311)","version":"solver release + thermodynamic database hash (placeholder)",
    "assumptions":"Chemical equilibrium or frozen composition; all gases ideal; complete, adiabatic combustion; homogeneous mixing; one-dimensional flow.",
    "uncertainty":"Small against reference cases at the code level. Physically an upper bound: real hardware delivers less, by an efficiency only testing establishes.",
    "class":"computed","status":"verified","status_text":"verified against reference cases — not validated on hardware",
    "unverified":"Combustion efficiency, mixing, and every effect the equilibrium assumption leaves out."},
-  {"id":"L-03","claim":"Wall heat-flux margin is positive along the cooled length.",
+  {"id":"L-03","origin":"solver","claim":"Wall heat-flux margin is positive along the cooled length.",
    "source":"Empirical heat-transfer correlation (illustrative)","version":"published correlation + implementation commit (placeholder)",
    "assumptions":"Fluid properties, geometry and flow regime inside the range the correlation was fitted to.",
    "uncertainty":"Such correlations often scatter widely even inside their range. Outside it, the uncertainty is unbounded.",
    "class":"computed","status":"outside-envelope","status_text":"outside validity envelope — not usable",
    "unverified":"Any heat-flux value at all. The check asked a model a question it was never fitted to answer."},
-  {"id":"L-04","claim":"The generated geometry matches its own declared parameters.",
+  {"id":"L-04","origin":"checker","claim":"The generated geometry matches its own declared parameters.",
    "source":"Mesh measurement against the declaration (a PartForge-style ray CMM)","version":"checker commit + geometry digest (placeholder)",
    "assumptions":"The mesh is a faithful tessellation within the declared curve tolerance.",
    "uncertainty":"Bounded by the curve tolerance and the probe resolution.",
    "class":"measured","status":"verified","status_text":"verified — on the digital model only",
    "unverified":"Whether the parameters are right, and whether the built part matches them (internal passages need inspection of the real part, not a mesh check)."},
-  {"id":"L-05","claim":"Pressure-wall stress margin at a declared load.",
+  {"id":"L-05","origin":"solver","claim":"Pressure-wall stress margin at a declared load.",
    "source":"Closed-form isothermal thick-wall stress (Lamé), applied here outside its envelope","version":"formula + material table revision (placeholder)",
    "assumptions":"Isothermal; room-temperature properties; axisymmetric wall with no ports or welds; load exactly as declared.",
    "uncertainty":"The formula is exact for its idealization. The result is dominated by its inputs: the load, and the material property at temperature.",
    "class":"computed","status":"computed-unverified-inputs","status_text":"computed from unverified inputs — COMPUTED, not PASS",
    "unverified":"Thermal stress, which an isothermal formula leaves out entirely; properties at temperature; cyclic fatigue; and the as-printed material."},
-  {"id":"L-06","claim":"The material strength used in L-05.",
+  {"id":"L-06","origin":"datasheet","claim":"The material strength used in L-05.",
    "source":"Published typical value (datasheet)","version":"datasheet revision (placeholder)",
    "assumptions":"Wrought form, room temperature, a typical value rather than a design minimum.",
    "uncertainty":"There is a gap between a typical value and a design allowable. An additive process can differ substantially.",
    "class":"cited","status":"cited-unverified","status_text":"cited — not verified for this process or temperature",
    "unverified":"Coupon tests from the same machine, powder lot and heat treatment."},
-  {"id":"L-07","claim":"Combustion is stable across the operating range.",
+  {"id":"L-07","origin":"none","claim":"Combustion is stable across the operating range.",
    "source":"None — no model in this system addresses it","version":"—",
    "assumptions":"—","uncertainty":"Unknown.",
    "class":"unknown","status":"not-assessed","status_text":"not assessed",
    "unverified":"All of it. Historically a major development risk for liquid engines; it is settled by specialized analysis and by testing."},
-  {"id":"L-08","claim":"The concept is ready for review.",
+  {"id":"L-08","origin":"assistant","claim":"The concept is ready for review.",
    "source":"LLM assistant (a summary of the rows above)","version":"model id + prompt hash (placeholder)",
    "assumptions":"Whatever the summary left out.","uncertainty":"Not quantifiable. A summary is not a measurement.",
    "class":"unknown","status":"not-evidence","status_text":"not evidence — cannot change any row's status",
    "unverified":"Everything it summarized. A reviewer reads the rows, not the summary."},
-  {"id":"L-09","claim":"The optimizer's preferred design on this page's chart.",
+  {"id":"L-09","origin":"synthetic","claim":"The optimizer's preferred design on this page's chart.",
    "source":"The synthetic objective function below","version":"this page",
    "assumptions":"Synthetic and dimensionless. No physical meaning.","uncertainty":"A synthetic band, shown for teaching.",
    "class":"illustrative","status":"illustrative","status_text":"illustrative — not a prediction",
    "unverified":"Not applicable: no engine is described."},
-  {"id":"L-10","claim":"The hardware survives operation as designed.",
+  {"id":"L-10","origin":"none","claim":"The hardware survives operation as designed.",
    "source":"Test campaign (none performed)","version":"—","assumptions":"—","uncertainty":"—",
    "class":"unknown","status":"not-assessed","status_text":"not started — only a test could establish it",
    "unverified":"Everything. Hot-fire and inspection evidence lies outside this software and outside this study."}
@@ -768,6 +772,7 @@
   function select(id){
     const n = NODES[id];
     map.querySelectorAll('.node').forEach(g => g.classList.toggle('sel', g.dataset.id === id));
+    chips.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.id === id));
     info.innerHTML = `<h3>${esc(n.t)}</h3><dl>
       <dt>Role</dt><dd>${esc(n.role)}</dd>
       <dt>Can claim</dt><dd>${esc(n.can)}</dd>
@@ -776,6 +781,12 @@
       <dt>${esc(PF_LABEL[n.pf])}</dt><dd>${esc(n.pfText)}</dd></dl>`;
   }
   $('pfToggle').addEventListener('change', e => map.classList.toggle('pf', e.target.checked));
+  // On a phone the map is wider than the screen and its boxes are small to tap, so the same boxes are
+  // offered as full-size buttons, and the text reading of the map starts open.
+  const chips = $('nodeChips');
+  chips.innerHTML = Object.entries(NODES).map(([id, n]) => `<button class="chip" type="button" aria-pressed="false" data-id="${id}">${esc(n.t)}</button>`).join('');
+  chips.addEventListener('click', e => { const b = e.target.closest('button'); if(b) select(b.dataset.id); });
+  if(window.matchMedia && matchMedia('(max-width:820px)').matches) $('mapText').open = true;
 
   // ---- evidence ledger ----
   const CLASSES = ['measured', 'computed', 'cited', 'illustrative', 'unknown'];
@@ -862,7 +873,7 @@
     $('readout').innerHTML = r;
 
     const hit = $('hit'), cross = $('cross');
-    hit.addEventListener('pointermove', e => {
+    const show = e => {
       const rect = svg.getBoundingClientRect();
       const x = Math.min(1, Math.max(0, ((e.clientX - rect.left) * (W / rect.width) - m.l) / (W - m.l - m.r)));
       const xr = Math.round(x * 200) / 200;
@@ -874,8 +885,10 @@
       const tx = sx(xr) * rect.width / W;
       tip.style.left = Math.min(rect.width - tip.offsetWidth - 4, Math.max(4, tx + 12)) + 'px';
       tip.style.top = (m.t + 8) + 'px';
-    });
-    hit.addEventListener('pointerleave', () => { cross.setAttribute('visibility', 'hidden'); tip.style.display = 'none'; });
+    };
+    hit.addEventListener('pointermove', show);
+    hit.addEventListener('pointerdown', show);   // a tap on a touch screen sends no hover
+    hit.addEventListener('pointerleave', e => { if(e.pointerType !== 'mouse') return; cross.setAttribute('visibility', 'hidden'); tip.style.display = 'none'; });
 
     $('chartTable').innerHTML = '<caption class="dim small" style="caption-side:top;text-align:left;padding-bottom:4px">Synthetic, dimensionless — not engine data</caption><tr><th>x</th><th>model</th><th>band low</th><th>band high</th><th>envelope</th>' + (reveal ? '<th>synthetic truth</th>' : '') + '</tr>' +
       [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(x => `<tr><td>${x.toFixed(1)}</td><td>${f2(model(x))}</td><td>${f2(model(x) - half(x))}</td><td>${f2(model(x) + half(x))}</td><td>${x >= ENV[0] && x <= ENV[1] ? 'inside' : 'outside'}</td>` + (reveal ? `<td>${f2(truth(x))}</td>` : '') + '</tr>').join('');

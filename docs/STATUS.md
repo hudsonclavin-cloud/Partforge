@@ -30,7 +30,8 @@ one `Gen N:` line per iteration) is the history; this is the state.
 | Every OpenAI-compatible model id gets the token-limit field and role name its own API accepts (GPT-5-and-up and o-series need `max_completion_tokens`; the o-series also needs `developer`; everything else keeps the classic shape) | 14 model ids driven through the real `PROVIDERS.openai.body()` | `cd tests/harness && node provider-body.mjs` |
 | A gateway's own 400 error text reaches the user for every provider, not only Anthropic, with no duplicate retry | mocked 400s from both providers | `cd tests/harness && node provider-400.mjs` |
 | The local OpenAI proxy spends its key only for the page it hosts — never for another website or a rebound hostname | attack requests against the running server, which fail on the unguarded version | `node tests/run.mjs` (node:test section) |
-| The Engine Design Study page keeps its most direct guards. The scope notice's text is there in full. Every ledger row is complete and none has the status "validated". The LLM is drawn as an assistant, and no dashed arrow drawn as an absolute path ends in the ledger. The chart is labelled synthetic. No number is followed by a listed unit, and no listed propellant name appears (both lists are partial). The page loads no external script or stylesheet and is linked from the app's markup only | `tests/engine-study.test.mjs` (5 checks; each fails under at least one planted violation, and a later review found violations that pass all five: see Gen 37) | `node tests/run.mjs` (node:test section) |
+| The Engine Design Study page stays in scope, at the source. The scope notice is there, first and not hidden, and the page loads and offers nothing. Every number in its prose is on an allowlist, and there is no unit, engine quantity, propellant or build step. Every ledger row declares its origin, an AI's row is never evidence, and none claims validation. Every arrow is followed whatever draws it, and none from the model reaches the ledger. The propulsion boxes say PartForge has nothing like them. The chart is labelled synthetic wherever its numbers appear, the page says it is not a plan, and both links from the app open a new tab | `tests/engine-study.test.mjs` (9 checks); 40 planted violations, each caught | `node tests/run.mjs` (node:test section) |
+| And as rendered, at 320–1280 px. The scope notice is on the first screen, and the reachable text passes the same checks. The drawn arrows keep the model out of the ledger. Touch targets are 44 px, page-section jumps clear the sticky header, and a tap shows the chart's readout. The header link fits from 1000 px, and Help opens a new tab | real Chromium; a number a script inserts, a hiding rule that names no element and an unclassed dashed line each pass the source check and fail this one | `cd tests/harness && node engine-study.mjs` |
 
 ## The three Gens this stopping point closes
 
@@ -238,14 +239,28 @@ one `Gen N:` line per iteration) is the history; this is the state.
     - The ledger and its tally say the rows are hypothetical. Ledger row L-05 no longer cites
       PartForge's part check for a hot wall.
     - The page, the README and Help each say it is not a plan.
-  - **Still open from that review:**
-    - The tests are guards against direct regressions, not proof of scope. Seconds,
-      atmospheres, bare ratios, more propellant names, a hidden scope notice, swapped-class or
-      relative-path arrows, an "AI"-named ledger row, and a propulsion box flipped to "parts
-      only" all pass today.
-    - On phones: the Help link is a 111 × 16 px tap target, the links open in the same tab,
-      anchors land 2–3 px under the sticky header, and the chart has no tap tooltip.
-    - LEAP 71's own page has still not been read from here.
+  - **Tests hardened:**
+    - The 15 planted violations that passed the five original checks are now caught by nine
+      checks, along with the original nine and 16 new ones, 40 in all. Among them: seconds,
+      atmospheres, bare ratios, spelled-out numbers, more propellant names, a hidden scope
+      notice, swapped-class, relative, curved or unclassed arrows, an "AI"-named ledger row, a
+      propulsion box claimed for PartForge, a remote request, and build steps in prose.
+    - Numbers in the prose now pass an allowlist rather than a unit blocklist. A new number
+      fails until someone approves it.
+    - `tests/harness/engine-study.mjs` adds the rendered checks. It caught a 26 px logo link and
+      41 px summaries on touch screens, both now fixed.
+  - **Mobile fixed:**
+    - The Help link is a full-size button.
+    - Both links open a new tab, so the app keeps its conversation.
+    - Page-section jumps clear the 66 px sticky header.
+    - A tap on the chart shows its readout.
+    - On narrow screens the map's boxes are also a list of buttons, and its text reading
+      starts open.
+  - **Still open:**
+    - LEAP 71's own page has not been read from here: leap71.com does not resolve in this
+      sandbox.
+    - The tests are tripwires, not a proof of scope. A sentence can still say something it
+      should not in words no list contains, so the page's prose stays a review item.
 
 ## Open, with numbers
 
@@ -292,10 +307,11 @@ persistence paths survive a reload beyond the "Welcome back" slot.
 
 ## How to pick this up
 
-    node tests/run.mjs                      # 733 assertions + 16 node:test checks + 27 headless checks; must be green before any commit
+    node tests/run.mjs                      # 733 assertions + 20 node:test checks + 27 headless checks; must be green before any commit
     cd headless && npm install              # once; then `node build.mjs` after any index.html change the drift guard flags
     cd headless && npm run test:parity      # headless vs browser verdicts + eval answers (~4 min)
     node tools/db/embed.mjs                 # after editing data/tables/*.json
     cd tests/harness && npm i playwright && node server.mjs 8765 &   # then the probes above
+    cd tests/harness && node engine-study.mjs                          # the study page as rendered (starts its own server)
 
 Every commit is pushed to both the working branch and `main`; GitHub Pages serves `main`.

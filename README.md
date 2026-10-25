@@ -34,7 +34,7 @@ behind **Run ▸**.
 Header: the logo, a subtitle that states the current mode, **? Help** and **⚙ Settings**. On
 screens 1000 px and wider it also has **Engine study (concept)**, a link to a separate
 educational page (*Engine Design Study* below). On narrower screens the Help dialog has the
-same link.
+same link. Both open the page in a new tab, so the app and its conversation stay where they were.
 
 Left column, top to bottom:
 
@@ -673,7 +673,7 @@ mill certificate; the process capabilities are vendor design-guide numbers. The 
 `tests/` extract the engineering, measurement and declaration modules straight out of
 `index.html` and check them against analytic solids, the 1976 Standard Atmosphere, a published
 flutter worked example, meshes the real engine produced, and the tier and provenance rules
-(`node tests/run.mjs`, 733 assertions plus 16 `node:test` checks on the local proxy, the Cloudflare Worker, the provider error text and the Engine Design Study page; no dependencies — plus 27 checks on the headless package once `headless/` is npm-installed). Two files a real generation produced
+(`node tests/run.mjs`, 733 assertions plus 20 `node:test` checks on the local proxy, the Cloudflare Worker, the provider error text and the Engine Design Study page; no dependencies — plus 27 checks on the headless package once `headless/` is npm-installed). Two files a real generation produced
 during the first dry run live in `tests/dryrun/` with the failures each must earn — the checks
 are tested against what a model actually writes, not only against templates written to pass.
 
@@ -812,17 +812,53 @@ produce them, and its flight-grade checks do not become one on this page. Those 
 cover declared part geometry, mesh measurements, reference data and documents. The page reads
 nothing from the app and changes nothing in it: the generation prompt, flight doctrine,
 reference tables, templates, checks and exports are untouched, and so is the headless core
-built from them. `tests/engine-study.test.mjs` guards against the most direct regressions; it
-does not replace reading the page. It checks that:
+built from them.
 
-- the scope notice's text is present in full;
-- every ledger row has every field and a known evidence class, and no row's status is "validated";
-- no dashed (proposal) arrow drawn as an absolute-coordinate path ends in the ledger;
-- the chart is labelled synthetic;
-- no number is followed by one of a listed set of units (kN, bar, MPa, mm and others; seconds,
-  atmospheres and bare ratios are not on the list yet);
-- none of a listed set of propellant names appears (the list is not exhaustive);
-- the page loads no external script or stylesheet.
+Two checks keep it that way. They are tripwires for the direct regressions, not a proof of scope:
+a sentence can still say something it should not in words no list contains, so the prose is
+reviewed too. Their vocabulary is in one place, `tests/engine-study-scope.mjs`.
+
+`tests/engine-study.test.mjs` (in `node tests/run.mjs`) reads the source and checks that:
+
+- **Scope notice:** it is present in full, comes first, and nothing hides it: no attribute,
+  no stylesheet rule, no script.
+- **Nothing loaded or offered:** the page loads nothing from elsewhere (no scripts,
+  stylesheets, media, requests or generated code) and offers nothing to download.
+- **Numbers:** every number in the prose is on an allowlist (years, document names, ledger row
+  ids). Any other number fails until someone approves it by adding it to the list. This covers
+  screen-reader labels, the ledger and the map's detail text too.
+- **Units, terms, names, instructions:** the prose has no unit (written as a symbol or spelled
+  out), no engine quantity next to a number, no propellant, oxidizer or fuel name, and no
+  build or test instruction.
+- **Ledger:** every row is complete. Each declares where it came from. A row from an AI,
+  whatever it is called, is unknown and not evidence. Only a measurement is "measured", and no
+  row claims to be validated, qualified or approved.
+- **Map arrows:** every arrow is followed whatever element or path syntax draws it, and none
+  from the model ends in the ledger or the evidence box.
+- **Map boxes:** the five propulsion boxes say PartForge has nothing like them, and every
+  other box says "for parts".
+- **Chart:** the synthetic label is on the section, the plot, the readout and the table.
+- **Framing:** the page, this README and Help each say it is not a plan.
+- **Links:** both links from the app open it in a new tab.
+
+`tests/harness/engine-study.mjs` renders the page at 320, 375, 768, 1024 and 1280 px and
+checks what only a browser shows:
+
+- the scope notice is on the first screen;
+- the text a reader can reach, with every detail opened, every box selected and every toggle
+  on, passes the same number and vocabulary checks;
+- the arrows as drawn keep the model out of the ledger;
+- on touch screens:
+  - every control is a 44 px target;
+  - jumps to page sections land clear of the sticky header;
+  - a tap on the chart shows its readout;
+  - the narrow-screen list of map boxes works;
+- the app's header link appears from 1000 px without wrapping the subtitle, and Help opens the
+  page in a new tab.
+
+The two checks catch different things. A planted number that a script inserts, a hiding rule
+that names no element, and an unclassed dashed line all pass the source check and fail the
+rendered one.
 
 ## Keyboard
 
