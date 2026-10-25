@@ -32,8 +32,9 @@ behind **Run ▸**.
 ### The screen
 
 Header: the logo, a subtitle that states the current mode, **? Help** and **⚙ Settings**. On
-screens 1000 px and wider it also has **Engine study**, a link to a separate educational page
-(*Engine Design Study* below). On narrower screens the Help dialog has the same link.
+screens 1000 px and wider it also has **Engine study (concept)**, a link to a separate
+educational page (*Engine Design Study* below). On narrower screens the Help dialog has the
+same link.
 
 Left column, top to bottom:
 
@@ -793,31 +794,35 @@ Noyron. The page shows:
   generated geometry, simulation and constraint checks, an evidence ledger, and human review;
 - a clickable systems map. The language model is drawn as an assistant that proposes,
   summarizes and orchestrates. The physics solvers and the validation evidence are separate
-  boxes, and nothing gives the model a way to set a verification status. A toggle shows which
-  boxes PartForge has anything like today;
-- an example evidence ledger whose rows carry no values. Each row has its claim, source,
-  version, assumptions, uncertainty, evidence class (measured, computed, cited, illustrative,
-  unknown), verification status, and what remains unverified;
+  boxes, and nothing gives the model a way to set a verification status. A toggle shows
+  PartForge's nearest analogue for each box, which exists for rocket-club parts only, never for
+  engines;
+- an example evidence ledger whose rows are hypothetical and carry no values. Each row has its
+  claim, source, version, assumptions, uncertainty, evidence class (measured, computed, cited,
+  illustrative, unknown), verification status, and what remains unverified;
 - a synthetic, dimensionless chart. It shows an optimizer running past a model's validity
   envelope and settling on the model's largest error;
 - what would have to exist before any engine-specific analysis could be credible.
 
-**What it is not.** It is not for fabrication, testing or flight. It contains no engine
+**What it is not.** It is not a plan, roadmap or commitment to add engine analysis to
+PartForge. It is not for fabrication, testing or flight. It contains no engine
 dimensions, propellant recipes, injector specifications, operating setpoints or build
 instructions. PartForge has no propulsion, combustion, thermal or structural solver that could
 produce them, and its flight-grade checks do not become one on this page. Those checks
 cover declared part geometry, mesh measurements, reference data and documents. The page reads
 nothing from the app and changes nothing in it: the generation prompt, flight doctrine,
 reference tables, templates, checks and exports are untouched, and so is the headless core
-built from them. `tests/engine-study.test.mjs` keeps the page to that. It checks that:
+built from them. `tests/engine-study.test.mjs` guards against the most direct regressions; it
+does not replace reading the page. It checks that:
 
-- the scope notice is present in full;
-- every ledger row has every field and a known evidence class, and no row claims validation;
-- no arrow from the model ends in the ledger;
+- the scope notice's text is present in full;
+- every ledger row has every field and a known evidence class, and no row's status is "validated";
+- no dashed (proposal) arrow drawn as an absolute-coordinate path ends in the ledger;
 - the chart is labelled synthetic;
-- no number on the page carries a physical unit;
-- no propellant is named;
-- the page loads no dependency.
+- no number is followed by one of a listed set of units (kN, bar, MPa, mm and others; seconds,
+  atmospheres and bare ratios are not on the list yet);
+- none of a listed set of propellant names appears (the list is not exhaustive);
+- the page loads no external script or stylesheet.
 
 ## Keyboard
 

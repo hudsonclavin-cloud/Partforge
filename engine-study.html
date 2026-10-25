@@ -95,6 +95,7 @@
   #map .pfbadge{font:600 10px var(--mono);text-anchor:end}
   #map.pf .pf-none{opacity:.38}
   #map:not(.pf) .pfbadge{display:none}
+  #map.pf .node.short text.t{transform:translateY(-5px)}
   .maplegend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--dim);margin-top:10px}
   .maplegend span{display:inline-flex;align-items:center;gap:6px}
   .sw{display:inline-block;width:22px;height:12px;border-radius:3px;border:2px solid var(--border);background:var(--panel2)}
@@ -221,22 +222,23 @@
   <section id="why" class="card">
     <h2>Why this page exists</h2>
     <p>LEAP 71 describes its Noyron system as a large computational engineering model. It encodes physics, engineering
-      logic, production constraints and feedback from tests as software that generates engine geometry from a specification.
+      logic, production constraints and empirical feedback as software that generates engine geometry from a specification.
       The company has reported hot-fire tests of engines it generated this way. <span class="label">company claims, as reported; not evaluated here</span></p>
-    <p>Look at what carries the weight in that description: <b>encoded physics and test feedback</b>. The geometry
+    <p>Look at what carries the weight in that description: <b>encoded physics and empirical feedback</b>. The geometry
       is the output. The evidence that it works came from hardware on a test stand. A language model that writes
       plausible engine code has neither. The same goes for a mesh that looks like an engine, or a geometry check that
       passes.</p>
     <p>None of this is new. NASA's 1989 "rocket engine design expert system" combined three things: a JANNAF standard
       reference performance code, a finite-element model of how injection, combustion and cooling interact, and
-      rule-of-thumb injector heuristics. The "expert" part was the heuristics. The numbers came from the codes. So the
+      rule-of-thumb injector heuristics. As this page reads the abstract, the numbers came from the codes and the rules of
+      thumb from the heuristics. So the
       useful question for PartForge is how to keep a system like that honest about what each part of it knows, not how
       to make an LLM design an engine.</p>
   </section>
 
   <section id="today" class="card">
     <h2>What PartForge checks today, and what it does not</h2>
-    <p>PartForge's flight grade is for passive rocket-club parts: couplers, bulkheads, centering rings, retainers, fins,
+    <p>PartForge's flight grade is for rocket-club parts: couplers, bulkheads, centering rings, retainers, fins,
       nose cones and sleds. Its checks work on <b>declared part geometry, measurements of the mesh, reference data and
       documents</b>. They are not validated propulsion, combustion, thermal or structural solvers, and nothing on this
       page changes that.</p>
@@ -253,7 +255,7 @@
           <li>Every tolerance and load input is tagged <i>cited</i>, <i>user</i> or <i>tool default</i>. A check computed from
             tool defaults reports COMPUTED, not PASS.</li>
           <li>A part with a hot-gas path or a pressure boundary is classed tier B and gets an interface drawing with a blank
-            inspection column and a list of missing evidence ("hot fire for a nozzle"). Energetic hardware is tier C: geometry
+            inspection column and a list of missing evidence (for a hot-gas part, a hot-fire or equivalent thermal test). Energetic hardware is tier C: geometry
             is never a sign-off.</li>
         </ul>
       </div>
@@ -277,8 +279,8 @@
   </section>
 
   <section id="workflow" class="card">
-    <h2>The proposed workflow</h2>
-    <p>Six stages. The loop closes through test results, not through the language model.</p>
+    <h2>An example workflow</h2>
+    <p>Six stages, showing how such a system could be organised. It is not a plan for PartForge. The loop closes through test results, not through the language model.</p>
     <div class="grid3">
       <div class="stage">
         <div class="n">1</div>
@@ -286,7 +288,7 @@
         <dl>
           <dt>Produces</dt><dd>Targets with units, a source and a tolerance for each; written assumptions; an explicit out-of-scope list.</dd>
           <dt>If skipped</dt><dd>The optimizer works hard on the wrong problem, and nobody can tell.</dd>
-          <dt>PartForge today</dt><dd>For parts: the SPEC and FLIGHT declarations.</dd>
+          <dt>Nearest PartForge analogue (parts)</dt><dd>For parts: the SPEC and FLIGHT declarations.</dd>
         </dl>
       </div>
       <div class="stage">
@@ -295,7 +297,7 @@
         <dl>
           <dt>Produces</dt><dd>A registry of versioned models. Each states its assumptions and its <i>validity envelope</i>: the input range it was built and checked for.</dd>
           <dt>If skipped</dt><dd>A number from outside an envelope looks exactly like a number from inside it.</dd>
-          <dt>PartForge today</dt><dd>Closed-form part checks only. No propulsion models.</dd>
+          <dt>Nearest PartForge analogue (parts)</dt><dd>Closed-form part checks only. No propulsion models.</dd>
         </dl>
       </div>
       <div class="stage">
@@ -304,7 +306,7 @@
         <dl>
           <dt>Produces</dt><dd>Geometry generated by code from the model outputs (parametric or implicit), with a digest for every version.</dd>
           <dt>If skipped</dt><dd>A hand edit breaks the chain from requirement to shape.</dd>
-          <dt>PartForge today</dt><dd>For parts: the OpenSCAD source is the record of the geometry.</dd>
+          <dt>Nearest PartForge analogue (parts)</dt><dd>For parts: the OpenSCAD source is the record of the geometry.</dd>
         </dl>
       </div>
       <div class="stage">
@@ -313,7 +315,7 @@
         <dl>
           <dt>Produces</dt><dd>Coupled runs, sweeps and optimization. The constraints include "every model input stays inside that model's envelope".</dd>
           <dt>If skipped</dt><dd>The optimizer finds the models' errors and reports them as performance (see the <a href="#envelope">chart</a>).</dd>
-          <dt>PartForge today</dt><dd>For parts: the geometry gate and the mesh CMM, against the part's own declaration.</dd>
+          <dt>Nearest PartForge analogue (parts)</dt><dd>For parts: the geometry gate and the mesh CMM, against the part's own declaration.</dd>
         </dl>
       </div>
       <div class="stage">
@@ -322,7 +324,7 @@
         <dl>
           <dt>Produces</dt><dd>A ledger row per claim: source, version, assumptions, uncertainty, evidence class, verification status, what remains unverified.</dd>
           <dt>If skipped</dt><dd>A reviewer can no longer tell measured from computed from guessed.</dd>
-          <dt>PartForge today</dt><dd>For parts: cited / user / tool-default provenance, COMPUTED versus PASS, and tiers.</dd>
+          <dt>Nearest PartForge analogue (parts)</dt><dd>For parts: cited / user / tool-default provenance, COMPUTED versus PASS, and tiers.</dd>
         </dl>
       </div>
       <div class="stage">
@@ -331,7 +333,7 @@
         <dl>
           <dt>Produces</dt><dd>A decision: accept, reject, or order the test that would decide. Test results recalibrate the models, which gives new model versions and new ledger rows.</dd>
           <dt>If skipped</dt><dd>Nobody is responsible for the result.</dd>
-          <dt>PartForge today</dt><dd>A person reads the sheet or drawing. No release status is issued for tier B or C parts.</dd>
+          <dt>Nearest PartForge analogue (parts)</dt><dd>A person reads the sheet or drawing. No release status is issued for tier B or C parts.</dd>
         </dl>
       </div>
     </div>
@@ -339,14 +341,15 @@
 
   <section id="map-section" class="card">
     <h2>Systems map <span class="label">non-operational</span></h2>
-    <p>Select a box to see what it can claim, what it cannot, and whether PartForge has anything like it today. The
+    <p>Select a box to see what it can claim, what it cannot, and PartForge's nearest analogue, which exists for rocket-club
+      parts only, never for engines. The
       language model sits outside the computation: it <b>proposes, summarizes and orchestrates</b>. The physics solvers
       and the validation evidence are separate components. The model has no path that writes a verification status.</p>
     <div class="controls">
-      <label class="toggle"><input type="checkbox" id="pfToggle"> Show what PartForge has today</label>
+      <label class="toggle"><input type="checkbox" id="pfToggle"> Show PartForge's nearest analogue (parts only, not engines)</label>
     </div>
     <div class="mapwrap">
-      <svg id="map" viewBox="0 0 960 540" role="group" aria-label="Systems map of the proposed workflow. Each box is a button that shows its details below.">
+      <svg id="map" viewBox="0 0 960 540" role="group" aria-label="Systems map of the example workflow. Each box is a button that shows its details below.">
         <defs>
           <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8b949e"/></marker>
           <marker id="ahp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9085e9"/></marker>
@@ -479,7 +482,7 @@
   </section>
 
   <section id="ledger" class="card">
-    <h2>Evidence ledger — an example <span class="label">illustrative rows; no values</span></h2>
+    <h2>Evidence ledger — an example <span class="label">hypothetical rows; no values; no work behind them</span></h2>
     <p>One row per claim. The ledger's job is to make <b>"not established"</b> as visible as "established". The rows below
       describe a hypothetical concept and deliberately carry no values. Their purpose is to show the fields and how the
       statuses differ. The evidence classes follow PartForge's convention: <i>measured</i>, <i>computed</i>,
@@ -488,7 +491,7 @@
     <div class="tablewrap">
       <table class="ledger" id="ledgerTable">
         <thead><tr>
-          <th>ID</th><th>Claim</th><th>Source / model</th><th>Version</th><th>Assumptions</th><th>Uncertainty</th><th>Evidence class</th><th>Verification status</th><th>What remains unverified</th>
+          <th>ID</th><th>Claim</th><th>Source / model</th><th>Version</th><th>Assumptions</th><th>Uncertainty</th><th>Evidence class</th><th>Status in this example</th><th>What remains unverified</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -516,9 +519,10 @@
       physical meaning.</b> A "model" was calibrated against synthetic test points that exist only inside the shaded
       validity envelope. Outside the envelope, it extrapolates. Turn off the constraint and see where the optimizer goes,
       then reveal the synthetic "truth".</p>
-    <p class="small dim">PartForge learned this lesson at a small scale. A generator under a pass/fail gate finds the cheapest
-      way to pass, for example by deleting a declaration or lowering an input it invented. So the gate refuses a retry that
-      declares less. An optimizer over a model does the same thing with the model's errors.</p>
+    <p class="small dim">PartForge's gate is built around this failure mode at a small scale. A generator under a pass/fail
+      gate can pass cheaply by deleting a declaration, so the gate refuses a retry that declares less. The project's roadmap
+      dropped a proposed thermal-stress check partly because the model could pass it by lowering a temperature it had
+      invented. An optimizer over a model does the same thing with the model's errors.</p>
     <div class="controls">
       <label class="toggle"><input type="checkbox" id="constrain" checked> Constrain the optimizer to the validity envelope</label>
       <label class="toggle"><input type="checkbox" id="reveal"> Reveal the synthetic "truth"</label>
@@ -547,9 +551,10 @@
       a field of study in its own right.</p>
     <ol>
       <li><b>Verified domain models.</b> Each implementation is checked against published reference cases. That is
-        <i>verification</i>: are the equations solved right? For thermochemistry, NASA's CEA and Cantera are the usual
-        starting points, and their documentation states the assumptions (equilibrium, ideal gas, idealized combustor
-        models) that bound every answer.</li>
+        <i>verification</i>: are the equations solved right? For thermochemistry, NASA's CEA documentation (RP-1311) states the
+        assumptions behind its rocket-performance numbers: all gases ideal, complete and adiabatic combustion, homogeneous
+        mixing, one-dimensional flow. Cantera is a more general toolkit whose assumptions depend on the models chosen,
+        non-ideal fluids included.</li>
       <li><b>Validation data for the regime of interest.</b> The model is compared with measurements. That is
         <i>validation</i>: are they the right equations? A verified model that was never validated is a precise answer to
         a possibly different question.</li>
@@ -558,7 +563,7 @@
       <li><b>Uncertainty quantification.</b> This means input uncertainty and model-form uncertainty, propagated through the
         coupled models. A single number without a spread is a ledger row with an empty field.</li>
       <li><b>Coupling with consistent interfaces.</b> Units, reference conditions and versions must agree between models.
-        Frameworks such as NASA's OpenMDAO exist for multidisciplinary analysis and optimization, but they connect models.
+        Frameworks such as OpenMDAO exist for multidisciplinary analysis and optimization, but they connect models.
         They do not make any of them right.</li>
       <li><b>Material data for the actual process and temperature.</b> A typical room-temperature datasheet value says
         little about a part printed on one machine from one powder lot and run hot. Coupons from that process do.</li>
@@ -579,6 +584,8 @@
     <ul>
       <li>It does not establish that PartForge can design, analyze, qualify or produce an engine or any engine component.
         It cannot.</li>
+      <li>It is not a plan, roadmap or commitment to add engine analysis to PartForge. The "nearest PartForge analogue"
+        notes describe what exists for club parts; they are not steps toward an engine tool.</li>
       <li>Nothing here describes a real engine: no concept, ledger row, number or chart. The chart's values are synthetic
         and dimensionless, and the ledger rows carry no values at all.</li>
       <li>None of the following counts as engineering validation: an LLM response, a plausible-looking mesh, a passing
@@ -600,8 +607,8 @@
         Equilibrium with Applications (CEA)</a>: equilibrium compositions, thermodynamic properties and theoretical rocket
         performance. These are an example of one domain model and its assumptions.</li>
       <li>NASA NESC, <a href="https://www.nasa.gov/centers-and-facilities/nesc/tb-26-04-updates-and-modernization-of-nasas-chemical-equilibrium-with-applications-cea-code/">TB-26-04,
-        Updates and modernization of CEA</a>. CEA v3 is a modern Fortran rewrite with C, Python, MATLAB and Excel
-        interfaces. The bulletin advises keeping engineering review and validation when established workflows move to it.
+        Updates and modernization of CEA</a>. CEA v3 is a modernization of the legacy CEA2 Fortran code, with Fortran, C, Python,
+        MATLAB and Excel interfaces. The bulletin advises keeping engineering review and validation when established workflows move to it.
         That advice is the pattern this page follows: even a trusted solver's new version is a new ledger entry.</li>
       <li>Huzel &amp; Huang, <a href="https://ntrs.nasa.gov/search.jsp?R=19710019929">NASA SP-125, Design of Liquid
         Propellant Rocket Engines</a> (second edition): how thrust chambers, turbopumps and valves relate to the whole
@@ -609,10 +616,11 @@
       <li>K. J. Davidian, <a href="https://ntrs.nasa.gov/citations/19900000856">A rocket engine design expert system</a>
         (NASA Lewis, JANNAF Combustion Meeting, 1989). The precedent: performance code, finite-element model and heuristics,
         combined.</li>
-      <li><a href="https://openmdao.org/">OpenMDAO</a>: NASA's open-source framework for multidisciplinary analysis and
-        optimization. An example of the orchestrator box.</li>
+      <li><a href="https://openmdao.org/">OpenMDAO</a>: an open-source platform for systems analysis and multidisciplinary
+        optimization (Apache-2.0). An example of the orchestrator box.</li>
       <li><a href="https://cantera.org/stable/">Cantera</a>: an open-source toolkit for chemical kinetics, thermodynamics and
-        transport processes. A second example of a thermochemistry model.</li>
+        transport processes. It also models non-ideal fluids, so its assumptions depend on the models chosen. A second
+        example of a thermochemistry model.</li>
       <li>PartForge: <a href="https://github.com/hudsonclavin-cloud/Partforge/blob/main/README.md">README</a> (flight grade,
         provenance, tiers), <a href="https://github.com/hudsonclavin-cloud/Partforge/blob/main/docs/STATUS.md">STATUS</a>
         (what is verified and by what), <a href="https://github.com/hudsonclavin-cloud/Partforge/blob/main/headless/README.md">headless/README</a>
@@ -637,8 +645,8 @@
    "class":"cited","status":"declared","status_text":"declared — not verified",
    "unverified":"Whether the requirement is achievable, and whether it was derived correctly from the mission. No value is given here."},
   {"id":"L-02","claim":"Theoretical performance of the declared reactant set at the declared conditions.",
-   "source":"Equilibrium thermochemistry solver (e.g. NASA CEA, Cantera)","version":"solver release + thermodynamic database hash (placeholder)",
-   "assumptions":"Chemical equilibrium or frozen composition; ideal gas; idealized combustor model; complete mixing.",
+   "source":"Equilibrium thermochemistry, e.g. the NASA CEA rocket-performance model (RP-1311)","version":"solver release + thermodynamic database hash (placeholder)",
+   "assumptions":"Chemical equilibrium or frozen composition; all gases ideal; complete, adiabatic combustion; homogeneous mixing; one-dimensional flow.",
    "uncertainty":"Small against reference cases at the code level. Physically an upper bound: real hardware delivers less, by an efficiency only testing establishes.",
    "class":"computed","status":"verified","status_text":"verified against reference cases — not validated on hardware",
    "unverified":"Combustion efficiency, mixing, and every effect the equilibrium assumption leaves out."},
@@ -655,11 +663,11 @@
    "class":"measured","status":"verified","status_text":"verified — on the digital model only",
    "unverified":"Whether the parameters are right, and whether the built part matches them (internal passages need inspection of the real part, not a mesh check)."},
   {"id":"L-05","claim":"Pressure-wall stress margin at a declared load.",
-   "source":"Closed-form thick-wall stress (Lamé), as PartForge's flight checks compute it","version":"formula + material table revision (placeholder)",
+   "source":"Closed-form isothermal thick-wall stress (Lamé), applied here outside its envelope","version":"formula + material table revision (placeholder)",
    "assumptions":"Isothermal; room-temperature properties; axisymmetric wall with no ports or welds; load exactly as declared.",
    "uncertainty":"The formula is exact for its idealization. The result is dominated by its inputs: the load, and the material property at temperature.",
    "class":"computed","status":"computed-unverified-inputs","status_text":"computed from unverified inputs — COMPUTED, not PASS",
-   "unverified":"Thermal stress, properties at temperature, cyclic fatigue, and the as-printed material."},
+   "unverified":"Thermal stress, which an isothermal formula leaves out entirely; properties at temperature; cyclic fatigue; and the as-printed material."},
   {"id":"L-06","claim":"The material strength used in L-05.",
    "source":"Published typical value (datasheet)","version":"datasheet revision (placeholder)",
    "assumptions":"Wrought form, room temperature, a typical value rather than a design minimum.",
@@ -698,10 +706,10 @@
   const NODES = {
     req:{ t:'Requirements & assumptions', role:'States what the design must do, as declared numbers with units and a source for each. Also records the assumptions everyone is working under, where they can be challenged.',
       can:'State intent. A requirement is the only legitimate source of a target.', cannot:'Prove itself achievable or correct. An unsourced requirement is an open item, not a fact.',
-      pf:'partial', pfText:'Partly, for parts. The SPEC and FLIGHT declarations carry dimensions, tolerances and load inputs, each tagged cited, user or tool default.' },
+      pf:'partial', pfText:'For parts only: the SPEC and FLIGHT declarations carry dimensions, tolerances and load inputs, each tagged cited, user or tool default.' },
     orch:{ t:'Orchestrator (coupled-model framework)', role:'Connects the domain models so one model\'s outputs become the next model\'s inputs, in consistent units. Runs sweeps and optimizations, and records every run with its versions.',
       can:'Guarantee that the numbers handed between models are the same numbers, and that any run can be reproduced.', cannot:'Make any model inside it more accurate. Given the chance, an optimizer will exploit model errors (see the synthetic chart).',
-      ex:'OpenMDAO, NASA\'s open-source framework for multidisciplinary analysis and optimization.', pf:'none', pfText:'Not in PartForge.' },
+      ex:'OpenMDAO, an open-source platform for systems analysis and multidisciplinary optimization.', pf:'none', pfText:'Not in PartForge.' },
     thermo:{ t:'Thermochemistry (equilibrium)', role:'Equilibrium composition, thermodynamic properties and theoretical performance for a declared set of reactants.',
       can:'Give the theoretical reference point that every later loss is measured against.', cannot:'Predict what hardware delivers. Real combustion is neither at equilibrium nor complete.',
       ex:'NASA CEA (now CEA v3); Cantera.', pf:'none', pfText:'Not in PartForge.' },
@@ -713,10 +721,10 @@
       pf:'none', pfText:'Not in PartForge. The roadmap evaluated even a steady thermal-stress check and dropped it: its temperature input can be neither measured on the mesh nor looked up.' },
     struct:{ t:'Structures', role:'Stress, deformation and life under pressure, thermal and mechanical loads.',
       can:'Find the load paths and margins of a defined geometry under defined loads.', cannot:'Do better than its loads and material data, which are hard to get at temperature and in cyclic service.',
-      pf:'partial', pfText:'Partly. It runs closed-form checks only (Lamé thick wall, bolt shear, thread engagement, fin flutter) with typical room-temperature properties. There is no FEA: the roadmap rejected browser FEA because it can understate stress.' },
+      pf:'partial', pfText:'For parts only: closed-form checks (Lamé thick wall, bolt shear, thread engagement, fin flutter) with typical room-temperature properties. There is no FEA: the roadmap rejected browser FEA because it can understate stress.' },
     mfg:{ t:'Manufacturing rules', role:'What the chosen process can make and inspect: minimum features, supports, powder removal from internal passages, post-machining.',
       can:'Keep the design inside what can be built.', cannot:'Say what the built part\'s properties are.',
-      pf:'partial', pfText:'Partly: process-capability and tolerance-class tables for machining and industrial printing of parts.' },
+      pf:'partial', pfText:'For parts only: process-capability and tolerance-class tables for machining and industrial printing.' },
     geom:{ t:'Geometry generator', role:'Turns model outputs into geometry by code (parametric or implicit), so the shape is a function of the numbers and never hand-drawn.',
       can:'Make geometry reproducible and traceable to its inputs, with a digest per version.', cannot:'Make a shape correct. A plausible-looking mesh is not evidence of anything.',
       pf:'partial', pfText:'For parts, yes: OpenSCAD compiled in the browser. For engines, no. No engine generator exists here, by design.' },
@@ -725,18 +733,18 @@
       pf:'partial', pfText:'For parts, yes: the geometry gate and the mesh CMM measure a part against its own declaration. They cannot tell whether the declaration itself is right.' },
     llm:{ t:'LLM assistant', role:'Drafts requirements and design options, configures and launches runs, and summarizes the ledger for a reader.',
       can:'Save people time on drafting, bookkeeping and explanation.', cannot:'Compute physics, produce evidence, or change a verification status. Its output enters the ledger as "unknown" until a solver, a citation or a test stands behind it.',
-      pf:'partial', pfText:'For parts, yes. The designer model writes OpenSCAD and its declaration, PartForge checks them, and failures go back to the model. The model never judges its own part.' },
+      pf:'partial', pfText:'For parts only. The designer model writes OpenSCAD and its declaration, PartForge checks them, and failures go back to the model. The model never decides pass or fail. The optional intent score is advisory and, unless a separate judge model is set, comes from the same model.' },
     ledger:{ t:'Evidence ledger', role:'One row per claim: what is claimed, its model or source, version, assumptions, uncertainty, evidence class, verification status, and what remains unverified.',
       can:'Make "not established" as visible as "established", and make every number traceable.', cannot:'Upgrade anything. It records evidence; it does not create it.',
-      pf:'partial', pfText:'Partly. It has per-dimension provenance (cited, user, tool default), COMPUTED versus PASS, and tier-based documents with an explicit list of what is unresolved.' },
+      pf:'partial', pfText:'For parts only: per-dimension provenance (cited, user, tool default), COMPUTED versus PASS, and tier-based documents with an explicit list of what is unresolved.' },
     test:{ t:'Validation evidence', role:'Results from the physical world: coupon tests, inspection of internal passages, component tests, hot fire.',
       can:'Move a claim to "validated", for the conditions tested, and recalibrate the models.', cannot:'Say anything beyond what was tested.',
-      pf:'none', pfText:'Not in PartForge, by design. The tier B drawing leaves the inspection column blank and lists the missing tests (a nozzle needs hot fire) rather than inventing a result.' },
+      pf:'none', pfText:'Not in PartForge, by design. The tier B drawing leaves the inspection column blank and lists the missing tests (for a hot-gas part, a hot-fire or equivalent thermal test) rather than inventing a result.' },
     review:{ t:'Human engineering review', role:'Reads the ledger, not the summary. Accepts, rejects, or orders the test that would decide.',
       can:'Take responsibility. No software here can.', cannot:'Be replaced by a confident summary.',
       pf:'partial', pfText:'For parts, a person reads the manufacturing sheet or interface drawing. PartForge issues no release status for tier B or C parts.' },
   };
-  const PF_LABEL = { partial:'PartForge: partial', none:'PartForge: none' };
+  const PF_LABEL = { partial:'Nearest PartForge analogue (parts only)', none:'PartForge: none' };
   const map = $('map'), info = $('nodeInfo');
   const SVGNS = 'http://www.w3.org/2000/svg';
   map.querySelectorAll('.node').forEach(g => {
@@ -746,9 +754,12 @@
     const badge = document.createElementNS(SVGNS, 'text');
     badge.setAttribute('class', 'pfbadge');
     badge.setAttribute('x', +r.getAttribute('x') + +r.getAttribute('width') - 6);
-    badge.setAttribute('y', +r.getAttribute('y') + 12);
-    badge.setAttribute('fill', n.pf === 'none' ? '#8b949e' : '#f0a35e');
-    badge.textContent = n.pf === 'none' ? 'none' : 'partial';
+    // the short solver boxes have no room beside their title, so their badge sits under it
+    const short = +r.getAttribute('height') < 40;
+    if(short) g.classList.add('short');
+    badge.setAttribute('y', +r.getAttribute('y') + (short ? +r.getAttribute('height') - 4 : 12));
+    badge.setAttribute('fill', n.pf === 'none' ? '#8b949e' : '#e6edf3');
+    badge.textContent = n.pf === 'none' ? 'none' : 'parts only';
     g.appendChild(badge);
     const pick = () => select(g.dataset.id);
     g.addEventListener('click', pick);
@@ -771,7 +782,7 @@
   const rows = JSON.parse($('ledger-data').textContent);
   const tbody = $('ledgerTable').querySelector('tbody');
   const COLS = [['id','ID'], ['claim','Claim'], ['source','Source / model'], ['version','Version'], ['assumptions','Assumptions'],
-    ['uncertainty','Uncertainty'], ['class','Evidence class'], ['status_text','Verification status'], ['unverified','What remains unverified']];
+    ['uncertainty','Uncertainty'], ['class','Evidence class'], ['status_text','Status in this example'], ['unverified','What remains unverified']];
   tbody.innerHTML = rows.map(r => `<tr data-class="${esc(r.class)}">` + COLS.map(([k, label]) => {
     let v = esc(r[k]);
     if(k === 'class') v = `<span class="cls ${esc(r.class)}">${v}</span>`;
@@ -789,7 +800,7 @@
     tbody.querySelectorAll('tr').forEach(tr => { tr.hidden = !active.has(tr.dataset.class); });
   });
   const established = rows.filter(r => r.status === 'validated').length;
-  $('ledgerTally').innerHTML = `<span>rows <b>${rows.length}</b></span><span>validated by test <b>${established}</b></span>` +
+  $('ledgerTally').innerHTML = `<span>Tally of the hypothetical rows above, not of any real work:</span><span>rows <b>${rows.length}</b></span><span>validated by test <b>${established}</b></span>` +
     `<span>verified (code or digital model) <b>${rows.filter(r => r.status === 'verified').length}</b></span>` +
     `<span>not assessed, not evidence, or unusable <b>${rows.filter(r => ['not-assessed','not-evidence','outside-envelope'].includes(r.status)).length}</b></span>`;
 
@@ -843,7 +854,7 @@
     $('truthKey').hidden = !reveal;
 
     const inside = px >= ENV[0] && px <= ENV[1];
-    let r = `Optimizer pick at x = <b>${f2(px)}</b> (${inside ? 'inside' : 'outside'} the envelope). The model predicts <b>${f2(model(px))}</b> ± <b>${f2(half(px))}</b>.`;
+    let r = `<span class="synth">SYNTHETIC</span> Optimizer pick at x = <b>${f2(px)}</b> (${inside ? 'inside' : 'outside'} the envelope). The model predicts <b>${f2(model(px))}</b> ± <b>${f2(half(px))}</b>.`;
     if(reveal) r += ` The synthetic truth there is <b>${f2(truth(px))}</b>.` + (inside
       ? ' Inside the envelope, the model and the test points agree. The pick is defensible because the evidence covers it.'
       : ' The model\'s best design is its largest error, and even its own uncertainty band does not cover the truth. Outside the envelope, the band is itself a model.');
@@ -866,7 +877,7 @@
     });
     hit.addEventListener('pointerleave', () => { cross.setAttribute('visibility', 'hidden'); tip.style.display = 'none'; });
 
-    $('chartTable').innerHTML = '<tr><th>x</th><th>model</th><th>band low</th><th>band high</th><th>envelope</th>' + (reveal ? '<th>synthetic truth</th>' : '') + '</tr>' +
+    $('chartTable').innerHTML = '<caption class="dim small" style="caption-side:top;text-align:left;padding-bottom:4px">Synthetic, dimensionless — not engine data</caption><tr><th>x</th><th>model</th><th>band low</th><th>band high</th><th>envelope</th>' + (reveal ? '<th>synthetic truth</th>' : '') + '</tr>' +
       [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(x => `<tr><td>${x.toFixed(1)}</td><td>${f2(model(x))}</td><td>${f2(model(x) - half(x))}</td><td>${f2(model(x) + half(x))}</td><td>${x >= ENV[0] && x <= ENV[1] ? 'inside' : 'outside'}</td>` + (reveal ? `<td>${f2(truth(x))}</td>` : '') + '</tr>').join('');
   }
   $('constrain').addEventListener('change', draw);

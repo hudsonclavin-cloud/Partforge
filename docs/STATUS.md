@@ -30,7 +30,7 @@ one `Gen N:` line per iteration) is the history; this is the state.
 | Every OpenAI-compatible model id gets the token-limit field and role name its own API accepts (GPT-5-and-up and o-series need `max_completion_tokens`; the o-series also needs `developer`; everything else keeps the classic shape) | 14 model ids driven through the real `PROVIDERS.openai.body()` | `cd tests/harness && node provider-body.mjs` |
 | A gateway's own 400 error text reaches the user for every provider, not only Anthropic, with no duplicate retry | mocked 400s from both providers | `cd tests/harness && node provider-400.mjs` |
 | The local OpenAI proxy spends its key only for the page it hosts — never for another website or a rebound hostname | attack requests against the running server, which fail on the unguarded version | `node tests/run.mjs` (node:test section) |
-| The Engine Design Study page stays educational. The scope notice is there in full. Every ledger row is complete, carries no value, and none is "validated". The LLM is drawn as an assistant with no arrow into the ledger. The chart is synthetic and dimensionless. No number carries a physical unit and no propellant is named. The page loads no dependency and is linked from the app's markup only | `tests/engine-study.test.mjs` (5 checks; each one fails under a planted violation) | `node tests/run.mjs` (node:test section) |
+| The Engine Design Study page keeps its most direct guards. The scope notice's text is there in full. Every ledger row is complete and none has the status "validated". The LLM is drawn as an assistant, and no dashed arrow drawn as an absolute path ends in the ledger. The chart is labelled synthetic. No number is followed by a listed unit, and no listed propellant name appears (both lists are partial). The page loads no external script or stylesheet and is linked from the app's markup only | `tests/engine-study.test.mjs` (5 checks; each fails under at least one planted violation, and a later review found violations that pass all five: see Gen 37) | `node tests/run.mjs` (node:test section) |
 
 ## The three Gens this stopping point closes
 
@@ -200,7 +200,7 @@ one `Gen N:` line per iteration) is the history; this is the state.
   - **Remaining gap:** that ring did not add the NOTE naming the grade to buy.
 
 - **Gen 37** — an Engine Design Study page (`engine-study.html`), exploratory and **separate
-  from flight-part readiness**.
+  from flight-part readiness**. It is not a roadmap item or a plan to add engine analysis.
   - **What it is:** an educational sketch of a Noyron-style computational-engineering
     workflow. It has a six-stage workflow, a clickable systems map (the LLM as an assistant,
     solvers and validation evidence as separate boxes), an example evidence ledger with no
@@ -208,8 +208,8 @@ one `Gen N:` line per iteration) is the history; this is the state.
     with what would have to exist before engine analysis is credible. The README section says
     what it is not.
   - **What did not change:** the generation prompt, flight doctrine, reference tables,
-    templates, checks and exports. The app gained a header link (shown at 1000 px and wider,
-    where the header has room) and a paragraph in Help. Both are markup outside the module
+    templates, checks and exports. The app gained a header link, "Engine study (concept)" (shown
+    at 1000 px and wider, where the header has room), and a paragraph in Help. Both are markup outside the module
     script, so `core.gen.mjs` is unchanged; the drift guard passes.
   - **Checked:** in Chromium at 1280 and 375 px, with no console errors and no horizontal page
     scroll. The map, the ledger filter and the chart toggles work. The app header is identical
@@ -221,6 +221,31 @@ one `Gen N:` line per iteration) is the history; this is the state.
   - **Counts corrected:** the node:test and headless counts in this file and the README had
     gone stale. They were 11 and 27 before this Gen, not 8 and 15. The suite is now
     733 + 16 + 27.
+  - **Review pass, corrected:**
+    - CEA v3 is a *modernization* of CEA2, per TB-26-04 ("modernized the legacy CEA2 Fortran
+      code into CEA v3"), not a rewrite. Its interfaces include Fortran.
+    - The ideal-gas, complete-combustion and homogeneous-mixing assumptions are CEA's, from
+      RP-1311 ("we assume that all gases are ideal"). They are not Cantera's: Cantera's README
+      lists "Model non-ideal fluids".
+    - OpenMDAO is no longer called "NASA's". Its README, pyproject and licence name only the
+      OpenMDAO Team, and openmdao.org was unreachable.
+    - Flight grade is not only for "passive" parts. The intent score's judge defaults to the
+      designer model, so "the model never judges its own part" was wrong.
+  - **Review pass, reframed:** the page could be read as a roadmap.
+    - The map's "partial" badges now read "parts only".
+    - "The proposed workflow" is now an example, and its "PartForge today" rows are now
+      "nearest PartForge analogue (parts)".
+    - The ledger and its tally say the rows are hypothetical. Ledger row L-05 no longer cites
+      PartForge's part check for a hot wall.
+    - The page, the README and Help each say it is not a plan.
+  - **Still open from that review:**
+    - The tests are guards against direct regressions, not proof of scope. Seconds,
+      atmospheres, bare ratios, more propellant names, a hidden scope notice, swapped-class or
+      relative-path arrows, an "AI"-named ledger row, and a propulsion box flipped to "parts
+      only" all pass today.
+    - On phones: the Help link is a 111 × 16 px tap target, the links open in the same tab,
+      anchors land 2–3 px under the sticky header, and the chart has no tap tooltip.
+    - LEAP 71's own page has still not been read from here.
 
 ## Open, with numbers
 

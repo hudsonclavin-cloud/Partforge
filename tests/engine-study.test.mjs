@@ -108,7 +108,7 @@ test('the chart says it is synthetic, and no number on the page reads as an engi
 
 test('the app links to the study page, and back, without touching the module script', () => {
   const header = app.match(/<header>[\s\S]*?<\/header>/)[0];
-  assert.match(header, /<a class="btn small study" href="engine-study\.html"[^>]*>Engine study<\/a>/);
+  assert.match(header, /<a class="btn small study" href="engine-study\.html"[^>]*>Engine study \(concept\)<\/a>/);
   const help = app.match(/<dialog id="dlgHelp">[\s\S]*?<\/dialog>/)[0];
   assert.match(help, /href="engine-study\.html"/, 'Help reaches it too, where the phone header has no room');
   assert.match(help, /separate, educational/);
